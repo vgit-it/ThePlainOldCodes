@@ -295,7 +295,7 @@ All timing is in the song's own beat (triplets are a third of its beat group) an
 - Short notes, joints and rests (step 4); story arc, echoes and turnarounds (step 5); sweeps, tapping, harmonics, whammy (step 6).
 - The player's feel and the drums reach the choice only through the reading and the profile; a flourish does not yet end on a snare or a crash on purpose.
 
-## 15. Plan: step 3b, long notes become figures (2026-10-24, not built)
+## 15. Step 3b: long notes become figures (2026-10-24; plan below, what was built in 15.11)
 
 Paul's note after hearing the plan for step 4: **long notes should mostly turn into expressions**, not stay held. A long note is held as it is only to slow things down or to push that note's mood. Otherwise it becomes a short **figure** (a lick of 3 or more notes: hammer-ons, pull-offs, picked notes, 1/16ths, 1/8ths, triplets) that **keeps coming back to the held note**, so the note's mood goes on. The figures use the **intervals that carry the mood** (the vocal's work, `docs/INTERVALS.md`), go up and down, stay in the key as much as they can, and some of them **start on the note and build toward the next note**.
 
@@ -398,3 +398,22 @@ Kept from the plan told on 2026-10-24, rebuilt on the figure composer, so it com
 - Spans that touch two notes **claim** the stretch of time, larger first (joint, then note), and the budget counts them (no piling up in a busy bar).
 - Built in three parts, each heard: 4a short notes, 4b joints, 4c rests and pickups.
 - A small checker change: a note may start up to a 16th off its time only where the rule says so (push and drag).
+
+### 15.11 Built (sub-steps 1 to 3 of 15.9, 2026-10-24; Paul agreed all five answers in 15.10)
+Track options -> Solo writer -> **Melody + player (long notes become figures)**. Not listened to yet. Sub-step 4 (two figures in a bar-long note, pet figures, push and drag) is next.
+- `src/parts/solofigure.ts`: the composer (section 15.3): head, figure, landing; rhythm cells (16ths, 8ths, a beat, triplets, sextuplets, 32nds when the tempo allows; `even`, `long-short`, `short-long`, `dotted`, `syncopated`, `build`); 14 shapes for a return (neighbour up and down, turn, arch, dip, stair up and down, wave, arpeggio up and down, pedal, enclosure, leap and fill, zigzag) and 4 climbs for a bridge (climb, zigzag, thirds, late); a **beam search** through the scale notes near the note, each step costed by the mood's own interval cost (`profileFor` and `intervalCost`, the vocal's work), the shape, the chord on strong beats, and no repeated pitch; one passing note outside the key at most (bluesy and funky, a weak spot, stepped away from; marked `GuitarHit.out`); each step played as a pick, a hammer-on or pull-off (`art: legato`, by the hands' own chance and the speed) or a slide; the head keeps the note as it was (a bend into it too), the landing is the note held with its vibrato.
+- `src/parts/solointent.ts`: **the hold share**: by mood (dreamy 30%, melancholic 28%, nostalgic 23%, dark 20%, tense and happy 14%, triumphant 12%, angry 8% at middling energy), lowered by high energy and busy drums, raised by quiet, a note before a rest, a hanging call, and strongly (about half of the time) on the climax, a held peak, the final landing and the closing bars; then the player's own density. The rest is split into return (about half), bridge (a quarter; not on a note that must keep its landing, needs a next note within 2 steps) and flurry.
+- `src/parts/soloplayer.ts`: the director chooses an intention per long note (4 steps or more), draws the order by weight, and tries it: stay (the held note with expression: a wide vibrato, a scoop, a bend in, a late bend, or plain), flurry (the step 3 pulses, gallop, ghosts, tremolo, trill), return and bridge (the composer's candidates, drawn by weight; every try is checked by the checker **and** the hands, and a failed one gives way to the next, then to the next intention, in the end to the held note). A repeated phrase is played as its source (85%: the same intention, shape and cell, moved to the new note). No two flurries side by side. Notes shorter than 4 steps are left to step 4 (a decoration now and then).
+- The step 3 rules that were figures in disguise (shimmer, tail run, turn and return) are gone; the rest stay as stay decoration and flurry (`profile.group`). `FIGURES` in `solorules-live.ts` switches the composer on (Melody + read has none of it, and is still note for note Melody + joins).
+- Checker: new `home` (the note is heard for at least a third of its time) and `out` (one passing note outside the key at most).
+- `soloperson.ts`: each player has a taste for the shapes (`figures`) and for hammer-ons against picking (`legato`), with the twist per band; the shape draw uses the taste to the power 2.5.
+- Roll: the Played row names `return·turn`, `bridge·climb-late`; a tap says what the note is for, the intervals it moves by and the scores.
+- `npm run solo-figure-check` (new), `solo-rules-check`, `solo-player-check` (every rule, every return and every bridge forced on 100 real solos and 300 fuzz melodies).
+
+Numbers (106 solos and breaks, 2,054 long notes; made-up grid of 125,000 figures in every meter, tempo 60-200 and mode):
+- Held on purpose 25% (happy 21%, melancholic 30%, dreamy 38%, angry 18%; a climax 55%); 9% more are held because no figure fits (mostly one-beat notes); return 37%, bridge 21%, flurry 8%.
+- Mean interval of a figure by mood: triumphant 3.8, angry 3.5, happy 3.1, dreamy 2.7, nostalgic 2.7, dark 2.5, melancholic 2.4, tense 2.4 semitones; falling share: dark 59%, melancholic 56%, happy 46%, triumphant 44%.
+- Figures: about a third have 3 or more notes between the head and the landing; the same shape twice running 4%; a copy of a phrase plays the same move 79%.
+- Every figure: fills the note's time exactly, starts on the note, the note is the pitch heard most, in the key, never too quick for the tempo, a return ends on the note, a bridge stops short of the next note; every result in real solos passes the checker and the hands.
+
+Not yet: figures are short on one-beat notes (a neighbour and back); two figures in a bar-long note, pet figures, push and drag (sub-step 4); a flourish does not yet end on a snare or a crash on purpose; the real lick shapes of the library as a shape (`LIB_SHAPES`).

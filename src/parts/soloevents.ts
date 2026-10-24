@@ -55,7 +55,7 @@ const LONG = 4;
 
 /** The melody as events (every hit, in time order), and its sounding notes with their anchors. */
 export function readBase(hits: GuitarHit[], curve?: SoloCurve): { events: PEvent[]; notes: BaseNote[] } {
-  const events: PEvent[] = [...hits].sort((a, b) => hitTime(a) - hitTime(b)).map((hit) => ({ t: hitTime(hit), len: hit.len, hit }));
+  const events: PEvent[] = [...hits].sort((a, b) => hitTime(a) - hitTime(b)).map((hit) => ({ t: hitTime(hit), len: hit.len, hit, ...(hit.out ? { out: true } : {}) }));
   const notes: BaseNote[] = [];
   const lastIx = events.reduce((m, e, k) => (sounding(e.hit) ? k : m), -1);
   events.forEach((e, k) => {

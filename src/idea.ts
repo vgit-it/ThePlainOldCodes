@@ -234,6 +234,9 @@ export interface SoloMove {
   /** How well each rule that could be played fit (best first), and why it was left plain when it was. */
   scores?: [string, number][];
   note?: string;
+  /** What the note was for: stay, return, bridge or flurry (docs/SOLO-PLAYER.md, section 15), and for a figure the intervals it moves by. */
+  intent?: string;
+  fig?: string;
 }
 
 /** When a hit sounds, in 16ths: its step and the part of a step it is late by. */
@@ -339,6 +342,8 @@ export interface GuitarHit {
   rake?: number;
   /** Sounds this much of a step after its step (a triplet: 1/3, 2/3); Guitar 2 only. */
   shift?: number;
+  /** A passing note outside the key (a blue or chromatic note on a weak spot, docs/SOLO-PLAYER.md): the checks let it be. */
+  out?: boolean;
   /** Played as written: not held on through a short rest into the next note (a pulse or a gallop on one note, docs/SOLO-PLAYER.md). */
   exact?: boolean;
   /** A second lead guitar plays this with it (Twin, docs/LEAD-TWIN.md): a harmony, an octave or the same notes, panned the other way. */

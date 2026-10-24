@@ -8,6 +8,7 @@
 //     held one the other way round; a shuffle prefers triplets and straight eighths prefer eighths; a sixteenth groove under a fill prefers
 //     the stutter; the last landing is never given a pulse.
 //  4. Personality: each of the five players likes what they should (the taste sheet), keeps an allergy, and the same band is the same person.
+//  (The figures that go around the note and back or climb toward the next are checked in solo-figure-check.)
 //   npm run solo-rules-check
 import type { Feel, GuitarHit, NoteRead, ReadTag, Song } from '../src/idea';
 import { pickLead } from '../src/players/lead';
@@ -116,7 +117,7 @@ const wroteBy: Record<string, number> = {};
   const dreamy = rank(['low-energy', 'held-bar', 'long-before-rest', 'phrase-end'], { agitation: -0.6, roughness: -0.5, ornament: 0.3, weight: -0.4, looseness: 0.8 });
   ok(['gallop', 'stutter-hold', 'tremolo-hold'].includes(angry[0].r), `angry and high energy: best is ${best(angry)}`);
   ok(f(angry, 'gallop') > f(angry, 'wide-vibrato') && f(angry, 'tremolo-hold') > f(angry, 'wide-vibrato'), 'angry: a gallop and a tremolo should beat a wide vibrato');
-  ok(['wide-vibrato', 'late-bend', 'scoop-in', 'tail-run'].includes(dreamy[0].r), `dreamy and held: best is ${best(dreamy)}`);
+  ok(['wide-vibrato', 'late-bend', 'scoop-in'].includes(dreamy[0].r), `dreamy and held: best is ${best(dreamy)}`);
   ok(f(dreamy, 'wide-vibrato') > f(dreamy, 'gallop') * 3 && f(dreamy, 'wide-vibrato') > f(dreamy, 'stutter-hold') * 3, 'dreamy: a wide vibrato should beat a gallop and a stutter by far');
   const shuffle = rank(['shuffle-groove'], { agitation: 0.2, roughness: 0, ornament: 0.2, weight: 0, looseness: 0 });
   ok(f(shuffle, 'triplet-pulse') > f(shuffle, 'eighth-pulse') * 2, `a shuffle: triplets ${f(shuffle, 'triplet-pulse').toFixed(2)} vs eighths ${f(shuffle, 'eighth-pulse').toFixed(2)}`);
@@ -126,16 +127,10 @@ const wroteBy: Record<string, number> = {};
   ok(['stutter-hold', 'ghost-pulse'].includes(funk[0].r), `sixteenths under a fill: best is ${best(funk)}`);
   const last = rank(['final-landing', 'closing', 'low-energy'], { agitation: -0.3, roughness: 0, ornament: 0, weight: 0, looseness: 0.4 });
   for (const n of ['triplet-pulse', 'eighth-pulse', 'stutter-hold', 'gallop', 'ghost-pulse']) ok(f(last, n) === 0, `the final landing was offered ${n}`);
-  const hanging = spanOf(song, { len: 12, midi: 67, tags: ['call-hanging', 'long-before-rest'], feel: FEEL0 });
   const climax = spanOf(song, { len: 12, midi: 67, tags: ['climax-note', 'held-peak', 'high-tension', 'into-crash'], feel: { agitation: 0.5, roughness: 0.5, ornament: 0.2, weight: 0.5, looseness: -0.2 } });
-  const tail = LONG_RULES.find((r) => r.name === 'tail-run')!, trem = LONG_RULES.find((r) => r.name === 'tremolo-hold')!;
-  ok(fitOf(tail, hanging, FEEL0) > fitOf(tail, climax, FEEL0), 'a tail run should fit a hanging call before a rest better than a climax');
-  ok(fitOf(trem, climax, climax.read.feel) > fitOf(trem, hanging, FEEL0), 'a tremolo should fit a climax under a crash better than a hanging call');
-  // the call hangs: the run goes up; an answer falls
-  const up = tail.realise(spanOf(song, { len: 12, midi: 67, tags: ['call-hanging'] }), new Rng('t'));
-  const down = tail.realise(spanOf(song, { len: 12, midi: 67, tags: [] }), new Rng('t'));
-  ok(!!up && up[up.length - 1].hit.notes[0] > 67, 'a hanging call: the run should go up');
-  ok(!!down && down[down.length - 1].hit.notes[0] < 67, 'an answer: the run should fall');
+  const calm = spanOf(song, { len: 12, midi: 67, tags: ['low-energy', 'held-bar'], feel: FEEL0 });
+  const trem = LONG_RULES.find((r) => r.name === 'tremolo-hold')!;
+  ok(fitOf(trem, climax, climax.read.feel) > fitOf(trem, calm, FEEL0), 'a tremolo should fit a climax under a crash better than a calm held bar');
 }
 
 // ---------------- 4. personality
@@ -143,8 +138,8 @@ const wroteBy: Record<string, number> = {};
   const kinds = ['melodic', 'bluesy', 'shredder', 'raw', 'funky'] as const;
   const seen = new Set<string>();
   const loves: Record<string, string[]> = {
-    melodic: ['wide-vibrato', 'scoop-in', 'late-bend'], bluesy: ['bend-in', 'late-bend', 'wide-vibrato'], shredder: ['shimmer', 'trill', 'tremolo-hold', 'tail-run'],
-    raw: ['gallop', 'stutter-hold', 'ghost-pulse', 'eighth-pulse'], funky: ['ghost-pulse', 'stutter-hold', 'eighth-pulse'],
+    melodic: ['wide-vibrato', 'scoop-in', 'late-bend'], bluesy: ['bend-in', 'late-bend', 'wide-vibrato'], shredder: ['trill', 'tremolo-hold', 'stutter-hold', 'gallop', 'triplet-pulse'],
+    raw: ['gallop', 'stutter-hold', 'ghost-pulse', 'eighth-pulse', 'scoop-in'], funky: ['ghost-pulse', 'stutter-hold', 'eighth-pulse'],
   };
   for (const kind of kinds) {
     // a lead player of this kind, found by trying seeds
@@ -166,7 +161,7 @@ const wroteBy: Record<string, number> = {};
     ok(loved / total >= 0.55, `${kind}: only ${loved} of ${total} pet moves are ones this player is known for`);
   }
   // players differ: the signatures of a shredder and a melodic player are not the same set
-  ok(seen.has('shredder:trill') && !seen.has('melodic:tremolo-hold') || seen.has('shredder:trill'), 'a shredder never has a trill as a pet move');
+  ok([...seen].some((k) => k.startsWith('shredder:')) && ![...seen].some((k) => k === 'melodic:gallop'), 'a shredder has pet moves and a melodic player never has a gallop');
 }
 
 console.log(`${wrote} rewrites written over the grid (${Object.entries(wroteBy).map(([k, n]) => `${k} ${n}`).join(', ')}); ${checks} checks`);

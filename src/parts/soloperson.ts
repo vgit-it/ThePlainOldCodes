@@ -16,45 +16,55 @@ export interface Person {
   lean: Feel;
   /** How hard a rewrite may be pushed: 0 plays safe, 1 takes the wild option too. */
   risk: number;
+  /** How much they like each shape of figure (docs/SOLO-PLAYER.md, section 15): a multiplier, 0 for never. */
+  figures: Record<string, number>;
+  /** How much they lean on hammer-ons and pull-offs against picking each note (0 to 1). */
+  legato: number;
 }
 
+const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 const feel = (agitation = 0, roughness = 0, ornament = 0, weight = 0, looseness = 0): Feel => ({ agitation, roughness, ornament, weight, looseness });
 
-const SHEETS: Record<LeadKind, { taste: Record<string, number>; density: number; lean: Feel; risk: number }> = {
+const SHEETS: Record<LeadKind, { taste: Record<string, number>; density: number; lean: Feel; risk: number; figures: Record<string, number>; legato: number }> = {
   melodic: {
     taste: {
-      'scoop-in': 2, 'wide-vibrato': 2.5, 'late-bend': 1.5, 'bend-in': 1, 'tail-run': 1.2, 'turn-return': 1, shimmer: 0.8, 'triplet-pulse': 0.8,
+      'scoop-in': 2, 'wide-vibrato': 2.5, 'late-bend': 1.5, 'bend-in': 1, 'triplet-pulse': 0.8,
       'eighth-pulse': 0.6, trill: 0.5, 'tremolo-hold': 0.4, 'stutter-hold': 0.3, gallop: 0.1, 'ghost-pulse': 0.2,
     },
     density: 0.42, lean: feel(-0.1, -0.1, 0, 0, 0.2), risk: 0.2,
+    figures: { 'neighbour-up': 1.2, 'neighbour-down': 1.3, turn: 1, arch: 1.5, dip: 1, 'stair-up': 0.6, 'stair-down': 1, 'arpeggio-up': 1.2, 'arpeggio-down': 1, pedal: 0.6, enclosure: 0.5, 'leap-fill': 0.6, zigzag: 0.3, wave: 0.8, climb: 1.2, 'climb-zigzag': 0.5, 'climb-thirds': 1, 'climb-late': 0.8 }, legato: 0.6,
   },
   bluesy: {
     taste: {
-      'bend-in': 2.5, 'late-bend': 2.5, 'wide-vibrato': 2, 'scoop-in': 1, shimmer: 1.2, 'tail-run': 1, 'triplet-pulse': 1.2, 'stutter-hold': 0.6,
-      'tremolo-hold': 0.6, trill: 0.6, 'ghost-pulse': 0.5, 'eighth-pulse': 0.5, 'turn-return': 0.5, gallop: 0.2,
+      'bend-in': 2.5, 'late-bend': 2.5, 'wide-vibrato': 2, 'scoop-in': 1, 'triplet-pulse': 1.2, 'stutter-hold': 0.6,
+      'tremolo-hold': 0.6, trill: 0.6, 'ghost-pulse': 0.5, 'eighth-pulse': 0.5, gallop: 0.2,
     },
     density: 0.52, lean: feel(0, 0.2, 0, 0.1, 0.2), risk: 0.35,
+    figures: { 'neighbour-up': 0.8, 'neighbour-down': 1.5, turn: 0.8, arch: 1, dip: 1.2, 'stair-up': 0.8, 'stair-down': 1.2, 'arpeggio-up': 0.6, 'arpeggio-down': 0.8, pedal: 1.4, enclosure: 1.3, 'leap-fill': 1, zigzag: 0.5, wave: 0.8, climb: 1, 'climb-zigzag': 0.8, 'climb-thirds': 0.6, 'climb-late': 1.2 }, legato: 0.5,
   },
   shredder: {
     taste: {
-      shimmer: 2, trill: 2, 'tremolo-hold': 2, 'tail-run': 1.8, 'stutter-hold': 1.5, 'turn-return': 1.5, gallop: 1.2, 'triplet-pulse': 1.2,
+      trill: 2, 'tremolo-hold': 2, 'stutter-hold': 1.5, gallop: 1.2, 'triplet-pulse': 1.2,
       'wide-vibrato': 0.8, 'bend-in': 0.6, 'late-bend': 0.5, 'eighth-pulse': 0.3, 'scoop-in': 0.3, 'ghost-pulse': 0.3,
     },
     density: 0.68, lean: feel(0.3, 0, 0.3, 0, -0.1), risk: 0.7,
+    figures: { 'neighbour-up': 0.8, 'neighbour-down': 0.8, turn: 1, arch: 1, dip: 1, 'stair-up': 2, 'stair-down': 2, 'arpeggio-up': 1.4, 'arpeggio-down': 1.4, pedal: 1.2, enclosure: 0.6, 'leap-fill': 0.8, zigzag: 1.5, wave: 1.5, climb: 1.6, 'climb-zigzag': 1.4, 'climb-thirds': 1.4, 'climb-late': 1 }, legato: 0.8,
   },
   raw: {
     taste: {
       gallop: 1.8, 'stutter-hold': 2, 'ghost-pulse': 1.5, 'eighth-pulse': 1.5, 'scoop-in': 1.3, 'tremolo-hold': 1, 'bend-in': 1, 'wide-vibrato': 1,
-      'triplet-pulse': 0.6, 'late-bend': 0.6, 'tail-run': 0.5, shimmer: 0.3, trill: 0.3, 'turn-return': 0.2,
+      'triplet-pulse': 0.6, 'late-bend': 0.6, trill: 0.3, 
     },
     density: 0.5, lean: feel(0.1, 0.3, -0.2, 0.2, 0), risk: 0.45,
+    figures: { 'neighbour-up': 1, 'neighbour-down': 1.2, turn: 0.4, arch: 0.8, dip: 1, 'stair-up': 0.6, 'stair-down': 0.6, 'arpeggio-up': 1.2, 'arpeggio-down': 1.2, pedal: 1.6, enclosure: 0.3, 'leap-fill': 1.5, zigzag: 0.5, wave: 0.4, climb: 0.8, 'climb-zigzag': 0.5, 'climb-thirds': 1.2, 'climb-late': 1.2 }, legato: 0.3,
   },
   funky: {
     taste: {
-      'ghost-pulse': 3, 'stutter-hold': 2, 'eighth-pulse': 1.5, shimmer: 1.3, 'tail-run': 1, 'triplet-pulse': 1, 'scoop-in': 0.8, 'turn-return': 0.8,
+      'ghost-pulse': 3, 'stutter-hold': 2, 'eighth-pulse': 1.5, 'triplet-pulse': 1, 'scoop-in': 0.8, 
       gallop: 0.5, 'bend-in': 0.5, 'wide-vibrato': 0.4, trill: 0.4, 'tremolo-hold': 0.3, 'late-bend': 0.3,
     },
     density: 0.58, lean: feel(0.1, 0, 0.1, -0.1, -0.3), risk: 0.4,
+    figures: { 'neighbour-up': 1.2, 'neighbour-down': 1.2, turn: 1, arch: 0.8, dip: 0.8, 'stair-up': 0.6, 'stair-down': 0.6, 'arpeggio-up': 1, 'arpeggio-down': 1, pedal: 1.5, enclosure: 1.6, 'leap-fill': 1, zigzag: 1.2, wave: 1, climb: 0.8, 'climb-zigzag': 1.3, 'climb-thirds': 0.8, 'climb-late': 1 }, legato: 0.3,
   },
 };
 
@@ -69,7 +79,7 @@ export function personOf(bandSeed: string, lead: LeadPlayer): Person {
   if (unloved.length) taste[rng.pick(unloved)] = 0;
   const twist = (x: number) => Math.max(-1, Math.min(1, x + (rng.next() - 0.5) * 0.2));
   const lean: Feel = { agitation: twist(s.lean.agitation), roughness: twist(s.lean.roughness), ornament: twist(s.lean.ornament), weight: twist(s.lean.weight), looseness: twist(s.lean.looseness) };
-  return { kind: lead.kind, taste, density: s.density * (0.85 + rng.next() * 0.3), lean, risk: Math.max(0, Math.min(1, s.risk + (rng.next() - 0.5) * 0.2)) };
+  return { kind: lead.kind, taste, density: s.density * (0.85 + rng.next() * 0.3), lean, risk: Math.max(0, Math.min(1, s.risk + (rng.next() - 0.5) * 0.2)), figures: Object.fromEntries(Object.entries(s.figures).map(([k, v]) => [k, Math.round(v * (0.8 + rng.next() * 0.45) * 100) / 100])), legato: clamp01(s.legato + (rng.next() - 0.5) * 0.2) };
 }
 
 /** The two or three moves this player comes back to in one solo: drawn from what they like (never one they refuse). */

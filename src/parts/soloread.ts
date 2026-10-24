@@ -27,7 +27,7 @@ const mod = (n: number, m: number) => ((n % m) + m) % m;
 const r2 = (x: number) => Math.round(x * 100) / 100;
 
 /** The feel each mood wants to begin with (agitation, roughness, ornament, weight, looseness). */
-const MOOD_FEEL: Record<Mood, Feel> = {
+export const MOOD_FEEL: Record<Mood, Feel> = {
   happy: { agitation: 0.3, roughness: -0.3, ornament: 0.4, weight: -0.2, looseness: 0.1 },
   melancholic: { agitation: -0.5, roughness: -0.4, ornament: 0, weight: 0, looseness: 0.5 },
   nostalgic: { agitation: -0.3, roughness: -0.3, ornament: 0.2, weight: -0.1, looseness: 0.4 },

@@ -5,5 +5,7 @@ import { PLAIN, type Rule } from './solorules';
 
 /** Melody + read: the plain rule only (nothing changed). */
 export const NO_RULES: Rule[] = [PLAIN];
+/** Switches the figure composer on (return and bridge, solofigure.ts); it plays nothing itself. */
+export const FIGURES: Rule = { name: 'figures', keeps: 'all', weight: () => 0, realise: () => null };
 /** Melody + player. */
-export const LIVE_RULES: Rule[] = [PLAIN, ...LONG_RULES];
+export const LIVE_RULES: Rule[] = [PLAIN, FIGURES, ...LONG_RULES];
