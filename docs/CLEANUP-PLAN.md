@@ -30,7 +30,7 @@ A step-by-step plan to tidy the repo now that the app's goal has changed: from a
 - **Before every push**: `npm run typecheck`, `npm run build`, `npm run song-check`, plus any check script that touches the files you changed. CI (the GitHub Pages deploy) only runs `npm run build` on `main`, so a broken build breaks the live site.
 - **Shared links and saved settings**: the page saves options into the link (`#...` hash, `src/main.ts` `updateLink` / `readLink`). An old link may still say `soloPlan: 'melody'` and so on. Removed values must fall back to `'off'`, never crash.
 - Keep code style as it is: plain-English comments, the same naming and idioms.
-- Don't rename the GitHub repo. The live site's URL depends on the name.
+- Names (decided by Paul, 2026-10-25): the project and repo are **The Plain Old Codes** (GitHub repo `ThePlainOldCodes`, already renamed from `MusicIdeaGen`); the band is **Plain Old Codes** (no "the"). The build uses a relative `base`, so the rename doesn't break the site, but its address changes (check the Pages link). Don't rename anything else.
 
 ---
 
@@ -49,7 +49,7 @@ A step-by-step plan to tidy the repo now that the app's goal has changed: from a
 4. **`docs/ARCHIVE.md`**: a table (what · why removed · old path · how to get it back: `git show archive/before-cleanup:<path>`). Fill it in as each later phase removes something.
 5. PR: "Clean-up phase 0: snapshot and safety net".
 
-## Phase 1: the goal and CLAUDE.md (1 PR, the biggest token win)
+## Phase 1: the goal and CLAUDE.md (1 PR, the biggest token win) — DONE 2026-10-25 (done before Phase 0; no `song-check` yet, no code changed)
 
 1. **`docs/HISTORY.md`**: move the whole "Later milestones" log from CLAUDE.md here **word for word** (it's the decision record; don't summarise it away). Put a two-line note at the top: what it is, newest last.
 2. **Rewrite `CLAUDE.md`**: aim for under 6 KB. Sections:
@@ -63,7 +63,7 @@ A step-by-step plan to tidy the repo now that the app's goal has changed: from a
    - *Docs*: "start with `docs/README.md`". Don't list every doc here.
 3. **`docs/README.md`**: an index: one line per doc, grouped (App & spec · Song form · Rhythm guitar · Lead & solos · Vocal · Voice & sound · Band view · Research studies · Archive).
 4. **`README.md`**: rewrite the top for the new goal (a song generator with a band), update the project layout list, keep "Run it". Keep the credits/licences section if there is one.
-5. **Page title**: `index.html` `<title>` and the visible heading. Default "Song Generator"; **ask Paul** for the name before merging. `package.json` `name` can follow (no effect on the site).
+5. **Page title**: `index.html` `<title>` and the visible heading → "The Plain Old Codes" (Paul's answer). `package.json` `name` follows (`the-plain-old-codes`).
 6. **`docs/SPEC.md`**: add a short note at the top that the v1 idea-generator spec is history and the current goal is in CLAUDE.md. Don't rewrite it.
 7. Check: `npm run build`, `npm run song-check` (nothing in code changed, so it must pass).
 
@@ -108,7 +108,7 @@ Archive (delete from the tree, list in ARCHIVE.md):
 | `.claude/launch.json` "solo-test" entry | points at a Windows folder |
 
 - **Keep**: `lick-lab.html` (built and deployed, Paul uses it for solos), `src/lab/lickLab.ts`, `src/lab/words.ts` (scripts use it), `band.html`, `art/`.
-- **Ask Paul** before archiving any lab page he still opens. Default: archive the three above.
+- Paul said (2026-10-25): archive the three lab pages, and keep them easy to trace. The tag plus `docs/ARCHIVE.md` is enough: give each a row with its exact old path and the command `git show archive/before-cleanup:<path>`.
 - `package.json` scripts: remove those whose script file was archived. Then go through the "lab" scripts (`fof-lab`, `timbre-lab`, `ess-lab`, `flow-lab`, `level-lab`, `voice-lab`, `energy-lab`, `melody-lab`, `asr-render`, `spec-png`, `formant-check`, `stop-check`, `track-check`...): if one no longer builds, or only tests something removed, archive it. Don't fix them.
 - `.gitignore`: keep `voice-lab/` (local data, 259 MB, never committed).
 - Check: build, snapshot.
