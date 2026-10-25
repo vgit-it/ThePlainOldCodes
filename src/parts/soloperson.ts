@@ -22,7 +22,18 @@ export interface Person {
   legato: number;
   /** How much they like each way of dressing a short note (docs/SOLO-PLAYER.md, section 18): grace, mordent, bend, slide, ghost, drag, push. A multiplier, 0 for never. */
   dress: Record<string, number>;
+  /** How much they like each way of leaning a short note into the next (section 18, 4b): pass, approach, chromatic, enclose, and run (a cell of short notes all leaning in). */
+  join: Record<string, number>;
 }
+
+/** The joints each kind of player leans on. */
+const JOINTS: Record<LeadKind, Record<string, number>> = {
+  melodic: { pass: 1.4, approach: 1, chromatic: 0.1, enclose: 0.4, run: 1 },
+  bluesy: { pass: 1, approach: 1, chromatic: 1.5, enclose: 0.9, run: 0.8 },
+  shredder: { pass: 2, approach: 0.6, chromatic: 0, enclose: 0.8, run: 1.8 },
+  raw: { pass: 0.8, approach: 1.2, chromatic: 0.6, enclose: 0.3, run: 0.6 },
+  funky: { pass: 0.8, approach: 1, chromatic: 1, enclose: 1.5, run: 0.8 },
+};
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 const feel = (agitation = 0, roughness = 0, ornament = 0, weight = 0, looseness = 0): Feel => ({ agitation, roughness, ornament, weight, looseness });
@@ -76,7 +87,7 @@ export function personOf(bandSeed: string, lead: LeadPlayer): Person {
   if (unloved.length) taste[rng.pick(unloved)] = 0;
   const twist = (x: number) => Math.max(-1, Math.min(1, x + (rng.next() - 0.5) * 0.2));
   const lean: Feel = { agitation: twist(s.lean.agitation), roughness: twist(s.lean.roughness), ornament: twist(s.lean.ornament), weight: twist(s.lean.weight), looseness: twist(s.lean.looseness) };
-  return { kind: lead.kind, taste, density: s.density * (0.85 + rng.next() * 0.3), lean, risk: Math.max(0, Math.min(1, s.risk + (rng.next() - 0.5) * 0.2)), figures: Object.fromEntries(Object.entries(s.figures).map(([k, v]) => [k, Math.round(v * (0.8 + rng.next() * 0.45) * 100) / 100])), legato: clamp01(s.legato + (rng.next() - 0.5) * 0.2), dress: { ...s.dress } };
+  return { kind: lead.kind, taste, density: s.density * (0.85 + rng.next() * 0.3), lean, risk: Math.max(0, Math.min(1, s.risk + (rng.next() - 0.5) * 0.2)), figures: Object.fromEntries(Object.entries(s.figures).map(([k, v]) => [k, Math.round(v * (0.8 + rng.next() * 0.45) * 100) / 100])), legato: clamp01(s.legato + (rng.next() - 0.5) * 0.2), dress: { ...s.dress }, join: { ...JOINTS[lead.kind] } };
 }
 
 /** The two or three moves this player comes back to in one solo: drawn from what they like (never one they refuse). */

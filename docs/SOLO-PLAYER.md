@@ -548,3 +548,17 @@ Track options -> Solo writer -> **Melody + player**. Not listened to yet.
 - Checks: `solo-player-check` forces each way on every note it fits (and 300 fuzz melodies), `solo-figure-check` real solos (share dressed 20 to 50%, at least 5 ways played, never two in a row, at most 2 a bar, push and drag only for melodic and bluesy, no bend after a bend, a dressed note never starts by repeating the pitch before it). The figure check now picks the lead as the track does (the band seed), which fixes its by-lead numbers.
 - Numbers (106 solos, 750 short notes): dressed 206 (27%): mordent 59, grace 42, slide 34, drag 32, push 17, bend 16, ghost 6.
 - Not yet: 4b (runs and approaches), 4c (rests and pickups), a triplet burst for the shredder.
+
+### 18.9 Built: 4b, joints and runs (2026-10-25; Paul said go)
+Track options -> Solo writer -> **Melody + player**. Not listened to yet.
+- `src/parts/solojoint.ts`: a short note that touches the next one leans into it. The note is struck and keeps at least as much time as any other pitch, then one or two notes inside its own time carry the line to the next note. Never the same pitch twice in a row, never into the last note (it is carried into the next section and bent there).
+  - **pass**: the last one or two scale notes between the two (a run toward the next).
+  - **approach**: the scale note just beyond the next note, then the note.
+  - **chromatic**: a half step outside the key, below or above the next note (bluesy and funky).
+  - **enclose**: the scale notes above and below the next note, either way round.
+- **Run** (director, `soloplayer.ts`): where the reader found a cell of 3 or 4 short notes, each leans into the next, as one run. All or none: if the checker or the hands refuse any joint, the notes stay plain.
+- Each player has a taste for them (`Person.join`): the shredder passes and runs most, the funky player encloses, the bluesy player goes chromatic.
+- Joints share the 4a rules: a short note after a dressed one stays plain (a run is one unit), at most 2 single touches to a bar, a repeated phrase does what its source did.
+- Checks: `solo-player-check` forces each kind and the run on every note it fits; `solo-figure-check` adds that the line out of a dressed note never repeats the pitch the next note starts with.
+- Numbers (106 solos, 750 short notes): dressed 213 (28%): mordent 39, grace 38, run 24 notes, slide 23, drag 20, bend 14, pass 13, approach 13, ghost 8, push 8, enclose 7, chromatic 6.
+- Not yet: 4c (rests and pickups).

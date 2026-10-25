@@ -208,7 +208,7 @@ for (let i = 0; i < N; i++) {
     });
     // short notes: dressed a third of the time, with a breath between, never piled up, never against a snare or crash by push or drag
     {
-      const bars = new Map<number, number>();
+      const bars = new Map<number, number>(), singles = new Map<number, number>();
       const hits = [...sec.guitar2].filter((h: GuitarHit) => !h.mute && h.notes.length).sort((a: GuitarHit, b: GuitarHit) => hitTime(a) - hitTime(b));
       rd.notes.forEach((n: NoteRead, k: number) => {
         const m = mv[k];
@@ -220,10 +220,18 @@ for (let i = 0; i < N; i++) {
         DR.dressed++; bl[0]++;
         const kind = m.rule.split('·')[1];
         DR.kinds[kind] = (DR.kinds[kind] ?? 0) + 1;
-        if (mv[k - 1]?.intent === 'dress') { DR.row++; fail(`${s}: two dressed short notes in a row at note ${k}`); }
+        if (mv[k - 1]?.intent === 'dress' && kind !== 'run') { DR.row++; fail(`${s}: two dressed short notes in a row at note ${k}`); }
         const bar = sec.song.bars.findIndex((b: any) => n.step >= b.start && n.step < b.start + b.len);
+        // (a run is up to three notes leaning in one after the other; the singles are at most two to a bar)
         bars.set(bar, (bars.get(bar) ?? 0) + 1);
-        if (bars.get(bar)! > 2) { DR.perBar++; fail(`${s}: more than two dressed short notes in bar ${bar}`); }
+        if (kind !== 'run') singles.set(bar, (singles.get(bar) ?? 0) + 1);
+        if ((singles.get(bar) ?? 0) > 2 || bars.get(bar)! > 5) { DR.perBar++; fail(`${s}: too many dressed short notes in bar ${bar}`); }
+        // the line out of a dressed note into the next never repeats a pitch (unless the melody does)
+        {
+          const inside = hits.filter((h: GuitarHit) => hitTime(h) >= n.step - 0.4 && hitTime(h) < n.step + n.len - 1e-6);
+          const after = hits.find((h: GuitarHit) => hitTime(h) >= n.step + n.len - 1e-6 - 0.4 && hitTime(h) >= (inside.length ? hitTime(inside[inside.length - 1]) + 1e-6 : 0) && h !== inside[inside.length - 1]);
+          if (inside.length && after && after.notes[0] === inside[inside.length - 1].notes[0] && rd.notes[k + 1] && rd.notes[k + 1].midi !== n.midi) { DR.repeat++; fail(`${s}: a dressed note ends on the pitch the next one starts with (note ${k}, ${kind})`); }
+        }
         if (kind === 'bend' && k >= 1 && (mv[k - 1].rule.includes('bend') || mv[k - 1].rule === 'late-bend')) { DR.bendAfter++; fail(`${s}: a quick bend straight after a bend at note ${k}`); }
         if ((kind === 'push' || kind === 'drag') && n.tags.some((t) => (t.id === 'on-snare' || t.id === 'on-crash') && t.w >= 0.5)) { DR.drum++; fail(`${s}: ${kind} on a snare or crash at note ${k}`); }
         if (((kind === 'push' || kind === 'drag') && !['melodic', 'bluesy'].includes(lead.kind)) || (kind === 'ghost' && ['shredder'].includes(lead.kind))) { DR.wrongLead++; fail(`${s}: a ${lead.kind} player plays ${kind}`); }
@@ -238,7 +246,8 @@ for (let i = 0; i < N; i++) {
       const hits = [...sec.guitar2].filter((h: GuitarHit) => !h.mute && h.notes.length).sort((a: GuitarHit, b: GuitarHit) => hitTime(a) - hitTime(b));
       rd.notes.forEach((n: NoteRead, k: number) => {
         if (!mv[k] || mv[k].rule === 'plain') return;
-        const inside = hits.filter((h: GuitarHit) => hitTime(h) >= n.step - 1e-6 && hitTime(h) < n.step + n.len - 1e-6);
+        // (a note that follows may be pushed up to a third of a step into the end of this one: that is its start, not this note's)
+        const inside = hits.filter((h: GuitarHit) => hitTime(h) >= n.step - 1e-6 && hitTime(h) < n.step + n.len - 0.4);
         for (let j = 1; j < inside.length; j++) if (inside[j].notes[0] === inside[j - 1].notes[0] && !inside[j].mute) { RUNS.repeats++; fail(`${s}: the same pitch twice running in note ${k} (${mv[k].rule})`); }
       });
     }

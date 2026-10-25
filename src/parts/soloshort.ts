@@ -34,12 +34,12 @@ export interface ShortAsk {
   /** The note before bent: no bend now. */
   prevBend: boolean;
   /** Only this way. */
-  only?: ShortKind;
+  only?: string;
 }
 
 export interface ShortMove {
   events: PEvent[];
-  kind: ShortKind;
+  kind: string;
   /** For the roll. */
   label: string;
   w: number;
@@ -47,11 +47,25 @@ export interface ShortMove {
   push?: number;
 }
 
-const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
-const mod = (n: number, m: number) => ((n % m) + m) % m;
+export const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
+export const mod = (n: number, m: number) => ((n % m) + m) % m;
 
 /** The quickest a hammered or pulled note can follow the one before (ms). */
-const LEGATO_MS = 42;
+export const LEGATO_MS = 42;
+
+/** How likely a note after the one before is hammered on or pulled off (not picked), for a note this long (steps) at this tempo. */
+export function legatoOf(s: Span, person: Person, dur: number): number {
+  return clamp(0.25 + 0.6 * s.ctx.hands.legato + person.legato * 0.4 + (dur * msStep(s) < 100 ? 0.3 : 0), 0, 0.95);
+}
+
+/** One note of a dressed short note: the note's own hit with another pitch, start, length and way of being played. */
+export function pieceOf(s: Span, t: number, len: number, pitch: number, o: { art: GuitarHit['art']; vel: number; out?: boolean; mute?: 'dead' }): PEvent {
+  const { vib: _v, ...base } = landingHit(s.event.hit);
+  const hit: GuitarHit = { ...base, step: Math.floor(t), len, notes: [pitch], vel: clamp(o.vel, 0.15, 1.2), exact: true, art: o.art, ...(o.mute ? { mute: o.mute } : {}) };
+  delete hit.shift;
+  if (o.out) hit.out = true;
+  return { t: snap(t), len: snap(len), base: s.note.i, hit, ...(o.out ? { out: true } : {}) };
+}
 
 /** Candidate ways to dress a short note (2 to 4 steps, a plain picked note); empty when it cannot take one. */
 export function composeShort(s: Span, ask: ShortAsk, rng: Rng): ShortMove[] {
@@ -65,7 +79,6 @@ export function composeShort(s: Span, ask: ShortAsk, rng: Rng): ShortMove[] {
   const tuning = (song.tuning ?? TUNINGS.standard).strings;
   const lo = tuning[0], hi = tuning[5] + 24;
   const canOut = person.kind === 'bluesy' || person.kind === 'funky';
-  const hands = s.ctx.hands;
   const kw = (k: ShortKind) => (ask.only ? (ask.only === k ? 1 : 0) : person.dress[k] ?? 1);
   const out: ShortMove[] = [];
 
@@ -89,14 +102,8 @@ export function composeShort(s: Span, ask: ShortAsk, rng: Rng): ShortMove[] {
     for (const x of list) if ((r -= x.w) < 0) return x;
     return list[list.length - 1];
   };
-  const legatoP = (dur: number) => clamp(0.25 + 0.6 * hands.legato + person.legato * 0.4 + (dur * ms < 100 ? 0.3 : 0), 0, 0.95);
-  const mk = (t: number, len: number, pitch: number, o: { art: GuitarHit['art']; vel: number; out?: boolean; mute?: 'dead' }): PEvent => {
-    const { vib: _v, ...base } = landingHit(h);
-    const hit: GuitarHit = { ...base, step: Math.floor(t), len, notes: [pitch], vel: clamp(o.vel, 0.15, 1.2), exact: true, art: o.art, ...(o.mute ? { mute: o.mute } : {}) };
-    delete hit.shift;
-    if (o.out) hit.out = true;
-    return { t: snap(t), len: snap(len), base: n.i, hit, ...(o.out ? { out: true } : {}) };
-  };
+  const legatoP = (dur: number) => legatoOf(s, person, dur);
+  const mk = (t: number, len: number, pitch: number, o: { art: GuitarHit['art']; vel: number; out?: boolean; mute?: 'dead' }): PEvent => pieceOf(s, t, len, pitch, o);
 
   // ---- a grace note just before the note
   if (kw('grace') > 0) {

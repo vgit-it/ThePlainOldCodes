@@ -14,7 +14,11 @@ import { readSolo } from './soloread';
 import { type Rule, type Span, covers, fitOf } from './solorules';
 import { type Intent, composeFigures, composeTrill } from './solofigure';
 import { intentWeights } from './solointent';
-import { SHORT_KINDS, type ShortKind, composeShort } from './soloshort';
+import { SHORT_KINDS, composeShort } from './soloshort';
+import { JOINT_KINDS, composeJoint } from './solojoint';
+
+/** Every way of dressing a short note, for a check to force: a touch, a joint into the next note, or a run (a cell of short notes all leaning in). */
+export const DRESS_KINDS: string[] = [...SHORT_KINDS, ...JOINT_KINDS, 'run'];
 import { profileFor } from '../verse/intervals';
 import { LIVE_RULES } from './solorules-live';
 import { personOf, signaturesOf } from './soloperson';
@@ -80,14 +84,19 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
   const baseBad = new Set(unplayable(ev0, vctx).map((e) => e.base));
   const handsOk = () => !unplayable(assemble(), vctx).some((e) => e.base !== undefined && !baseBad.has(e.base));
 
+  const spanFor = (k: number): Span => ({
+    note: notes[k], event: ev0[notes[k].ev], read: read.notes[k], prev: notes[k - 1] ?? null, next: notes[k + 1] ?? null,
+    before: k ? Math.max(0, notes[k].t - (notes[k - 1].t + notes[k - 1].len)) : notes[k].t,
+    after: notes[k + 1] ? Math.max(0, notes[k + 1].t - (notes[k].t + notes[k].len)) : 0,
+    ctx: c,
+  });
+  /** Notes already played as part of a run begun on an earlier note. */
+  const claimed = new Set<number>();
+
   notes.forEach((note, i) => {
+    if (claimed.has(i)) return;
     const nr = read.notes[i];
-    const span: Span = {
-      note, event: ev0[note.ev], read: nr, prev: notes[i - 1] ?? null, next: notes[i + 1] ?? null,
-      before: i ? Math.max(0, note.t - (notes[i - 1].t + notes[i - 1].len)) : note.t,
-      after: notes[i + 1] ? Math.max(0, notes[i + 1].t - (note.t + note.len)) : 0,
-      ctx: c,
-    };
+    const span = spanFor(i);
     const tagw = (id: string) => nr.tags.find((t) => t.id === id)?.w ?? 0;
     const e01 = (Number(nr.facts.energy ?? 0) + 1) / 2;
     // what the moment wants, with the player's own lean
@@ -149,7 +158,7 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
         }
         return;
       }
-      const forced = SHORT_KINDS.includes(o.force as ShortKind) ? (o.force as ShortKind) : undefined;
+      const forced = DRESS_KINDS.includes(o.force as string) ? o.force : undefined;
       if (o.force && !forced) { moves[i].note = 'short: left plain'; return; }
       const prevC = i ? chosen[i - 1] : null;
       const prevBend = !!prevC && (!!prevC.contour?.startsWith('bend-') || prevC.name === 'bend-in' || prevC.name === 'late-bend');
@@ -159,18 +168,52 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
       const srcI0 = src0 && ph0 ? src0.from + (i - ph0.from) : -1;
       const copy0: Choice | null = !forced && src0 && srcI0 <= src0.to && rng.chance(0.85) ? chosen[srcI0] : null;
       if (copy0 && copy0.intent !== 'dress') { moves[i].note = 'as the phrase it repeats'; moves[i].intent = 'stay'; return; }
-      const only: ShortKind | undefined = forced ?? (copy0?.kind as ShortKind | undefined);
+      let only: string | undefined = forced ?? copy0?.kind;
       if (!forced) {
         // (a short note is the breath between the busy ones: it stays plain after a dressed note or a flourish, and at most two to a bar)
         const busy = !!prevC && (prevC.intent === 'dress' || prevC.contour === 'trill' || !!prevC.contour?.startsWith('bend-'));
         if (busy) { moves[i].note = 'short: a breath after a busy note'; return; }
         if ((dressedIn.get(barOf(note.t)) ?? 0) >= 2) { moves[i].note = 'short: the bar is busy enough'; return; }
-        if (!only && !rng.chance(clamp(0.62 * person.density * (0.65 + 0.7 * e01), 0, 0.7))) { moves[i].note = 'short: left plain'; return; }
+        if (!only && !rng.chance(clamp(0.58 * person.density * (0.65 + 0.7 * e01), 0, 0.65))) { moves[i].note = 'short: left plain'; return; }
+      }
+      const profile = profileFor(c.mood, 'solo', c.tension[barOf(note.t)]);
+
+      // a run: a cell of 3 or 4 short notes that touch, each leaning into the next
+      const cell = read.cells.filter((cl) => cl.from === i && cl.to - cl.from >= 2).sort((a, b) => b.w - a.w)[0];
+      if (cell && (only === 'run' || (!only && rng.chance(clamp(0.3 * (person.join.run ?? 1), 0, 0.6))))) {
+        const last = Math.min(cell.to, cell.from + 3);
+        const changes: { k: number; m: ReturnType<typeof composeJoint>[number] }[] = [];
+        for (let k = i; k < last; k++) {
+          const nk = notes[k];
+          if (nk.len >= 4 || nk.frozen || claimed.has(k)) break;
+          const cj = composeJoint(spanFor(k), { person, want, profile, mood: c.mood, prevPitch: null, onDrum: false, prevBend: false }, new Rng(`${c.seed}-run-${nk.t}-${nk.midi}`));
+          if (!cj.length) break;
+          const pick = new Rng(`${c.seed}-runpick-${nk.t}-${nk.midi}`).weighted(cj.map((x) => [x, x.w] as [typeof x, number]));
+          changes.push({ k, m: pick });
+        }
+        if (changes.length >= 2) {
+          for (const ch of changes) groups[ch.k] = ch.m.events.map((e) => ({ ...e, base: notes[ch.k].i }));
+          if (!fresh().length && handsOk()) {
+            for (const ch of changes) {
+              chosen[ch.k] = { intent: 'dress', name: 'dress·run', contour: 'run', kind: 'run' };
+              moves[ch.k].rule = 'dress·run'; moves[ch.k].intent = 'dress'; moves[ch.k].fig = `run, ${ch.m.label}`;
+              if (ch.k > i) claimed.add(ch.k);
+            }
+            used.set('dress·run', (used.get('dress·run') ?? 0) + 1); lastRule = { i, name: 'dress·run' };
+            dressedIn.set(barOf(note.t), (dressedIn.get(barOf(note.t)) ?? 0) + changes.length);
+            return;
+          }
+          for (const ch of changes) groups[ch.k] = plainOf(ch.k);
+        }
+        if (only === 'run') { moves[i].note = 'short: no run fits'; return; }
+        only = undefined;
       }
       const lastOfPrev = i ? groups[i - 1].filter((e) => !e.hit.mute).reduce<PEvent | null>((b, e) => (!b || endOf(e) > endOf(b) ? e : b), null) : null;
       const onDrum = ['on-snare', 'on-crash'].some((id) => tagw(id) >= 0.5);
-      const dressAsk = { person, want, profile: profileFor(c.mood, 'solo', c.tension[barOf(note.t)]), mood: c.mood, prevPitch: lastOfPrev?.hit.notes[0] ?? null, onDrum, prevBend, only };
-      const cands = composeShort(span, dressAsk, new Rng(`${c.seed}-short-${note.t}-${note.midi}`));
+      const dressAsk = { person, want, profile, mood: c.mood, prevPitch: lastOfPrev?.hit.notes[0] ?? null, onDrum, prevBend, only };
+      const shortRng = new Rng(`${c.seed}-short-${note.t}-${note.midi}`);
+      // (a touch on the note, or a lean into the next one)
+      const cands = [...composeShort(span, dressAsk, shortRng), ...composeJoint(span, dressAsk, shortRng)];
       if (!cands.length) { moves[i].note = 'short: no touch fits'; return; }
       moves[i].scores = [...cands].sort((a, b) => b.w - a.w).slice(0, 5).map((m) => [m.kind, Math.round(m.w * 100) / 100]);
       for (const m of drawn(cands.map((x) => ({ v: x, w: x.w }))).slice(0, 4)) {
@@ -185,7 +228,7 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     }
 
     // (a check that forces one way of dressing a short note leaves the long ones as they are)
-    if (SHORT_KINDS.includes(o.force as ShortKind)) { moves[i].note = 'long: left plain'; return; }
+    if (DRESS_KINDS.includes(o.force as string)) { moves[i].note = 'long: left plain'; return; }
 
     // what the note is for
     const figuresOn = rules.some((r) => r.name === 'figures');
