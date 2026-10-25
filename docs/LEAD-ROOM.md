@@ -1,3 +1,5 @@
+Status: always on — the lead staying out of the singer's way; always on since 2026-10-17, no switch.
+
 # Lead room (switch)
 
 From `docs/STUDY-LEAD.md`, item 4: real hard rock and metal lead guitars stay out of the singer's way (only 21% / 15% of their notes while the singer sings; funk 35%), and play in the gaps: intros, between verse and chorus, the solo. The app's Guitar 2 played under the singer about as much in every genre (37-63%). A switch in the Guitar 2 row: **Room: Off / On**. Off: exactly as before (checked note for note over 126 songs, 4/4, 6/8, 3/4). Tracks only (an idea alone is unchanged). Kept with the idea and in shared links (`leadRoom`).

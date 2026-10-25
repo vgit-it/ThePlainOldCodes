@@ -1,3 +1,5 @@
+Status: research — rhythm guitar in real songs against what the app makes.
+
 # Study: rhythm guitar in the Lakh MIDI collection vs what the app generates (2026-10-16)
 
 Goal (Paul): study the rhythm guitar parts in the song collection and set them beside what the app makes: what's there, what's missing. A study only; nothing in the app has changed.

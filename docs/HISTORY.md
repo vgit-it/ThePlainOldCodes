@@ -1,3 +1,5 @@
+Status: history — the decision record, word for word from the old CLAUDE.md; read it only for the why.
+
 # History: milestones and decisions
 
 The decision record of the project, moved here word for word from `CLAUDE.md` on 2026-10-25 so `CLAUDE.md` could be short. Oldest first; the newest entries are the long "Later milestones" list near the end. Some entries are old: the "Guide line" card is gone, and the "Now the main method" notes say what is always on. For what the app does now, read `CLAUDE.md`.

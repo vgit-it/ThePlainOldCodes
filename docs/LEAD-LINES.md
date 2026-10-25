@@ -1,3 +1,5 @@
+Status: always on — whole lead lines instead of short answers; always on since 2026-10-17, no switch.
+
 # Lead lines (switch)
 
 From `docs/STUDY-LEAD.md`, items 1 and 2 (Paul: "longer lines with more steps"). A switch in the Guitar 2 row: **Lines: Off / On**. Off: exactly as before (checked: the same Guitar 2 and vocal note for note over 126 songs, 4/4, 6/8, 3/4). Kept with the idea and in shared links (`leadLines`).

@@ -1,6 +1,16 @@
+Status: live — the index of all docs, one line each.
+
 # Docs index
 
 One line per doc. Start here, then open only what you need. `HISTORY.md` is the full decision record; `CLEANUP-PLAN.md` is the repo clean-up in phases.
+
+**Every doc starts with a `Status:` line.** To skim them all: `head -qn1 docs/*.md`. The words:
+- `live`: describes what the app does now.
+- `always on`: a switch that is fixed on (or an old switch with no menu now); describes current behaviour.
+- `experiment`: Paul is listening, or the app no longer chooses it (Phase 6 of the clean-up decides).
+- `research`: a study or notes; the evidence behind the writers.
+- `history`: the old record, kept as it was.
+- `archived`: describes code that was removed; in `archive/`.
 
 ## App and spec
 - `HISTORY.md`: every milestone and decision, word for word (long; read only for the why).
@@ -49,4 +59,5 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - Also `STUDY-RHYTHM`, `STUDY-LEAD`, `STUDY-SOLO` above.
 
 ## Archive
-- `ARCHIVE.md`: what was removed and how to get it back (added in Phase 0).
+- `ARCHIVE.md`: what was removed and how to get it back.
+- `archive/GUIDE.md`, `archive/GUIDE-ANCHOR.md`: the removed Guide and Anchor line writers.

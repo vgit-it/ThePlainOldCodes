@@ -1,3 +1,5 @@
+Status: experiment — the Melody first writer; not chosen by the page now (fixed settings), Phase 6 decides.
+
 # Vocal melody: Melody first (2026-10-13; steps 1-4 built)
 
 A third way of choosing the vocal's pitches, beside **Classic** and **Shaped** (both kept).

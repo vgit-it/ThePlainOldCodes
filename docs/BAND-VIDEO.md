@@ -1,3 +1,5 @@
+Status: live — rendering the band view as a video file (built).
+
 # Band video: render the band view as a video file
 
 Scope and plan (2026-10-20). **Built (2026-10-20)**: see "What was built" at the end.

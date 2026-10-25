@@ -1,3 +1,5 @@
+Status: live — making sung words sound as written (plan and results).
+
 # Words that sound as written (plan, 2026-10-19)
 
 Goal: when the singer sings a word, you hear that word. Today the app sings made-up English-sounding words

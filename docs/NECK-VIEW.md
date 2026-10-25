@@ -1,3 +1,5 @@
+Status: live — the solo neck view card.
+
 # Solo on the neck
 
 A card under the Melody view, for solos and lead breaks only (`idea.soloCurve` exists). Shows what the solo writer followed, over where the hands play it.

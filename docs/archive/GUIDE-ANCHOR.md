@@ -1,3 +1,5 @@
+Status: archived — the Anchor line writer, removed in clean-up Phase 3.
+
 > **Archived 2026-10-25.** The Guide line writer this describes was removed from the code (clean-up Phase 3). The code is in git: see `docs/ARCHIVE.md`.
 
 # Anchor line (Guide line switch; 2026-10-14)

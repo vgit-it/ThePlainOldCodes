@@ -1,3 +1,5 @@
+Status: live — the pixel band playing the song on screen (`band.html`, `src/band/`).
+
 # Band view: the band playing the song, on screen
 
 A pixel-art stage where a singer, a rhythm guitarist, a lead guitarist, a bassist and a drummer play the

@@ -1,3 +1,5 @@
+Status: live — human feel for the singer (`src/guide/feel.ts`); the Guide card it was made for is gone.
+
 # Human feel (Guide line switch; 2026-10-15)
 
 > **Note (2026-10-25):** the Guide card is gone. `src/guide/feel.ts` is still live: the singer uses it.
