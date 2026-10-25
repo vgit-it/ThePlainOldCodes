@@ -97,7 +97,9 @@ The Guide card left the page on 2026-10-17. Its writers are dead; some of its he
 5. Docs: move `GUIDE.md`, `GUIDE-ANCHOR.md`, `GUIDE-FEEL.md` and `GUIDE-TUNE.md` to `docs/archive/` (keep `GUIDE-TUNE.md` in `docs/` if the Classic vocal writer is explained there; read it first). Update the links in other docs and in `docs/README.md`.
 6. Check: snapshot, build, typecheck.
 
-## Phase 4: pages, prototypes and loose files (1 PR)
+## Phase 4: pages, prototypes and loose files (1 PR) — DONE 2026-10-25
+
+As built: everything in the table below went, except `src/lab/measure.ts` and `src/realism/measure.ts` (4 scripts and `realism-lab` / `lakh-targets` still use them, so they stay). Also archived: `scripts/asr-render.ts` (it only fed the archived Kokoro tool). **Flag for Paul / Phase 6:** `cons-check`, `spec-png`, `stop-check` still read spoken Kokoro recordings from `experiments/kokoro-singer/out/words/`; that folder only ever existed on Paul's machine (not in git), so they can't run from a fresh clone. Kept for now. `experiments/VisualsReference/` and `experiments/MidiCollection/` are local data (not in git) that band and study scripts read; untouched. Every script in `scripts/` still builds; `song-check` unchanged.
 
 Archive (delete from the tree, list in ARCHIVE.md):
 

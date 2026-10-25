@@ -32,3 +32,13 @@ One row per thing taken out, added by the phase that removes it.
 | `skeleton-lean` (study script) | Measured only the removed Guide line; its output `src/realism/skeleton-lean.json` stays as data | `scripts/study/skeleton-app.ts` | 3 | `git show archive/before-cleanup:scripts/study/skeleton-app.ts` |
 | Guide and Anchor line modes in `realism-lab`, Anchor counts in `realism-lean` | They scored the removed writers; the scripts still score the vocal writers | `scripts/realism-lab.ts`, `scripts/study/patterns-app.ts` | 3 | `git show archive/before-cleanup:scripts/realism-lab.ts` |
 | Docs `GUIDE.md`, `GUIDE-ANCHOR.md` (moved, not deleted) | The writers they describe are gone | `docs/archive/GUIDE.md`, `docs/archive/GUIDE-ANCHOR.md` | 3 | still in the repo |
+| `spike/` (the first prototype page) | The app replaced it long ago | `spike/index.html` | 4 | `git show archive/before-cleanup:spike/index.html` |
+| Kokoro singer experiment | Tried and dropped: the app's own voices sound better. The voice prints measured from it stay in `src/audio/prints.ts` | `experiments/kokoro-singer/` (README.md inside) | 4 | `git checkout archive/before-cleanup -- experiments/kokoro-singer` |
+| MIDI vocal player experiment | Tried and dropped | `experiments/midi-vocal-player/` | 4 | `git checkout archive/before-cleanup -- experiments/midi-vocal-player` |
+| Verse lab page (dev only, not built or linked) | The verse writer is tested by the check scripts now | `verse-lab.html`, `src/lab/verseLab.ts` | 4 | `git checkout archive/before-cleanup -- verse-lab.html src/lab/verseLab.ts` |
+| Voice lab page (dev only: mixing the registers by hand) | Paul tuned the voices; the result is in `src/audio/voices.ts` | `voice-lab.html`, `src/lab/voiceLab.ts` | 4 | `git checkout archive/before-cleanup -- voice-lab.html src/lab/voiceLab.ts` |
+| Voice creator page (dev only: tuning a FOF voice by hand) | Same | `voice-creator.html`, `src/lab/voiceCreator.ts` | 4 | `git checkout archive/before-cleanup -- voice-creator.html src/lab/voiceCreator.ts` |
+| Scale quiz and scale check (lab tools) | Nothing used them | `src/lab/quiz.ts`, `src/lab/scaleCheck.ts` | 4 | `git checkout archive/before-cleanup -- src/lab/quiz.ts src/lab/scaleCheck.ts` |
+| `asr-render` (speech-recogniser test, step 1) | It fed the archived Kokoro experiment's `asr-run.mjs` | `scripts/asr-render.ts` | 4 | `git show archive/before-cleanup:scripts/asr-render.ts` |
+| `trk.png` (unused screenshot) | Nothing used it | `trk.png` | 4 | `git show archive/before-cleanup:trk.png > trk.png` |
+| `solo-test` entry in the preview launcher | Pointed at a folder on a Windows drive | `.claude/launch.json` | 4 | `git show archive/before-cleanup:.claude/launch.json` |
