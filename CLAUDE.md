@@ -36,14 +36,14 @@ Options + seeds → `src/generator.ts` (the idea: chords, strum, drums, bass, 8 
 ## Rules
 - The generator is pure and deterministic given a seed. No `Math.random` or `Date` in writers.
 - Every feature gets a doc in `docs/` and a check script (`npm run …-check`).
-- Before pushing: `npm run typecheck`, `npm run build`, and the check scripts that touch your files. (`npm run song-check` once Phase 0 of `docs/CLEANUP-PLAN.md` is done.)
+- Before pushing: `npm run typecheck`, `npm run build`, and the check scripts that touch your files. `npm run song-check` (the 40-song snapshot: must say "all 40 songs match"). Never refresh `scripts/song-reference.json` to make it pass.
 - Write plain-English comments. Match the file's style.
 - Don't read big files whole. Search first (`grep`), then read the part you need.
 
 ## Current focus
 - **Solos** (Track options → Solo writer): "As before" (`solo2.ts`), "Planned (landings first)" (`soloplan.ts`), "Melody + player" (`solomelody.ts` → `soloplayer.ts`). Docs: `SOLO-NEW`, `SOLO-PLAN`, `SOLO-MELODY`, `SOLO-PLAYER`. Paul is listening to the newest steps.
 - **Vocal melody** (Vocal melody card): the verse writer and its mood-note switches (`docs/VERSE-SECTIONS.md`, `VOCAL-EMOTION`, `INTERVALS`).
-- **Repo clean-up**: `docs/CLEANUP-PLAN.md`, one phase at a time. Anything removed is in git tag `archive/before-cleanup` (once Phase 0 is done) and listed in `docs/ARCHIVE.md`.
+- **Repo clean-up**: `docs/CLEANUP-PLAN.md`, one phase at a time. Anything removed is in git (tag `archive/before-cleanup`, commit `ea84fd7`) and listed in `docs/ARCHIVE.md`. `node scripts/reach.mjs` lists files nothing uses.
 - The "next" ideas and the full decision record are in `docs/HISTORY.md`. Read it only when you need the why behind something.
 
 ## Docs

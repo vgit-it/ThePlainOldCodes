@@ -1,0 +1,27 @@
+Status: live — what was taken out of the repo during the clean-up, and how to get it back.
+
+# Archive: what was removed and how to bring it back
+
+Nothing is lost. Before the clean-up the repo was marked at this point in git:
+- **Tag:** `archive/before-cleanup` (see below if it isn't on GitHub yet).
+- **Commit:** `ea84fd7` (main, 2026-10-25, after Phase 1 merged; all code is exactly as it was before the clean-up). This commit stays in the history of `main`, so it is always reachable.
+
+To see or restore a removed file (use the tag, or the commit if the tag is missing):
+
+```bash
+git show archive/before-cleanup:<old path>          # print it
+git checkout archive/before-cleanup -- <old path>   # put it back in the working tree
+git show ea84fd7:<old path>                         # the same, by commit
+```
+
+On GitHub: open the repo, switch to the tag (or paste the commit id), and browse the old path.
+
+**Tag note (2026-10-25):** the tag `archive/before-cleanup` is made in the clone but pushing tags was refused from the coding session (the git proxy hangs up). To put it on GitHub: Releases → Draft a new release → "Choose a tag" → type `archive/before-cleanup` → target `ea84fd7` → Publish release. Until then use the commit above.
+
+## Removed items
+
+One row per thing taken out, added by the phase that removes it.
+
+| What | Why removed | Old path | Phase | Get it back |
+|---|---|---|---|---|
+| (nothing yet) | | | | |

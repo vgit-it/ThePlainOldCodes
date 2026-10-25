@@ -1,0 +1,722 @@
+{
+ "rock-0": {
+  "sections": "intro,verse,chorus,verse,chorus,solo,bridge,chorus,outro",
+  "bars": 80,
+  "mood": "happy",
+  "parts": {
+   "song": "6d26f5ff63eb",
+   "chords": "aec6f7c0e92e",
+   "strum": "490f6fcb941e",
+   "riff": "ab2d154dd664",
+   "drums": "14c6923a6673",
+   "bass": "1bc7e399a7f3",
+   "lead": "fb35834c5321",
+   "solo": "e3a52d5ee2c3",
+   "vocal": "ce0e1aad64fe",
+   "backing": "52e664e90f78",
+   "other": "c1f0ce6126be"
+  }
+ },
+ "rock-1": {
+  "sections": "intro,verse,chorus,solo,verse,chorus,bridge,chorus,outro",
+  "bars": 80,
+  "mood": "happy",
+  "parts": {
+   "song": "dfa9c2c5a2ea",
+   "chords": "b6bf826b4330",
+   "strum": "589415552ece",
+   "riff": "ab2d154dd664",
+   "drums": "f1fc8c828297",
+   "bass": "c585c0a75e8a",
+   "lead": "a2121533362d",
+   "solo": "0df143edbadb",
+   "vocal": "0912974109b8",
+   "backing": "f6c5b6edb827",
+   "other": "4c03f6a8a88f"
+  }
+ },
+ "rock-2": {
+  "sections": "intro,verse,chorus,interlude,verse,chorus,solo,bridge,chorus,outro",
+  "bars": 84,
+  "mood": "happy",
+  "parts": {
+   "song": "0c1355015c6c",
+   "chords": "bd49c57b480e",
+   "strum": "dee4252ed672",
+   "riff": "81519787e58e",
+   "drums": "f32cefa62127",
+   "bass": "a32bc636601b",
+   "lead": "92579e0a69d0",
+   "solo": "c1f91ffd5976",
+   "vocal": "47af5b49d644",
+   "backing": "1e8725596cdb",
+   "other": "bec787d0e483"
+  }
+ },
+ "rock-3": {
+  "sections": "intro,verse,prechorus,chorus,solo,verse,prechorus,chorus,bridge,chorus,outro",
+  "bars": 80,
+  "mood": "nostalgic",
+  "parts": {
+   "song": "7ffddb2ff052",
+   "chords": "4ae883aba118",
+   "strum": "8607a88c002d",
+   "riff": "388633096994",
+   "drums": "f3cb8581801f",
+   "bass": "b5fac7ef03c2",
+   "lead": "7f3ad167e8ae",
+   "solo": "b5de529fc0f4",
+   "vocal": "4c776cd85aad",
+   "backing": "a5785ede4a0b",
+   "other": "8197a9c05710"
+  }
+ },
+ "pop-0": {
+  "sections": "intro,verse,prechorus,chorus,interlude,verse,prechorus,chorus,solo,bridge,chorus,outro",
+  "bars": 88,
+  "mood": "happy",
+  "parts": {
+   "song": "3999b99183ab",
+   "chords": "33dc838ab0e7",
+   "strum": "49451187dfe4",
+   "riff": "ffb816f9853c",
+   "drums": "e00e36de06dd",
+   "bass": "3bf01c97abc7",
+   "lead": "9fed93ad0d94",
+   "solo": "f07e69f09ab2",
+   "vocal": "38b2ffc0e41c",
+   "backing": "9f1e66f9d288",
+   "other": "887b2be4ae62"
+  }
+ },
+ "pop-1": {
+  "sections": "intro,verse,chorus,verse,chorus,solo,bridge,chorus,outro",
+  "bars": 68,
+  "mood": "happy",
+  "parts": {
+   "song": "b084ae44947a",
+   "chords": "e8615d00e35b",
+   "strum": "b20ca971249a",
+   "riff": "ab2d154dd664",
+   "drums": "3115603e9e40",
+   "bass": "db74c3152baf",
+   "lead": "39fe15698310",
+   "solo": "eab827c17d06",
+   "vocal": "f8ae346dc639",
+   "backing": "174b767be26d",
+   "other": "43c90fb80f33"
+  }
+ },
+ "pop-2": {
+  "sections": "intro,verse,prechorus,chorus,verse,prechorus,chorus,solo,bridge,chorus,outro",
+  "bars": 84,
+  "mood": "happy",
+  "parts": {
+   "song": "5588838e13dd",
+   "chords": "2f13337b8e41",
+   "strum": "1df0d00d2d8e",
+   "riff": "388633096994",
+   "drums": "66795c2ccd4d",
+   "bass": "bd65b8aac9b2",
+   "lead": "c1748295c702",
+   "solo": "7105684253f5",
+   "vocal": "72eb1d0914ab",
+   "backing": "03f2da568519",
+   "other": "e5d51067101c"
+  }
+ },
+ "pop-3": {
+  "sections": "intro,verse,prechorus,chorus,interlude,verse,prechorus,chorus,solo,bridge,chorus,outro",
+  "bars": 80,
+  "mood": "nostalgic",
+  "parts": {
+   "song": "aaf63e2a126a",
+   "chords": "c6078b2fc95c",
+   "strum": "de4bf5ef242b",
+   "riff": "ffb816f9853c",
+   "drums": "cdbfb7ae2b78",
+   "bass": "3ffcd4a5d408",
+   "lead": "cfd2bc8e1db4",
+   "solo": "8c613c1029ca",
+   "vocal": "dc8a25295e46",
+   "backing": "854a871d3254",
+   "other": "2ae51b3e84e8"
+  }
+ },
+ "funk-0": {
+  "sections": "intro,verse,chorus,solo,verse,bridge,chorus,outro",
+  "bars": 64,
+  "mood": "nostalgic",
+  "parts": {
+   "song": "36075799b710",
+   "chords": "cf479467ebd9",
+   "strum": "b3cc0ca2bd08",
+   "riff": "219a9f666833",
+   "drums": "5c44670e70bb",
+   "bass": "3b096a2c70b4",
+   "lead": "e7fa214951be",
+   "solo": "27c0c3dbbc35",
+   "vocal": "da0dc142ca4b",
+   "backing": "841ea53262fb",
+   "other": "30c62d946dd6"
+  }
+ },
+ "funk-1": {
+  "sections": "intro,verse,chorus,solo,verse,bridge,chorus,outro",
+  "bars": 72,
+  "mood": "happy",
+  "parts": {
+   "song": "0f02e659e3d9",
+   "chords": "7238832d8283",
+   "strum": "9791cb697541",
+   "riff": "219a9f666833",
+   "drums": "1d645ec5eeb9",
+   "bass": "09edac48d83a",
+   "lead": "4aed9d8b9bf7",
+   "solo": "e6f279736ca7",
+   "vocal": "120f52694885",
+   "backing": "5bc678258349",
+   "other": "b9c7aa412f4b"
+  }
+ },
+ "funk-2": {
+  "sections": "intro,verse,chorus,solo,verse,bridge,chorus,outro",
+  "bars": 80,
+  "mood": "happy",
+  "parts": {
+   "song": "a5cfa02988cb",
+   "chords": "64127f1ca1fb",
+   "strum": "181f9e5d7fc1",
+   "riff": "219a9f666833",
+   "drums": "16623fc2e52e",
+   "bass": "c5b2e3632fff",
+   "lead": "8fffc7338002",
+   "solo": "9c6a4e90fb42",
+   "vocal": "fa4f464a163c",
+   "backing": "03fe241b9628",
+   "other": "6c39e8f678b7"
+  }
+ },
+ "funk-3": {
+  "sections": "intro,verse,chorus,solo,verse,bridge,chorus,outro",
+  "bars": 80,
+  "mood": "nostalgic",
+  "parts": {
+   "song": "9c5b8dd0a65b",
+   "chords": "c511517538d3",
+   "strum": "262569da5537",
+   "riff": "219a9f666833",
+   "drums": "04d659e3a22c",
+   "bass": "35586f0b0afb",
+   "lead": "f6333dc03fb6",
+   "solo": "8432fc5ec140",
+   "vocal": "c384b183cf4d",
+   "backing": "3982f9cb1881",
+   "other": "7510f0104087"
+  }
+ },
+ "hardrock-0": {
+  "sections": "intro,verse,prechorus,chorus,interlude,verse,prechorus,chorus,solo,bridge,chorus,outro",
+  "bars": 92,
+  "mood": "happy",
+  "parts": {
+   "song": "3e93dbbdf17a",
+   "chords": "723c93e9d5c7",
+   "strum": "27015693f012",
+   "riff": "79230a48d270",
+   "drums": "c54050c84a6b",
+   "bass": "d34e1f0aff12",
+   "lead": "919e76aac944",
+   "solo": "2bf01ef4c2fc",
+   "vocal": "4dd8a1eaeaf2",
+   "backing": "701ad16bffd5",
+   "other": "a41ad456f771"
+  }
+ },
+ "hardrock-1": {
+  "sections": "intro,verse,prechorus,chorus,verse,prechorus,chorus,solo,bridge,chorus,outro",
+  "bars": 80,
+  "mood": "triumphant",
+  "parts": {
+   "song": "3186257b4c21",
+   "chords": "adfb3034e3a7",
+   "strum": "26f931d47cf2",
+   "riff": "7fa2a2842d3c",
+   "drums": "78f1b37e8c5e",
+   "bass": "e0f2b0b812a1",
+   "lead": "e8a4b6383aaa",
+   "solo": "d52d85296226",
+   "vocal": "809b28a72183",
+   "backing": "e095f2d025f6",
+   "other": "9e3322bb1fd5"
+  }
+ },
+ "hardrock-2": {
+  "sections": "intro,verse,prechorus,chorus,solo,verse,prechorus,chorus,bridge,chorus,outro",
+  "bars": 88,
+  "mood": "dark",
+  "parts": {
+   "song": "ad3ee7b4d6c9",
+   "chords": "db1ed42fb3fb",
+   "strum": "4d9b3aba3f59",
+   "riff": "e95d98d8f735",
+   "drums": "de74b915787c",
+   "bass": "99cf7489e0fa",
+   "lead": "8e9d98424ef2",
+   "solo": "3bb9dfaea33e",
+   "vocal": "f984a709ce3c",
+   "backing": "3d3866282826",
+   "other": "0bd1691d4f3e"
+  }
+ },
+ "hardrock-3": {
+  "sections": "intro,verse,chorus,solo,verse,chorus,bridge,chorus,outro",
+  "bars": 88,
+  "mood": "triumphant",
+  "parts": {
+   "song": "4c697aa65001",
+   "chords": "5ea9dbe8a059",
+   "strum": "6eb424febbb0",
+   "riff": "4af997c5b3a9",
+   "drums": "4ab1e09fa229",
+   "bass": "58a48af71935",
+   "lead": "2cc4e0b3f9a2",
+   "solo": "6ec1e46aa5dd",
+   "vocal": "0b508f74c6c8",
+   "backing": "787bcd4a8176",
+   "other": "24285581ecee"
+  }
+ },
+ "metal-0": {
+  "sections": "intro,verse,chorus,verse,chorus,solo,bridge,chorus,outro",
+  "bars": 88,
+  "mood": "tense",
+  "parts": {
+   "song": "d21b04ce6502",
+   "chords": "a0813891c56c",
+   "strum": "0fa581f57912",
+   "riff": "862c2f83ec20",
+   "drums": "e97407441cc2",
+   "bass": "a3c16c42b81f",
+   "lead": "156a85c78769",
+   "solo": "e23cbba71835",
+   "vocal": "e040480205af",
+   "backing": "5160bc2521f7",
+   "other": "e183bb76d666"
+  }
+ },
+ "metal-1": {
+  "sections": "intro,verse,chorus,interlude,verse,chorus,solo,bridge,chorus,outro",
+  "bars": 84,
+  "mood": "dark",
+  "parts": {
+   "song": "1088c4b1f3c3",
+   "chords": "65a790a0ed7b",
+   "strum": "f984e1347654",
+   "riff": "070cfbc113fd",
+   "drums": "0f309a4c3dde",
+   "bass": "5227e67c75ff",
+   "lead": "ff6b2629e4d9",
+   "solo": "1ebb15b3acf1",
+   "vocal": "45cbf8a7d19d",
+   "backing": "73ec8f10d4ca",
+   "other": "47aa5479f2c4"
+  }
+ },
+ "metal-2": {
+  "sections": "intro,verse,chorus,interlude,verse,chorus,solo,bridge,chorus,outro",
+  "bars": 100,
+  "mood": "angry",
+  "parts": {
+   "song": "3636c27b7207",
+   "chords": "e41ca54fc9e6",
+   "strum": "d8c595cd6e58",
+   "riff": "a9fa442c3490",
+   "drums": "9e25545fbec5",
+   "bass": "5bdf07466876",
+   "lead": "048ba022e5d1",
+   "solo": "6f885ac491e4",
+   "vocal": "0200f37a402d",
+   "backing": "b038a4e57c61",
+   "other": "dca6f1f09fac"
+  }
+ },
+ "metal-3": {
+  "sections": "intro,verse,prechorus,chorus,verse,prechorus,chorus,solo,bridge,chorus,outro",
+  "bars": 104,
+  "mood": "dark",
+  "parts": {
+   "song": "a0981d656517",
+   "chords": "2eb0a69c072e",
+   "strum": "9c7b5acd653c",
+   "riff": "5e1bc8bcb95e",
+   "drums": "8edb79845cee",
+   "bass": "f215709f9639",
+   "lead": "00cd91224e5a",
+   "solo": "7979429ed3a1",
+   "vocal": "e32c659fc677",
+   "backing": "2c8e631218df",
+   "other": "1cea59e71704"
+  }
+ },
+ "grunge-0": {
+  "sections": "intro,verse,chorus,verse,chorus,solo,bridge,chorus,outro",
+  "bars": 72,
+  "mood": "dark",
+  "parts": {
+   "song": "cbe4e8100baf",
+   "chords": "8af1f9afdd17",
+   "strum": "f960ebef2a54",
+   "riff": "08ea214ff742",
+   "drums": "8292ea55cade",
+   "bass": "3a87d1fba0d2",
+   "lead": "7e0d7f66d8b1",
+   "solo": "1dce8ac0f096",
+   "vocal": "609a53c8ac41",
+   "backing": "014be6b834b1",
+   "other": "4d03ee245511"
+  }
+ },
+ "grunge-1": {
+  "sections": "intro,verse,chorus,solo,verse,chorus,bridge,chorus,outro",
+  "bars": 72,
+  "mood": "angry",
+  "parts": {
+   "song": "fa4f5f3ea447",
+   "chords": "0a10e8330d74",
+   "strum": "258de2a4e4c5",
+   "riff": "0478ad60d4ab",
+   "drums": "bddcd25ea2f0",
+   "bass": "8de470c725ab",
+   "lead": "0f2f73539976",
+   "solo": "9697f07eaf31",
+   "vocal": "2f266d6cd7e4",
+   "backing": "e50a9df427ec",
+   "other": "3f89f215d51d"
+  }
+ },
+ "grunge-2": {
+  "sections": "intro,verse,chorus,solo,verse,chorus,bridge,chorus,outro",
+  "bars": 72,
+  "mood": "melancholic",
+  "parts": {
+   "song": "88d6a9de4b7d",
+   "chords": "b05597dc05c0",
+   "strum": "a8228240e095",
+   "riff": "e63450882efc",
+   "drums": "abe21918d473",
+   "bass": "fd59f1e07f81",
+   "lead": "dc5b91f61fa6",
+   "solo": "a05d5414a0b0",
+   "vocal": "152f1a0feafa",
+   "backing": "bf2a6dedb4ec",
+   "other": "6a0dca3f7521"
+  }
+ },
+ "grunge-3": {
+  "sections": "intro,verse,chorus,solo,verse,chorus,bridge,chorus,outro",
+  "bars": 72,
+  "mood": "melancholic",
+  "parts": {
+   "song": "108598e2b5e8",
+   "chords": "92dca0794e99",
+   "strum": "52c3d6bf93e7",
+   "riff": "33a677e17c8d",
+   "drums": "60331ee91862",
+   "bass": "614b884f4551",
+   "lead": "efda8e54fd01",
+   "solo": "005bfc589ffd",
+   "vocal": "4b62f7ccdb60",
+   "backing": "63f0d66412bc",
+   "other": "4de68dd6938d"
+  }
+ },
+ "altmetal-0": {
+  "sections": "intro,verse,prechorus,chorus,verse,prechorus,chorus,solo,breakdown,chorus,outro",
+  "bars": 80,
+  "mood": "melancholic",
+  "parts": {
+   "song": "a28839f372ff",
+   "chords": "354bc0a7c18f",
+   "strum": "8862bec54958",
+   "riff": "5c8114a2d83c",
+   "drums": "eac8727fa41b",
+   "bass": "fb6349e13429",
+   "lead": "16f43e688db6",
+   "solo": "bb4634322f02",
+   "vocal": "e33214a6d1d2",
+   "backing": "25df5ec5e692",
+   "other": "1fc5929df894"
+  }
+ },
+ "altmetal-1": {
+  "sections": "intro,verse,chorus,verse,chorus,solo,breakdown,chorus,outro",
+  "bars": 72,
+  "mood": "dark",
+  "parts": {
+   "song": "7640db87fb60",
+   "chords": "607acdb31620",
+   "strum": "2d962174f690",
+   "riff": "178eef684fac",
+   "drums": "acb950f94155",
+   "bass": "d24b2b4bd736",
+   "lead": "8593ef0eda46",
+   "solo": "369f26d9a405",
+   "vocal": "d90754c5f428",
+   "backing": "b63a3e07930c",
+   "other": "a1bee13e95f0"
+  }
+ },
+ "altmetal-2": {
+  "sections": "intro,verse,prechorus,chorus,interlude,verse,prechorus,chorus,solo,breakdown,chorus,outro",
+  "bars": 84,
+  "mood": "melancholic",
+  "parts": {
+   "song": "94cb7dd47b14",
+   "chords": "e87c9b1c2acc",
+   "strum": "7a72d1798efa",
+   "riff": "da0bbb7388b2",
+   "drums": "85e4b5774ad5",
+   "bass": "334df70accd9",
+   "lead": "20dadb0be1fa",
+   "solo": "d75bd181eb94",
+   "vocal": "438852c363c8",
+   "backing": "7097f79b48db",
+   "other": "0ed3e8d01762"
+  }
+ },
+ "altmetal-3": {
+  "sections": "intro,verse,chorus,solo,verse,chorus,breakdown,chorus,outro",
+  "bars": 72,
+  "mood": "dark",
+  "parts": {
+   "song": "8364d698932f",
+   "chords": "0b8af19fbd21",
+   "strum": "d9698357efb4",
+   "riff": "6c9f7cf8163a",
+   "drums": "203011aec02a",
+   "bass": "2b0e88395e2d",
+   "lead": "4c35c2b92b38",
+   "solo": "b6d51dddd410",
+   "vocal": "9a21b98484b5",
+   "backing": "96b9519df28a",
+   "other": "52ca07a98983"
+  }
+ },
+ "meter-2_4": {
+  "sections": "intro,verse,prechorus,chorus,verse,prechorus,chorus,solo,bridge,chorus,outro",
+  "bars": 96,
+  "mood": "dark",
+  "parts": {
+   "song": "fb90ca8d2537",
+   "chords": "5827f9f9d89e",
+   "strum": "ca942367a4e4",
+   "riff": "388633096994",
+   "drums": "147163de686e",
+   "bass": "ab68006729a1",
+   "lead": "1bb9abf07cba",
+   "solo": "9bdcc348f600",
+   "vocal": "0d9f38ef980e",
+   "backing": "8f37073c3523",
+   "other": "400caf8957a7"
+  }
+ },
+ "meter-4_4": {
+  "sections": "intro,verse,chorus,solo,verse,chorus,bridge,chorus,outro",
+  "bars": 68,
+  "mood": "melancholic",
+  "parts": {
+   "song": "e07ee26a9813",
+   "chords": "0a70589ba820",
+   "strum": "fe6ecb5e31d8",
+   "riff": "ab2d154dd664",
+   "drums": "2dc09a29710b",
+   "bass": "43f86d97c15c",
+   "lead": "39cbc43681e9",
+   "solo": "0e3f0c698e64",
+   "vocal": "3c82ff45f15c",
+   "backing": "0c56847086ee",
+   "other": "2b0128bbbe41"
+  }
+ },
+ "meter-3_4": {
+  "sections": "intro,verse,chorus,solo,verse,bridge,chorus,outro",
+  "bars": 72,
+  "mood": "tense",
+  "parts": {
+   "song": "39cd1aad9691",
+   "chords": "acd410cc84d0",
+   "strum": "5de0eaa27ac9",
+   "riff": "219a9f666833",
+   "drums": "cafd96ca599e",
+   "bass": "971719545f3c",
+   "lead": "351116637ac8",
+   "solo": "d445c7c3a1b1",
+   "vocal": "083a15f48fa1",
+   "backing": "03c11675c368",
+   "other": "f86fb0deed24"
+  }
+ },
+ "meter-6_8": {
+  "sections": "intro,verse,prechorus,chorus,verse,prechorus,chorus,solo,bridge,chorus,outro",
+  "bars": 96,
+  "mood": "angry",
+  "parts": {
+   "song": "e72f43c4a120",
+   "chords": "a87b28ae9308",
+   "strum": "f89eb7da7a41",
+   "riff": "efc8b965630c",
+   "drums": "9e36fc8e4137",
+   "bass": "0c11f3dcb480",
+   "lead": "95c2c7f0683d",
+   "solo": "e1a2594691d8",
+   "vocal": "87ca35a2a8c4",
+   "backing": "66eade8453dc",
+   "other": "6ab1172994e0"
+  }
+ },
+ "meter-5_4": {
+  "sections": "intro,verse,prechorus,chorus,verse,prechorus,chorus,solo,bridge,chorus,outro",
+  "bars": 80,
+  "mood": "triumphant",
+  "parts": {
+   "song": "6eab8d798041",
+   "chords": "50d87d3280e1",
+   "strum": "b8c60a2a212e",
+   "riff": "926c329d9974",
+   "drums": "3829d4a0f205",
+   "bass": "3e9060bb1e93",
+   "lead": "b1d9ae9a3f76",
+   "solo": "0973633e3f66",
+   "vocal": "7232e4906cb0",
+   "backing": "233205810a0a",
+   "other": "70e3242ac8fb"
+  }
+ },
+ "meter-5_8": {
+  "sections": "intro,verse,prechorus,chorus,verse,prechorus,chorus,solo,bridge,chorus,outro",
+  "bars": 88,
+  "mood": "melancholic",
+  "parts": {
+   "song": "d73ffeaaedc8",
+   "chords": "02224d27d79c",
+   "strum": "ee4d100ad3d9",
+   "riff": "94baef1b4cc2",
+   "drums": "52bea7149dc8",
+   "bass": "21d0987fe586",
+   "lead": "68d922b7bbef",
+   "solo": "241dfaa6e370",
+   "vocal": "bda94d060fc4",
+   "backing": "3c236acc3796",
+   "other": "ae3373527edc"
+  }
+ },
+ "meter-7_8": {
+  "sections": "intro,verse,prechorus,chorus,verse,prechorus,chorus,solo,breakdown,chorus,outro",
+  "bars": 80,
+  "mood": "tense",
+  "parts": {
+   "song": "cbe1c7b1f3c0",
+   "chords": "496db2024ae0",
+   "strum": "d390b0410600",
+   "riff": "cd4fb26acad3",
+   "drums": "11e976a41946",
+   "bass": "c9125321dc6c",
+   "lead": "52c27926b6ae",
+   "solo": "9bd7d93aef8d",
+   "vocal": "f5e81c21da54",
+   "backing": "64560915c105",
+   "other": "4fe56fff6a9f"
+  }
+ },
+ "meter-9_8": {
+  "sections": "intro,verse,chorus,verse,chorus,solo,bridge,chorus,outro",
+  "bars": 96,
+  "mood": "happy",
+  "parts": {
+   "song": "3933be705cf6",
+   "chords": "a14e6ca8e0be",
+   "strum": "abb47a0b4d85",
+   "riff": "ab2d154dd664",
+   "drums": "eb27b09fed01",
+   "bass": "e1447cd23c0e",
+   "lead": "0dd801bede6b",
+   "solo": "6c284b076b96",
+   "vocal": "cc58b09b037c",
+   "backing": "634cfab30e24",
+   "other": "0073319dc0dd"
+  }
+ },
+ "meter-7_4": {
+  "sections": "intro,verse,chorus,verse,chorus,solo,bridge,chorus,outro",
+  "bars": 68,
+  "mood": "triumphant",
+  "parts": {
+   "song": "20f7c9064be1",
+   "chords": "6d334aa1720b",
+   "strum": "e0b4812e701a",
+   "riff": "ab2d154dd664",
+   "drums": "ed281778ba47",
+   "bass": "8430c7faed1b",
+   "lead": "aaa10cbef485",
+   "solo": "2d211f617c77",
+   "vocal": "dde7153f7d7e",
+   "backing": "126e5fc8f0c0",
+   "other": "f39d75ffe846"
+  }
+ },
+ "meter-11_8": {
+  "sections": "intro,verse,chorus,solo,verse,bridge,chorus,outro",
+  "bars": 64,
+  "mood": "happy",
+  "parts": {
+   "song": "a5fb25f59057",
+   "chords": "bc1d766e5f24",
+   "strum": "484f7ba72f9b",
+   "riff": "219a9f666833",
+   "drums": "fe7d22f31d9b",
+   "bass": "f4ac60c10adf",
+   "lead": "a47b3428c2bc",
+   "solo": "ecaacda0f095",
+   "vocal": "f106d4aa6cde",
+   "backing": "6df3146bff53",
+   "other": "36c25512e974"
+  }
+ },
+ "meter-auto": {
+  "sections": "intro,verse,chorus,interlude,verse,chorus,solo,bridge,chorus,outro",
+  "bars": 92,
+  "mood": "angry",
+  "parts": {
+   "song": "028889ffa87a",
+   "chords": "db3a56a76e1e",
+   "strum": "821ba6ea3a2c",
+   "riff": "afb93070cc24",
+   "drums": "7588f722ce72",
+   "bass": "1bcf2a4ec721",
+   "lead": "910a3a40e793",
+   "solo": "6257c94cb811",
+   "vocal": "41fc22f27990",
+   "backing": "1f613a2ec0b8",
+   "other": "d851182148a4"
+  }
+ },
+ "meter-mixed": {
+  "sections": "intro,verse,chorus,interlude,verse,chorus,solo,bridge,chorus,outro",
+  "bars": 92,
+  "mood": "dark",
+  "parts": {
+   "song": "6d8613ad3fad",
+   "chords": "5df24a15d363",
+   "strum": "24a5a4854cd8",
+   "riff": "08338db6ab0e",
+   "drums": "564cc3c9686b",
+   "bass": "249d4ba8a25f",
+   "lead": "209daadd57ab",
+   "solo": "345a2a2529ff",
+   "vocal": "4175f916a499",
+   "backing": "551f655ec965",
+   "other": "c337d09d5077"
+  }
+ }
+}
