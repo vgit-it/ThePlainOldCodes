@@ -148,6 +148,8 @@ The page fixes the classic vocal writer's settings (`MAIN_VOCAL` in `src/generat
 
 ## Phase 7 (optional, later): smaller files
 
+**`track.ts` DONE 2026-10-25** (1,924 → 870 lines; six files in `src/sections/`: join, energy, harmony, arrangement, seams, guitar2). Pure move; `song-check` identical. `main.ts` next, only if Paul says.
+
 Big files cost the most tokens whenever they have to be read: `src/parts/melody.ts` (2,178 lines), `src/track.ts` (1,922), `src/verse/verse.ts` (1,305), `src/audio/engine.ts` (1,166), `src/parts/soloplan.ts` (1,177), `src/guide/line.ts` (1,218 before Phase 3), `src/main.ts` (771).
 
 - Split only along lines that are already there (e.g. `track.ts`: options and defaults / the song arc / solos and lead / vocals / carry-overs; `main.ts`: the track card, links and sharing, playback buttons).

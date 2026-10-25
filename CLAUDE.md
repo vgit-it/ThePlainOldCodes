@@ -22,6 +22,7 @@ Options + seeds → `src/generator.ts` (the idea: chords, strum, drums, bass, 8 
 
 ## Folder map (`src/`)
 - `generator.ts`, `track.ts`, `idea.ts`, `tension.ts`, `genres.ts`, `sounds.ts`, `rng.ts`: the idea, the track, mood and tension, instrument choice, seeded random.
+- `sections/`: helpers `track.ts` uses to build sections: join (cut and join bars), energy (drums, strum, bass by level), harmony (chord plans), arrangement (intros, builds), seams (hand-overs), guitar2 (guitar 2 and lead extras). `track.ts` keeps the options, the song plan (`buildTrack`) and the vocal.
 - `parts/`: writers for every part (chords, strum, riff, drums, bass, guitar 2, solos `solo*.ts`, licks, layers, vocal and words).
 - `players/`: drummer, bassist, guitarists, lead, hands (string and fret), presence.
 - `verse/`: the lead vocal's melody writer (forms, mood notes, sets, shapes, intervals, bass-led).
