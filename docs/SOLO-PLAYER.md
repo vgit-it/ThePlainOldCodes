@@ -531,3 +531,20 @@ Then: two figures in a bar-long note, pet figures.
 - Dress about 1 short note in 3 (the rest plain)? Pick: **yes**.
 - Push and drag only for melodic and bluesy? Pick: **yes**, up to a 32nd.
 - Build 4a first, you listen, then 4b and 4c? Pick: **yes**.
+
+### 18.8 Built: 4a, dressing one short note (2026-10-25; Paul said go)
+Track options -> Solo writer -> **Melody + player**. Not listened to yet.
+- `src/parts/soloshort.ts`: seven ways, all inside the note's own time, the note keeps its pitch:
+  - **grace**: a quick scale note (or a half step below, bluesy and funky) just before it, 32nd to 16th.
+  - **mordent**: the note, a neighbour, the note, in thirds of the note.
+  - **quick bend**: the note bent up into (half or whole step by mood), strong beats only, only where the bend lands.
+  - **slide in**: from 1 to 3 below (mostly) or 1 to 2 above.
+  - **ghost**: one muted scratch before the note (funky and raw like it, a shredder never).
+  - **drag**: the note a hair late (2/12 to 6/12 of a step). **push**: a hair early; the note before gives up that time.
+  - Each player has a taste for them (`Person.dress`): drag and push only melodic and bluesy; bend mostly bluesy and melodic.
+- The director (`soloplayer.ts`): about 1 short note in 4 is dressed (27% in the numbers). A short note after a dressed note or a flourish stays plain (the breath), at most 2 dressed to a bar, a repeated phrase dresses (or leaves plain) as its source did, no bend after a bend, no push or drag on a snare or crash.
+- Changed from the plan: a **kick** does not stop push and drag, only a snare or crash. With the kick too, 6 in 10 short notes were blocked (the kick is under most 8ths) and push and drag hardly played.
+- The checker: `PEvent.loose` lets a pushed note start up to half a step early (`length` check); everything else as before (speed, overlap, key, pitch heard most, fingering).
+- Checks: `solo-player-check` forces each way on every note it fits (and 300 fuzz melodies), `solo-figure-check` real solos (share dressed 20 to 50%, at least 5 ways played, never two in a row, at most 2 a bar, push and drag only for melodic and bluesy, no bend after a bend, a dressed note never starts by repeating the pitch before it). The figure check now picks the lead as the track does (the band seed), which fixes its by-lead numbers.
+- Numbers (106 solos, 750 short notes): dressed 206 (27%): mordent 59, grace 42, slide 34, drag 32, push 17, bend 16, ghost 6.
+- Not yet: 4b (runs and approaches), 4c (rests and pickups), a triplet burst for the shredder.

@@ -21,14 +21,15 @@ import { buildTrack, defaultTrackOptions } from '../src/track';
 import { type PEvent, type BaseNote, TOL, readBase, sounding } from '../src/parts/soloevents';
 import { performSolo, type PlayerCtx } from '../src/parts/soloplayer';
 import { PLAIN } from '../src/parts/solorules';
+import { SHORT_KINDS } from '../src/parts/soloshort';
 import { LIVE_RULES, NO_RULES } from '../src/parts/solorules-live';
 import { type VCtx, type Violation, describe, unplayable, verify } from '../src/parts/soloverify';
 
 const ALL_RULES = LIVE_RULES.filter((r) => r.name !== 'plain' && r.name !== 'figures');
 /** What is forced, one after the other: each rule alone, and every figure of an intention (a return, a bridge). */
-const FORCED = [...ALL_RULES.map((r) => ({ name: r.name, rules: [PLAIN, r] })), { name: 'return', rules: LIVE_RULES }, { name: 'bridge', rules: LIVE_RULES }, { name: 'bend-run', rules: LIVE_RULES }, { name: 'trill', rules: LIVE_RULES }];
+const FORCED = [...ALL_RULES.map((r) => ({ name: r.name, rules: [PLAIN, r] })), { name: 'return', rules: LIVE_RULES }, { name: 'bridge', rules: LIVE_RULES }, { name: 'bend-run', rules: LIVE_RULES }, { name: 'trill', rules: LIVE_RULES }, ...SHORT_KINDS.map((k) => ({ name: k, rules: LIVE_RULES }))];
 /** Rules that change how the one note is played and add no notes. */
-const SHAPE_ONLY = new Set(['scoop-in', 'bend-in', 'late-bend', 'wide-vibrato']);
+const SHAPE_ONLY = new Set(['scoop-in', 'bend-in', 'late-bend', 'wide-vibrato', 'bend', 'slide', 'drag', 'push']);
 const N = Number(process.env.N ?? 140);
 const F = Number(process.env.F ?? 300);
 const GENRES = ['rock', 'pop', 'funk', 'hardrock', 'metal', 'grunge', 'altmetal'];
@@ -45,8 +46,11 @@ function reread(hits: GuitarHit[], notes: BaseNote[]): PEvent[] {
   return hits.map((hit) => {
     const t = hitTime(hit), e: PEvent = { t, len: hit.len, hit, ...(hit.out ? { out: true } : {}) };
     if (sounding(hit)) {
-      const n = notes.find((x) => t >= x.t - TOL && t < x.t + x.len - TOL);
+      // (a note pushed ahead of its time starts up to a third of a step early: it belongs to the note that follows)
+      const early = notes.find((x) => t < x.t - TOL && t > x.t - 0.4);
+      const n = early ?? notes.find((x) => t >= x.t - TOL && t < x.t + x.len - TOL);
       if (n) e.base = n.i;
+      if (early) e.loose = true;
     }
     return e;
   });
@@ -188,7 +192,7 @@ for (let i = 0; i < N; i++) {
     for (const rule of FORCED) {
       const out = performSolo({ hits: sec.guitar2.map((h: GuitarHit) => ({ ...h })), notes: [], curve: sec.soloCurve }, ctx, rule.rules, { force: rule.name });
       const st = note(rule.name);
-      const used = (out.curve?.moves ?? []).filter((m) => m.rule === rule.name || m.intent === rule.name || (rule.name === 'bend-run' && m.rule.includes('·bend-')) || (rule.name === 'trill' && m.rule.endsWith('·trill'))).length;
+      const used = (out.curve?.moves ?? []).filter((m) => m.rule === rule.name || m.intent === rule.name || (rule.name === 'bend-run' && m.rule.includes('·bend-')) || (rule.name === 'trill' && m.rule.endsWith('·trill')) || m.rule === `dress·${rule.name}`).length;
       st.tried++; st.used += used; st.max = Math.max(st.max, used);
       const again = performSolo({ hits: sec.guitar2.map((h: GuitarHit) => ({ ...h })), notes: [], curve: sec.soloCurve }, ctx, rule.rules, { force: rule.name });
       if (JSON.stringify(out.hits) !== JSON.stringify(again.hits)) fail(`${s} ${rule.name}: the same seed gave another performance`);

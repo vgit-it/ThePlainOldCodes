@@ -159,6 +159,7 @@ const INTENTS: Record<string, number> = {};
 const FELL: Record<string, number> = {};
 const FELL_LEN: Record<string, [number, number]> = {};
 const byLead: Record<string, { n: number; shapes: Record<string, number>; out: number }> = {};
+const DR = { short: 0, dressed: 0, kinds: {} as Record<string, number>, row: 0, perBar: 0, bendAfter: 0, drum: 0, wrongLead: 0, repeat: 0, byLead: {} as Record<string, [number, number]> };
 const RUNS = { bend: 0, trill: 0, bendRow: 0, repeats: 0, byLead: {} as Record<string, [number, number]>, air: 0 };
 let fell = 0, figures = 0, twice = 0, runs = 0, copies = 0, copySame = 0, solos = 0, distinctLow = 0, solosWithFigs = 0;
 const STAIR = ['stair-up', 'stair-down', 'zigzag', 'wave', 'climb', 'climb-zigzag', 'climb-thirds'];
@@ -171,7 +172,7 @@ for (let i = 0; i < N; i++) {
     const rd = sec.soloCurve?.read;
     if (!mv || !rd) continue;
     solos++;
-    const lead = pickLead(s, sec.song.partGenres.strum);
+    const lead = pickLead(`${s}-band`, sec.song.partGenres.strum);
     const L = (byLead[lead.kind] ??= { n: 0, shapes: {}, out: 0 });
     const contours: string[] = [];
     let last = '';
@@ -205,6 +206,33 @@ for (let i = 0; i < N; i++) {
         last = c; runs++;
       } else last = '';
     });
+    // short notes: dressed a third of the time, with a breath between, never piled up, never against a snare or crash by push or drag
+    {
+      const bars = new Map<number, number>();
+      const hits = [...sec.guitar2].filter((h: GuitarHit) => !h.mute && h.notes.length).sort((a: GuitarHit, b: GuitarHit) => hitTime(a) - hitTime(b));
+      rd.notes.forEach((n: NoteRead, k: number) => {
+        const m = mv[k];
+        if (!m || n.len >= 4) return;
+        DR.short++;
+        const bl = (DR.byLead[lead.kind] ??= [0, 0]);
+        bl[1]++;
+        if (m.intent !== 'dress') return;
+        DR.dressed++; bl[0]++;
+        const kind = m.rule.split('·')[1];
+        DR.kinds[kind] = (DR.kinds[kind] ?? 0) + 1;
+        if (mv[k - 1]?.intent === 'dress') { DR.row++; fail(`${s}: two dressed short notes in a row at note ${k}`); }
+        const bar = sec.song.bars.findIndex((b: any) => n.step >= b.start && n.step < b.start + b.len);
+        bars.set(bar, (bars.get(bar) ?? 0) + 1);
+        if (bars.get(bar)! > 2) { DR.perBar++; fail(`${s}: more than two dressed short notes in bar ${bar}`); }
+        if (kind === 'bend' && k >= 1 && (mv[k - 1].rule.includes('bend') || mv[k - 1].rule === 'late-bend')) { DR.bendAfter++; fail(`${s}: a quick bend straight after a bend at note ${k}`); }
+        if ((kind === 'push' || kind === 'drag') && n.tags.some((t) => (t.id === 'on-snare' || t.id === 'on-crash') && t.w >= 0.5)) { DR.drum++; fail(`${s}: ${kind} on a snare or crash at note ${k}`); }
+        if (((kind === 'push' || kind === 'drag') && !['melodic', 'bluesy'].includes(lead.kind)) || (kind === 'ghost' && ['shredder'].includes(lead.kind))) { DR.wrongLead++; fail(`${s}: a ${lead.kind} player plays ${kind}`); }
+        // the first pitch of a dressed note is never the pitch just played (unless the melody itself repeats it)
+        const first = hits.find((h: GuitarHit) => hitTime(h) >= n.step - 0.4 && hitTime(h) < n.step + n.len - 1e-6);
+        const before = [...hits].reverse().find((h: GuitarHit) => hitTime(h) < (first ? hitTime(first) : n.step) - 1e-6);
+        if (first && before && first.notes[0] === before.notes[0] && rd.notes[k - 1]?.midi !== n.midi) { DR.repeat++; fail(`${s}: a dressed note starts by repeating the pitch before it (note ${k}, ${kind})`); }
+      });
+    }
     // never the same pitch twice running inside a note that was played another way
     {
       const hits = [...sec.guitar2].filter((h: GuitarHit) => !h.mute && h.notes.length).sort((a: GuitarHit, b: GuitarHit) => hitTime(a) - hitTime(b));
@@ -237,6 +265,9 @@ console.log(`quick bend then flourish: ${RUNS.bend} (${(100 * share(RUNS.bend, H
 ok(share(RUNS.bend, H.long) > 0.15 && share(RUNS.bend, H.long) < 0.45, `${(100 * share(RUNS.bend, H.long)).toFixed(0)}% of long notes open with a quick bend, not about a quarter`);
 ok(RUNS.bendRow === 0, `${RUNS.bendRow} quick bends in a row`);
 ok(RUNS.trill === 0 || share(RUNS.trill, H.long) < 0.1, 'too many trills');
+console.log(`short notes: ${DR.short}; dressed ${DR.dressed} (${(100 * share(DR.dressed, DR.short)).toFixed(0)}%): ${Object.entries(DR.kinds).map(([k, n]) => `${k} ${n}`).join(', ')}; by lead ${Object.entries(DR.byLead).map(([k, v]) => `${k} ${(100 * share(v[0], v[1])).toFixed(0)}% of ${v[1]}`).join(', ')}`);
+ok(share(DR.dressed, DR.short) > 0.2 && share(DR.dressed, DR.short) < 0.5, `${(100 * share(DR.dressed, DR.short)).toFixed(0)}% of short notes are dressed, not about a third`);
+ok(Object.keys(DR.kinds).length >= 5, `only ${Object.keys(DR.kinds).length} ways of dressing a short note were played`);
 console.log(`  held because no figure fit: ${fell} (${Object.entries(FELL_LEN).sort().map(([k, v]) => `len ${k}: ${v[0]} of ${v[1]}`).join(', ')})`);
 console.log(`  hold share by mood: ${MOODS.map((m) => `${m} ${(100 * share(H.byMood[m]?.[0] ?? 0, H.byMood[m]?.[1] ?? 0)).toFixed(0)}%`).join(', ')}; on a climax ${(100 * share(H.peak[0], H.peak[1])).toFixed(0)}% of ${H.peak[1]}, on a landing ${(100 * share(H.landing[0], H.landing[1])).toFixed(0)}% of ${H.landing[1]}`);
 const hs = (m: string) => share(H.byMood[m]?.[0] ?? 0, H.byMood[m]?.[1] ?? 0);

@@ -66,7 +66,7 @@ const mod = (n: number, m: number) => ((n % m) + m) % m;
 // ---------------------------------------------------------------- the song's scale and chords
 
 const scaleMemo = new WeakMap<object, { notes: number[]; pcs: Set<number> }>();
-function scaleOf(song: Span['ctx']['song']) {
+export function scaleOf(song: Span['ctx']['song']) {
   let s = scaleMemo.get(song);
   if (!s) {
     const pcs = new Set((SCALES[song.mode] as readonly number[]).map((p) => (p + song.key) % 12));
@@ -87,7 +87,7 @@ function chordPcsAt(s: Span, t: number): Set<number> {
 }
 
 /** Whether a time is the start of a beat of its bar. */
-function onBeat(s: Span, t: number): boolean {
+export function onBeat(s: Span, t: number): boolean {
   const song = s.ctx.song;
   const bar = song.bars.find((b) => t >= b.start - 1e-6 && t < b.start + b.len - 1e-6);
   if (!bar) return false;
@@ -153,7 +153,7 @@ const CELLS: Record<string, number[]> = {
 };
 export const CELL_NAMES = Object.keys(CELLS);
 
-const msStep = (s: Span) => 15000 / s.ctx.song.bpm;
+export const msStep = (s: Span) => 15000 / s.ctx.song.bpm;
 
 // ---------------------------------------------------------------- the path of notes
 
@@ -227,7 +227,7 @@ export function figureHead(h: GuitarHit): boolean {
 }
 
 /** The hit as the held note after the head: what the head was reached by (a bend, a slide in) is not played again. */
-function landingHit(h: GuitarHit): GuitarHit {
+export function landingHit(h: GuitarHit): GuitarHit {
   const { bend: _b, slide: _s, rake: _r, ...rest } = h;
   return rest;
 }
