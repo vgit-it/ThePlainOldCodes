@@ -1,3 +1,5 @@
+Status: research — scoping study of vocal melodies in the Lakh MIDI collection.
+
 # Study: vocal melodies in the Lakh MIDI collection
 
 Goal (Paul): can the MIDI collection in `experiments/MidiCollection` help make a better vocal melody writer for the app? This is a scoping study. Nothing in the app has changed.

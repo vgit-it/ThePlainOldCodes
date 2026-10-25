@@ -1,3 +1,5 @@
+Status: always on — licks mined from real lead guitar parts; always on since 2026-10-17, no switch.
+
 # Real licks (switch)
 
 Paul: the solo licks are limiting and the same ones come back a lot. The app's licks were hand-written: about 50 player licks (`src/parts/licks.ts`) and 17 box licks (`src/parts/solo.ts`), and every solo climbed to its peak with one of three cells. The Licks switch in the Guitar 2 row (Classic / Real, Classic by default) adds licks written from real lead guitar parts. Classic: exactly as before (checked note for note over 126 songs, 4/4, 6/8, 3/4). Kept with the idea and in shared links (`leadLicks`).

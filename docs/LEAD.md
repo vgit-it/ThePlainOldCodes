@@ -1,3 +1,5 @@
+Status: live — scope and decisions for the lead guitar (Guitar 2) and solos.
+
 # Lead guitar and solos (scope)
 
 Guitar 2 becomes the band's lead player: it answers the singer through the verses, builds into

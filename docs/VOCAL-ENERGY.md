@@ -1,3 +1,5 @@
+Status: experiment — vocal energy styles; not chosen by the page now (fixed settings), Phase 6 decides.
+
 # Vocal energy styles (2026-10-13)
 
 Paul: the vocal should gel with the band and match the song's energy (not always: exceptions are fine).

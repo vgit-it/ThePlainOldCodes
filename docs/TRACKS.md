@@ -1,3 +1,5 @@
+Status: live — how a track is built from sections (intro, verses, choruses, bridge, outro).
+
 # Tracks: scope (M3)
 
 Turn an 8-bar idea into a full track with sections: intro, verses, choruses, bridge and outro.

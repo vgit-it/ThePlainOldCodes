@@ -1,3 +1,5 @@
+Status: live — the Planned solo writer, landings first (`soloplan.ts`).
+
 # The solo plan (landings first, then the paths between them)
 
 Status: design (2026-10-23); every step built (1 to 6), step 7 (repeat shapes) after Paul's ask, and round 3 (no Twin on solos, the gaps filled) after the next one. Why: the solo writer (`docs/SOLO-NEW.md`, `src/parts/solo2.ts`) builds a solo lick by lick, each lick placed nearest the note before. Listening and measuring (91 solos):

@@ -1,3 +1,5 @@
+Status: experiment — the Grid vocal rhythm; not chosen by the page now (fixed settings), Phase 6 decides.
+
 # Vocal rhythm: the grid (2026-10-13)
 
 A second way of writing the vocal's rhythm, beside the current one (kept: **Classic**, the default).

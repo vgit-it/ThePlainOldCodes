@@ -1,3 +1,5 @@
+Status: research — study of the voices and registers behind the singer.
+
 # Voices and registers: a study (2026-10-12)
 
 This study came from Paul's feedback:

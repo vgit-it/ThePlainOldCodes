@@ -1,3 +1,5 @@
+Status: research — how good solos are built; the evidence behind the solo writers.
+
 # How good solos are built (research notes, 2026-10-11)
 
 The rules the solo generator (`generateSolo`, `src/parts/guitar2.ts`) and the drummer's solo playing

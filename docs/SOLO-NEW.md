@@ -1,3 +1,5 @@
+Status: live — the "As before" solo writer (`solo2.ts`), version one and each round on top.
+
 # The solo writer
 
 The app's solo writer (since 2026-10-17 the only one: the Solo switch and the classic writer are gone), built from how real guitar solos go (`docs/STUDY-SOLO.md`: 2,938 solos in the Lakh MIDI collection) and from classic solos' habits (reference tabs, techniques only, no licks taken). Applies to solo sections, outro solos and lead breaks. Code: `src/parts/solo2.ts`; the notes are played by the shared hands (`playSolo`, `src/parts/solo.ts`).

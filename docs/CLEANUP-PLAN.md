@@ -1,3 +1,5 @@
+Status: live — the phased repo clean-up plan (Phases 0 to 8) and what each phase did.
+
 # Clean-up plan (2026-10-25)
 
 A step-by-step plan to tidy the repo now that the app's goal has changed: from an 8-bar **idea generator** to a **full-song generator with an animated band** playing the song. It is written for a coding agent (e.g. Claude Sonnet) to carry out one phase at a time. Paul (the owner) is a designer, not a full-time developer: keep reports to him short, in plain words, as bullet points.
@@ -120,7 +122,9 @@ Archive (delete from the tree, list in ARCHIVE.md):
 - `.gitignore`: keep `voice-lab/` (local data, 259 MB, never committed).
 - Check: build, snapshot.
 
-## Phase 5: docs tidy (1 PR)
+## Phase 5: docs tidy (1 PR) — DONE 2026-10-25
+
+As built: all 50 docs now start with `Status: <live | always on | experiment | research | history | archived> — <one line>` (two words added to the plan's four: `research`, `history`); `docs/README.md` explains them (`head -qn1 docs/*.md` lists them all). The five LEAD-* docs say "always on since 2026-10-17, no switch". The five older vocal writer docs are `experiment` (the page fixes its vocal settings in `MAIN_VOCAL`); Phase 6 decides. Nothing else was moved (the Guide docs moved in Phase 3). No code changed.
 
 1. Move docs that describe removed or replaced things to `docs/archive/` (keep their names). Candidates, read each before moving:
    - Guide docs (Phase 3).

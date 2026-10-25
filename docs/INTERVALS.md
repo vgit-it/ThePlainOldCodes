@@ -1,3 +1,5 @@
+Status: live — how the verse melody carries the mood through its intervals (built, `src/verse/intervals.ts`).
+
 # Intervals: melodies that carry the mood (plan)
 
 Goal: the lead vocal (the verse melody writer, `src/verse/`) conveys the song's Mood through **which intervals it sings**, not only through hooks, endings and register.

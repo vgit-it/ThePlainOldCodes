@@ -1,3 +1,5 @@
+Status: always on — the Words first vocal rhythm; fixed in the page's vocal settings.
+
 # Vocal rhythm: Words first (2026-10-14)
 
 A third way of writing the vocal's rhythm, beside **Classic** and **Grid** (both kept). Paul: building

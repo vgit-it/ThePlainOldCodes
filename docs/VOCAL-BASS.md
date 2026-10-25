@@ -1,3 +1,5 @@
+Status: live — the bass-led vocal writer and its Bass share slider.
+
 # The bass-led vocal
 
 The Writer menu on the Vocal melody card has a third entry, **New · bass-led** (`vocalWriter: 'bass'`), and a **Bass share** slider next to it (0-100%, default 70%, stored as `vocalBassShare`; it only works with the bass-led writer, and 0% is the New writer exactly). It is not a new engine: it is the verse writer (`src/verse/`, `docs/VERSE-SECTIONS.md`) with the bass line as the start of the line instead of a plain 8th-note grid. Code: `src/verse/bassline.ts`, hooked into `build.ts`; check: `npm run bass-vocal-check`.

@@ -1,3 +1,5 @@
+Status: archived — the Guide line writer, removed in clean-up Phase 3.
+
 > **Archived 2026-10-25.** The Guide line writer this describes was removed from the code (clean-up Phase 3). The code is in git: see `docs/ARCHIVE.md`.
 
 # Guide line (experiment, 2026-10-14)

@@ -1,3 +1,5 @@
+Status: live — the melody step of the solo writer; lives on inside Melody + player.
+
 # Solo melody: the melody step (Step 0 of the planned solo writer)
 
 Paul (2026-10-24): the solos don't sound melodic. Add a first step that writes a melody from the chords' core notes with the vocal's interval theory, long notes (up to a bar) and short ones (up to a quarter bar), never more than a beat of silence. He wants to hear this step alone.

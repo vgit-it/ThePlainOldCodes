@@ -1,3 +1,5 @@
+Status: always on — a library of real vocal rhythms and shapes; the Patterns setting is fixed on.
+
 # Patterns: a library of real vocal rhythms and shapes
 
 Option 2 from `docs/STUDY-LAKH.md`, on top of `docs/REALISM.md`. A **Patterns** switch in the vocal row and in the Guide line card (Both writers). Off by default; off, everything is exactly as before (checked: vocals, backing and notes byte for byte against the last commit, `npm run melody-lab` identical, `npm run guide-check` all 168 songs the same).

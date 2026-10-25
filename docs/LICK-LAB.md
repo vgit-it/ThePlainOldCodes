@@ -1,3 +1,5 @@
+Status: live — the lick lab page (`lick-lab.html`), built and deployed, not linked.
+
 # Lick lab
 
 Page (`lick-lab.html`, `src/lab/lickLab.ts`; `npm run dev`, then `/lick-lab.html`; built and deployed with the app, not linked from it). Pick a key and a jam, tap a lick, hear it over the band.

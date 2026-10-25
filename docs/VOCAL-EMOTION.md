@@ -1,3 +1,5 @@
+Status: live — study of emotion in the vocal's notes; its ideas are the verse writer's mood-note switches.
+
 # Emotion in the vocal's notes and runs (study, 2026-10-21)
 
 Paul's findings (mode as brightness, feeling per scale degree, contour, expectation, four axes) checked

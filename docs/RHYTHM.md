@@ -1,3 +1,5 @@
+Status: live — research and build notes for the rhythm guitar.
+
 # Rhythm guitar: research notes and how it's built (2026-10-12)
 
 Paul: approach the rhythm guitar like the solos: research an exhaustive set of techniques and adapt

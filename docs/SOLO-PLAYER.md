@@ -1,3 +1,5 @@
+Status: experiment — Melody + player: the melody handed to a guitarist (`solomelody.ts`, `soloplayer.ts`); Paul is listening.
+
 # Solo player: the melody handed to a guitarist (scope, version 2)
 
 > **Menu (2026-10-25):** only **Melody + player** is in the Solo writer menu now (with As before and Planned). Melody + read and the earlier steps live on inside it; the checks reach them through `soloCheck`. See `docs/CLEANUP-PLAN.md` Phase 2.
