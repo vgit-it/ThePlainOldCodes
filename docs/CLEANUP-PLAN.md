@@ -34,10 +34,11 @@ A step-by-step plan to tidy the repo now that the app's goal has changed: from a
 
 ---
 
-## Phase 0: safety net (1 PR)
+## Phase 0: safety net (1 PR) — DONE 2026-10-25 (the tag could not be pushed from the coding session; see `docs/ARCHIVE.md`)
 
 1. **Tag the current state** and push the tag:
    `git tag archive/before-cleanup origin/main && git push origin archive/before-cleanup`
+   (From the coding session the tag push is refused by the git proxy. The tag then has to be made on GitHub by Paul: Releases → new release → new tag `archive/before-cleanup` on commit `ea84fd7`. Until it exists, ARCHIVE.md points to that commit.)
    (Existing tags: `voices-v1-klatt`, `voices-v2-voicebox`.)
 2. **Song snapshot**: `scripts/song-check.ts`, wired up in `package.json` the same way as the other checks (`rolldown ... && node ...`).
    - Make songs exactly as the page does: `generate({ ...opts, ...MAIN_METHOD }, seeds)` (`src/generator.ts`, see `src/main.ts` line ~33), then `buildTrack(idea, opts)` (`src/track.ts`).
