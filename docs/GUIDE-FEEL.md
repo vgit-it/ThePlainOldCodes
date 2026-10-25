@@ -1,5 +1,7 @@
 # Human feel (Guide line switch; 2026-10-15)
 
+> **Note (2026-10-25):** the Guide card is gone. `src/guide/feel.ts` is still live: the singer uses it.
+
 Paul: "immediate jumps between notes ... not very human like"; a split-second bend into a sound; words
 fading out at their end; a singer not hitting the note or full energy at once; by the energy and the singer.
 **Human feel: Off / On** in the Guide line card (`src/guide/feel.ts`). Only how the line is played and sung:

@@ -11,12 +11,9 @@ import type { Genre } from '../src/genres';
 import { buildTrack, defaultTrackOptions } from '../src/track';
 import { chordTones } from '../src/parts/guitar2';
 import { MINORISH } from '../src/parts/guitar2';
-import type { GuideIdeas } from '../src/guide/line';
-import { sungSong, writeLine } from '../src/guide/real';
 import { guardRewrites } from '../src/parts/vocal';
 import { PATTERN_COVERAGE, type QNote, RHYTHMS, SHAPES, copiesReal, leanOf, rhythmKeys, shapeKeys } from '../src/realism/patterns';
 import { chordPc } from '../src/theory';
-import { SKEL_COVERAGE, SKEL_SHAPES, TIMINGS, skelLean, skeleton, skeletonShapes, timingKeys } from '../src/realism/skeleton';
 import targets from '../src/realism/targets.json';
 import arcData from '../src/realism/arc.json';
 import wordsData from '../src/realism/words.json';
@@ -30,9 +27,6 @@ const WRITERS = [
   ['shaped', { vocalMelody: 'shaped' }], ['grid+shaped', { vocalRhythm: 'grid', vocalMelody: 'shaped' }], ['words+shaped', { vocalRhythm: 'words', vocalMelody: 'shaped' }],
   ['first', { vocalMelody: 'first' }], ['grid+first', { vocalRhythm: 'grid', vocalMelody: 'first' }], ['words+first', { vocalRhythm: 'words', vocalMelody: 'first' }],
   ['learned', { vocalMelody: 'learned' }], ['grid+learned', { vocalRhythm: 'grid', vocalMelody: 'learned' }], ['words+learned', { vocalRhythm: 'words', vocalMelody: 'learned' }],
-  // the Guide line card's writers (src/guide/): quick notes Some (the card's default), leaning in
-  ['guide', { guide: {} }], ['guide all on', { guide: { motif: true, spine: true, speech: true, qa: true, breath: true, shift: true, leadIn: true } }],
-  ['anchor', { guide: { anchor: true } }], ['anchor all on', { guide: { anchor: true, hook: true, color: true, best: true, arc: true, band: true, spine: true, breath: true, leadIn: true } }],
 ] as const;
 const T = targets as unknown as Record<string, Profile>;
 
@@ -46,25 +40,13 @@ const cov = { r: 0, rN: 0, s: 0, sN: 0, rx: 0, sx: 0 };
 /** The patterns the writers sing less than real songs do (lean.json: picked 1.5x or more; the Anchor line's own): what Patterns adds. */
 const RARE = 1.5;
 const R_SET = new Set(RHYTHMS.map((r) => r[0])), S_SET = new Set(SHAPES.map((r) => r[0]));
-/** The Guide line's slow line (src/realism/skeleton.ts): 2-bar timings and 4-note shapes in the skeleton library, and the ones it lacks (skeleton-lean.json 1.5x or more). */
-const skel = { t: 0, tN: 0, s: 0, sN: 0, tx: 0, sx: 0 };
-const T_SET = new Set(TIMINGS.map((r) => r[0])), SK_SET = new Set(SKEL_SHAPES.map((r) => r[0]));
-/** About how much of real songs' own slow line is the patterns the Guide line lacks (the library's coverage times their share of it). */
-const realLack = (rows: typeof TIMINGS, kind: 'timing' | 'shape', cover: number) => { const rs = kind === 'shape' ? rows.filter((r) => r[0].split(',').length === 3) : rows; const all = rs.reduce((x, r) => x + r[1], 0); return (cover * rs.filter((r) => skelLean(kind, r[0]) >= RARE).reduce((x, r) => x + r[1], 0)) / Math.max(1, all); };
-const REAL_LACK = { t: realLack(TIMINGS, 'timing', SKEL_COVERAGE.timing), s: realLack(SKEL_SHAPES, 'shape', SKEL_COVERAGE.shape4) };
-function skelCoverage(qs: QNote[], song: RSong, rel: (n: QNote) => string) {
-  const sk = skeleton(qs);
-  for (const k of timingKeys(sk)) { skel.tN++; if (T_SET.has(k)) { skel.t++; if (skelLean('timing', k) >= RARE) skel.tx++; } }
-  for (const k of skeletonShapes(sk, song.tonic, song.minor, rel).filter((x) => x.split(',').length === 3)) { skel.sN++; if (SK_SET.has(k)) { skel.s++; if (skelLean('shape', k) >= RARE) skel.sx++; } }
-}
-function coverage(sections: any[], song: RSong, anchor = false, guide = false) {
+function coverage(sections: any[], song: RSong) {
   const roots: number[] = [];
   for (const sec of sections) for (let st = 0; st < sec.song.total; st++) roots.push(chordPc(sec.song.key, sec.chords.timeline[sec.chords.chordIdx[st]].chord));
   const qs: QNote[] = song.notes.map((n) => ({ q: Math.round(n.s * 4), e: n.e * 4, p: n.p }));
   const rel = (n: QNote) => { const iv = ((n.p - (roots[n.q] ?? 0)) % 12 + 12) % 12; return iv === 0 ? 'R' : iv === 3 || iv === 4 ? '3' : iv === 7 ? '5' : song.bandAt(n.q / 4).has(n.p % 12) ? 'c' : 'n'; };
-  for (const k of rhythmKeys(qs)) { cov.rN++; if (R_SET.has(k)) { cov.r++; if (leanOf(anchor ? 'anchorRhythm' : 'rhythm', k) >= RARE) cov.rx++; } }
-  for (const k of shapeKeys(qs, song.tonic, song.minor, rel, [4])) { cov.sN++; if (S_SET.has(k)) { cov.s++; if (leanOf(anchor ? 'anchorShape' : 'shape', k) >= RARE) cov.sx++; } }
-  if (guide) skelCoverage(qs, song, rel);
+  for (const k of rhythmKeys(qs)) { cov.rN++; if (R_SET.has(k)) { cov.r++; if (leanOf('rhythm', k) >= RARE) cov.rx++; } }
+  for (const k of shapeKeys(qs, song.tonic, song.minor, rel, [4])) { cov.sN++; if (S_SET.has(k)) { cov.s++; if (leanOf('shape', k) >= RARE) cov.sx++; } }
 }
 /** Line starts (docs/VOCAL-LEARNED.md): the scale note each phrase starts on, per genre, as lakh-learned.ts counts real songs (a phrase: after a rest of a beat or more, or 4 beats from one note's start to the next). */
 const starts: Record<string, number[]> = {};
@@ -139,28 +121,8 @@ function wordsOf(secs: any[]) {
 }
 const medOf = (xs: number[]) => { const a = [...xs].sort((x, y) => x - y); return a[Math.floor(a.length / 2)] ?? 0; };
 const q = (xs: number[], f: number) => { const a = [...xs].sort((x, y) => x - y); return a[Math.floor(a.length * f)] ?? 0; };
-function measureTrack(g: Genre, i: number, extra: { guide?: GuideIdeas; vocalReal?: boolean; vocalPatterns?: boolean }): SongMeasure {
+function measureTrack(g: Genre, i: number, extra: { vocalReal?: boolean; vocalPatterns?: boolean }): SongMeasure {
   const s = `${g}-${i}`;
-  if (extra.guide) {
-    const idea = generate({ genre: g, meter: '4/4', weirdness: 0.3 } as Parameters<typeof generate>[0], { song: s, chords: s + 'c', drums: s + 'd', strum: s + 's', bass: s + 'b', vocal: s + 'v' });
-    const tr = buildTrack(idea, defaultTrackOptions(idea));
-    const line = writeLine(tr.sections, tr.mood, 'in', 0, 'some', null, { ...extra.guide, ...(extra.vocalReal ? { real: true } : {}), ...(extra.vocalPatterns ? { patterns: true } : {}) }, null, null);
-    const sg = sungSong(tr.sections, line, 0);
-    coverage(tr.sections, sg, !!extra.guide.anchor, !extra.guide.anchor);
-    // (the copy guard on the whole line, as sung)
-    const steps = sg.notes.map((n) => ({ step: n.s * 4, midi: n.p }));
-    sectionsSung++;
-    if (copiesReal(steps)) copies++;
-    if (exact && copiesReal(steps, 16, (x) => exact.has(x))) exactCopies++;
-    {
-      const byK: Record<string, { s: number; e: number; p: number }[]> = {};
-      let o = 0;
-      const spans = tr.sections.map((x) => { const r = [o, o + x.song.total / 4, x.section?.kind] as const; o += x.song.total / 4; return r; });
-      for (const n of sg.notes) { const sp = spans.find(([a, b]) => n.s >= a && n.s < b); if (sp && (sp[2] === 'verse' || sp[2] === 'chorus')) (byK[sp[2]] ??= []).push(n); }
-      arcOf(byK);
-    }
-    return measureSong(sg);
-  }
   const idea = generate({ genre: g, meter: '4/4', weirdness: 0.3, ...extra } as Parameters<typeof generate>[0], { song: s, chords: s + 'c', drums: s + 'd', strum: s + 's', bass: s + 'b', vocal: s + 'v' });
   const tr = buildTrack(idea, defaultTrackOptions(idea)) as any;
   const notes: RNote[] = [];
@@ -214,7 +176,7 @@ for (const [label, extra] of WRITERS) {
   if (process.env.MODE && process.env.MODE !== label) continue;
   const all: Record<string, Profile> = {};
   for (const real of runs) {
-    copies = 0; sectionsSung = 0; exactCopies = 0; cov.r = cov.rN = cov.s = cov.sN = cov.rx = cov.sx = 0; skel.t = skel.tN = skel.s = skel.sN = skel.tx = skel.sx = 0; arcs.height = []; arcs.pace = []; arcs.len = []; for (const k in starts) delete starts[k]; for (const k in wordsM) delete wordsM[k]; const rewrites0 = guardRewrites;
+    copies = 0; sectionsSung = 0; exactCopies = 0; cov.r = cov.rN = cov.s = cov.sN = cov.rx = cov.sx = 0; arcs.height = []; arcs.pace = []; arcs.len = []; for (const k in starts) delete starts[k]; for (const k in wordsM) delete wordsM[k]; const rewrites0 = guardRewrites;
     const scores: string[] = [];
     const pooled: SongMeasure[] = [];
     let total = 0;
@@ -240,7 +202,6 @@ for (const [label, extra] of WRITERS) {
     console.log(`${''.padEnd(18)} patterns: bars with a library rhythm ${pc(cov.r / Math.max(1, cov.rN))}, 4-note shapes in the library ${pc(cov.s / Math.max(1, cov.sN))} (real songs: ${pc(PATTERN_COVERAGE.rhythm)}, ${pc(PATTERN_COVERAGE.shape4)}); the ones the writers lack: rhythms ${pc(cov.rx / Math.max(1, cov.rN))}, shapes ${pc(cov.sx / Math.max(1, cov.sN))}`);
     const RA = (arcData.genres as Record<string, Record<string, number>>).all;
     console.log(`${''.padEnd(18)} chorus vs verse: height ${medOf(arcs.height).toFixed(1)} (${q(arcs.height, 0.25).toFixed(1)} to ${q(arcs.height, 0.75).toFixed(1)}), notes a beat x${medOf(arcs.pace).toFixed(2)}, note length x${medOf(arcs.len).toFixed(2)} (real songs: ${RA.height.toFixed(1)} (${RA.heightP25.toFixed(1)} to ${RA.heightP75.toFixed(1)}), x${RA.pace.toFixed(2)}, x${RA.len.toFixed(2)})`);
-    if (skel.tN) console.log(`${''.padEnd(18)} slow line: 2-bar timings in the skeleton library ${pc(skel.t / skel.tN)}, 4-note shapes ${pc(skel.s / Math.max(1, skel.sN))} (real songs: ${pc(SKEL_COVERAGE.timing)}, ${pc(SKEL_COVERAGE.shape4)}); the ones the Guide line lacks: timings ${pc(skel.tx / skel.tN)}, shapes ${pc(skel.sx / Math.max(1, skel.sN))} (real songs about ${pc(REAL_LACK.t)}, ${pc(REAL_LACK.s)})`);
     if (startsGap()) console.log(`${''.padEnd(18)} ${startsGap()}`);
     const RW = (wordsData.genres as Record<string, Record<string, number>>).all;
     if (wordsM.rate?.length) console.log(`${''.padEnd(18)} words: ${medOf(wordsM.rate).toFixed(1)} syllables a second, chorus x${medOf(wordsM.chorusRate ?? [0]).toFixed(2)}, over 2+ notes ${pc(medOf(wordsM.melisma))}, on a 16th ${pc(medOf(wordsM.on16))}, soft line endings ${pc(medOf(wordsM.fem))}, ${medOf(wordsM.lineSyl)} a line (real songs: ${RW.rate.toFixed(1)}, x${RW.chorusRate.toFixed(2)}, ${pc(RW.melisma)}, ${pc(RW.on16)}, ${pc(RW.fem)}, ${RW.lineSyl})`);

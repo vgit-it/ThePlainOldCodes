@@ -25,7 +25,7 @@ Options + seeds → `src/generator.ts` (the idea: chords, strum, drums, bass, 8 
 - `parts/`: writers for every part (chords, strum, riff, drums, bass, guitar 2, solos `solo*.ts`, licks, layers, vocal and words).
 - `players/`: drummer, bassist, guitarists, lead, hands (string and fret), presence.
 - `verse/`: the lead vocal's melody writer (forms, mood notes, sets, shapes, intervals, bass-led).
-- `guide/`: old Guide-line code. Only `tune.ts`, `words.ts`, `feel.ts` and some helpers in `line.ts` are still used (by the singer).
+- `guide/`: what the singer uses from the old Guide card: `tune.ts`, `words.ts`, `feel.ts`, and `line.ts` (types and numbers only). The Guide writers are gone (`docs/ARCHIVE.md`).
 - `realism/`: numbers measured from real songs (patterns, targets, licks) that the writers lean on.
 - `audio/`: playback engine, mixer, samples, real amps, the singer (formant / FOF voices) and its workers.
 - `band/`: pixel band view and video render (`band.html`).
