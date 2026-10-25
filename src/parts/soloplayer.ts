@@ -43,6 +43,8 @@ export interface PlayerCtx {
   kind: SectionKind;
   /** Breath switch (docs/SOLO-MELODY.md, step 0f): after a busy stretch of quick notes, the next note (and the rest before it) is left as written. */
   breath?: boolean;
+  /** Grid switch (step 0f): in a straight groove the player's figures start and land on the 8th (no odd 16ths, no triplets). */
+  grid?: boolean;
 }
 
 /** Breath switch: this many quick events (under a beat) in a row count as a busy stretch. */
