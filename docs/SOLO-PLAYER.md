@@ -450,6 +450,15 @@ What it is: the note is **bent quickly into pitch** (struck a half or whole step
 - The checker: the bend must land (the existing `bend` code covers it) and the flourish must finish before the note ends; the hands must find the fingering for the bend then the run.
 - The Played row names it `bend·run`, `bend·turn`; the tap detail says "quick bend, then a run back to the note".
 
+### 17.3b Uneven flourishes: random note lengths and rare 16th gaps (Paul, 2026-10-25)
+The flourish should not be a ruler of equal notes. Two additions, both inside the time the note has:
+- **Random note lengths.** The flourish's notes are drawn from a small set of lengths (a 16th, a triplet, an 8th, a dotted 16th, now and then a 32nd where the tempo allows) and the draw is random, within a few feel rules: a run tends to start quick and may slow into the landing (or the reverse), the last note before the landing is not the shortest, never more than three equal lengths in a row. This replaces the fixed cells (`even`, `long-short`...) for flourishes; the other figures keep their cells for now.
+- **Gaps of one 16th, rarer.** A silent 16th between two notes of the flourish (a breath, as a player lifts). About one flourish in four has one, never more than one in a flourish (two only in a bar-long flourish of the shredder), never right after the bend (the bend rings into the run) and never right before the landing note (it must come in on time). The loose players (bluesy, raw, funky) leave gaps most, the shredder least. A gap is a real rest: the note before it is written short and marked `exact`, so the engine does not hold it on through the rest.
+- **The space is the limit.** Everything fits the span the note gives: the lengths and the gap add up exactly to the span (head + flourish + landing), and the flourish is never given more notes than the space can hold at a playable speed (a pick stays above 60 ms, a hammer-on or pull-off above 40 ms; the gap is counted as time used). When a draw does not fit, it is drawn again, then falls to an even cell, then to the old figure.
+- **Checker**: the existing rules already cover it (the sound stays inside the note's time, the pitch heard most, the speed floor); the silence rule allows a gap up to a beat, so a 16th is fine. Added: a gap only where the rule says (not first, not before the landing) and the notes' lengths add up with the gap to the span.
+- **Shown**: the Played row's tap detail lists the lengths (for example "16 16 trip trip 8 . 16") with the gap marked.
+- Later, if it sounds right: the same unevenness and rare gaps for the other figures (returns, bridges), at a lower rate.
+
 ### 17.4 The bug: end-of-solo bends that did not play (fixed 2026-10-25)
 The solo's last note rings on into the next section and bends to its first chord (`carrySolo`, `docs/SOLO-PLAN.md` round 2). The roll draws that bend at the end of the solo. Two things kept it from being heard:
 - **The bend began on the bar line**, exactly where the next section takes over: the lead's level steps down (the solo's lead boost goes, the next section's level comes in; about 12 dB lower measured in a real render) and the note has been ringing for 2 seconds, so the move was almost gone. **Fixed**: the move now **ends** on the bar line (it starts about a quarter second before), so it is heard in the solo's own level as the chord arrives. Rendered and measured: the pitch now rises (208 Hz to 233 Hz) in the last 0.2 s of the solo, loud.
@@ -460,7 +469,7 @@ The solo's last note rings on into the next section and bends to its first chord
 ### 17.5 Sub-steps (each one heard)
 1. **Out go the repeaters** (17.1): remove the six rules and the flurry intention, move their weight, update the checks (`solo-rules-check`, `solo-figure-check`, `solo-player-check`: no repeated pitch, the hold share unchanged at about 25%, return and bridge up).
 2. **Trill at the tempo** (17.2): the trill as written notes; a check across tempos 60 to 200 (every note gap between 70 and 180 ms, the last note on the main pitch on the grid).
-3. **Bend-flourish** (17.3): the quick head, the quick shapes, the mood bend size, the player's taste; a check that about a third of long notes get it, that no two in a row, and that the bend lands and the run fits.
+3. **Bend-flourish** (17.3 and 17.3b): the quick head, random lengths and rare 16th gaps, the quick shapes, the mood bend size, the player's taste; a check that about a third of long notes get it, that no two in a row, and that the bend lands and the run fits.
 4. Then the rest of the 15.9 list (two figures in a bar-long note, pet figures, push and drag) and step 4 (short notes, joints, rests) on the same composer: the quick bend and the flourish are first-class there too (a quick bend into a short note, a flourish in a joint).
 
 ### 17.6 Questions (my picks first)
