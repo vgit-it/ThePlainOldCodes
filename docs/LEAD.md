@@ -51,7 +51,7 @@ The section:
 - Track option "Solo: Auto / On / Off"; shown as "Solo" in the sections (and in Add after…), with its own
   "New solo" reroll.
 
-As built (`src/parts/solo.ts`, rules in `docs/SOLO-THEORY.md`; placement in `src/track.ts`):
+As built (the classic writer in `src/parts/solo.ts` is gone since the clean-up, see `docs/ARCHIVE.md`; the notes are still played by `playSolo` there, rules in `docs/SOLO-THEORY.md`; placement in `src/track.ts`):
 - Where: after the 2nd chorus (70%), else after the 1st (taking the interlude's place); 20% of songs
   also solo over the outro. Hand-edited orders keep what you set.
 - 8 bars over the verse (60%) or chorus (40%) chords; metal and hard rock 16 bars half the time (back

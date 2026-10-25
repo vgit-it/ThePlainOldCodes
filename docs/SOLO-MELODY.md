@@ -3,7 +3,7 @@
 Paul (2026-10-24): the solos don't sound melodic. Add a first step that writes a melody from the chords' core notes with the vocal's interval theory, long notes (up to a bar) and short ones (up to a quarter bar), never more than a beat of silence. He wants to hear this step alone.
 
 ## What it is (`src/parts/solomelody.ts`, `npm run solo-melody-check`)
-- Switch: Track options → Solo writer → **Melody only (chord notes, plain)** (`soloPlan: 'melody'`; old links unchanged).
+- Switch: since 2026-10-25 the Solo writer menu has three entries (As before, Planned, **Melody + player**). This step lives on inside Melody + player; the stand-alone entries (Melody only, + gap marks, + joins, + read) are gone from the menu. The checks still reach them through `soloCheck` in the track options (`'melody'`, `'marks'`, `'joins'`, `'player'`), which the page never sets. Old links that carry a removed entry play as As before. Text below describing those menu entries is history.
 - The solo section plays only this melody on Guitar 2: a pick on every note, no bends, slides or vibrato. (The band's own habits still apply: the lead's feel follows the drummer, the last note is carried into the next section.)
 
 ## Notes

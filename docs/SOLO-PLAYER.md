@@ -1,5 +1,7 @@
 # Solo player: the melody handed to a guitarist (scope, version 2)
 
+> **Menu (2026-10-25):** only **Melody + player** is in the Solo writer menu now (with As before and Planned). Melody + read and the earlier steps live on inside it; the checks reach them through `soloCheck`. See `docs/CLEANUP-PLAN.md` Phase 2.
+
 Paul (2026-10-24): take everything built up to Melody + joins and treat it as if it were handed to a guitarist: work out how to play it well and add flourishes like a pro. Built from single **skills**, arranged in meaningful ways.
 
 Version 2 (same day) after Paul's answers: the **core is substitution**. The player replaces a note, or a stretch of notes, with a different way of playing it, **without losing the note itself** (one long note becomes a triplet pulse on that same note and then a hold). It must be very robust, have the **personality of the player**, find **several ways** for each spot, and decide the options by **recognising the arrangement** of the input, with mood, energy and drums counted in.

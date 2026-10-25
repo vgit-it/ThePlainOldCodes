@@ -68,7 +68,9 @@ A step-by-step plan to tidy the repo now that the app's goal has changed: from a
 6. **`docs/SPEC.md`**: add a short note at the top that the v1 idea-generator spec is history and the current goal is in CLAUDE.md. Don't rewrite it.
 7. Check: `npm run build`, `npm run song-check` (nothing in code changed, so it must pass).
 
-## Phase 2: solo writer menu down to three (1 PR)
+## Phase 2: solo writer menu down to three (1 PR) — DONE 2026-10-25
+
+As built: the menu has three entries; `soloPlan` is `'on' | 'off' | 'perform'`; old values in links play as `off` (done once in `buildTrack`, which also hands the cleaned options back to the page). The classic writer is gone from `src/parts/solo.ts`. **Kept on purpose:** the melody writer's `plain` / `marks` / `joins` modes and the player's no-rules pass, because `solo-gaps-check`, `solo-player-check`, `solo-melody-check` and `solo-read-check` need them. They are reached through a check-only `soloCheck` option that the page never sets (so those four scripts stay and now say `soloCheck`). The roll's gap marks and reading stay, since Melody + player shows them too. `song-check` unchanged.
 
 1. `index.html` `#t-soloplan`: keep only `off` "As before", `on` "Planned (landings first)", `perform` "Melody + player (long notes become licks that come back to the note)".
 2. `src/track.ts`: `TrackOptions.soloPlan` type → `'on' | 'off' | 'perform'`. Simplify the two solo branches (~lines 1670–1695, solo sections and lead breaks): `perform` → `generateSoloMelody(..., 'joins')` then `playSolo(sol, ..., true)`; `on` → the planned writer; otherwise solo2. Drop `MELODY_PLANS`.
