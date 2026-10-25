@@ -30,6 +30,7 @@ Options + seeds → `src/generator.ts` (the idea: chords, strum, drums, bass, 8 
 - `realism/`: numbers measured from real songs (patterns, targets, licks) that the writers lean on.
 - `audio/`: playback engine, mixer, samples, real amps, the singer (formant / FOF voices) and its workers.
 - `band/`: pixel band view and video render (`band.html`).
+- `page/`: the page's link, export and real-sound buttons (`share.ts`, `exporter.ts`, `real.ts`). `main.ts` keeps the state and the rest of the wiring.
 - `ui/`: page cards (controls, roll, neck view, chord editor, locks).
 - `export/`: MIDI and audio export. `theory/`, `rhythm/`: chords, scales, voicings, meters.
 - `lab/`: tools. `lickLab.ts` is live (`lick-lab.html`, built, not linked); `measure.ts` and `words.ts` serve the scripts. The old lab pages, `spike/` and `experiments/` are gone (`docs/ARCHIVE.md`).

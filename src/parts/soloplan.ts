@@ -92,6 +92,8 @@ export interface PlanOpts {
   tension?: number[];
   /** The drums of the section (kick and snare lanes): long notes and landings are pulled onto the beat or a hit (round 4). */
   drums?: { kick: number[]; snare: number[] };
+  /** Melody writer only (docs/SOLO-MELODY.md, step 0f): a phrase repeats its first beat or two of rhythm, so the tune can be followed. */
+  rhythmMotif?: boolean;
 }
 
 export function generateSoloPlan(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, hook: GuitarHit[] | null, intensity = 0.7, o: PlanOpts = {}): Guitar2Part {
