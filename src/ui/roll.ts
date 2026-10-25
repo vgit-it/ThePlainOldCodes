@@ -109,7 +109,7 @@ export function buildRoll(root: HTMLElement) {
     return `Note ${k + 1} · ${noteName(n.midi)} · ${n.facts.beats} beats\n` +
       (Object.keys(READ_FAMILY) as ReadTag['family'][]).map((f) => { const t = n.tags.filter((x) => x.family === f); return t.length ? `${READ_FAMILY[f]}: ${t.map((x) => `${x.id} ${x.w}`).join(', ')}` : ''; }).filter(Boolean).join('\n') +
       (cells.length ? `\nIn a cell: ${cells.join(', ')}` : '') + (ph ? `\nPhrase ${rd.phrases.indexOf(ph) + 1} (${ph.role || 'tail'}, bars ${ph.bars[0] + 1}-${ph.bars[1] + 1}): ${ph.tags.map((t) => t.id).join(', ') || '-'}` : '') +
-      (mv ? `\nPlayed: ${mv.rule === 'plain' ? `as written${mv.note ? ` (${mv.note})` : ''}` : mv.rule}${mv.scores?.length ? ` · the player's scores: ${mv.scores.map(([a, b]) => `${a} ${b}`).join(', ')}` : ''}` : '') +
+      (mv ? `\nPlayed: ${mv.rule === 'plain' ? `${mv.intent === 'stay' ? 'held as it is' : 'as written'}${mv.note ? ` (${mv.note})` : ''}` : mv.rule}${mv.fig ? ` · moves by ${mv.fig}` : ''}${mv.intent ? ` · the note is for: ${mv.intent}` : ''}${mv.scores?.length ? ` · the player's scores: ${mv.scores.map(([a, b]) => `${a} ${b}`).join(', ')}` : ''}` : '') +
       (jn ? `\nThe space to the next note: ${jn}` : '') + `\nThe feel the moment wants: ${Object.entries(n.feel).map(([a, b]) => `${a} ${b}`).join(' · ')}\n${facts}`;
   };
   inner.addEventListener('click', (e) => {

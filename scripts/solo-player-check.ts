@@ -24,7 +24,9 @@ import { PLAIN } from '../src/parts/solorules';
 import { LIVE_RULES, NO_RULES } from '../src/parts/solorules-live';
 import { type VCtx, type Violation, describe, unplayable, verify } from '../src/parts/soloverify';
 
-const ALL_RULES = LIVE_RULES.filter((r) => r.name !== 'plain');
+const ALL_RULES = LIVE_RULES.filter((r) => r.name !== 'plain' && r.name !== 'figures');
+/** What is forced, one after the other: each rule alone, and every figure of an intention (a return, a bridge). */
+const FORCED = [...ALL_RULES.map((r) => ({ name: r.name, rules: [PLAIN, r] })), { name: 'return', rules: LIVE_RULES }, { name: 'bridge', rules: LIVE_RULES }];
 /** Rules that change how the one note is played and add no notes. */
 const SHAPE_ONLY = new Set(['scoop-in', 'bend-in', 'late-bend', 'wide-vibrato', 'trill']);
 const N = Number(process.env.N ?? 140);
@@ -41,7 +43,7 @@ const codes = (v: Violation[]) => [...new Set(v.map((x) => x.code))];
 /** The hits of a performance read again with no help from the player: each sounding event belongs to the melody note whose time it starts in. */
 function reread(hits: GuitarHit[], notes: BaseNote[]): PEvent[] {
   return hits.map((hit) => {
-    const t = hitTime(hit), e: PEvent = { t, len: hit.len, hit };
+    const t = hitTime(hit), e: PEvent = { t, len: hit.len, hit, ...(hit.out ? { out: true } : {}) };
     if (sounding(hit)) {
       const n = notes.find((x) => t >= x.t - TOL && t < x.t + x.len - TOL);
       if (n) e.base = n.i;
@@ -183,12 +185,12 @@ for (let i = 0; i < N; i++) {
     if (!negDone && notes.length >= 12 && notes.some((n) => n.anchor === 'main' && n.i > 0 && n.i < notes.length - 1) && notes.some((n) => n.anchor === 'pitch')) { negDone = true; negatives(events, notes, vctx, s); }
     // 3. the spike rules, forced
     const ctx: PlayerCtx = { seed: s, song: sec.song, chords: sec.chords, lead, hands: vctx.hands, mood, tension: [], energy: sec.section.energy, kind: sec.section.kind };
-    for (const rule of ALL_RULES) {
-      const out = performSolo({ hits: sec.guitar2.map((h: GuitarHit) => ({ ...h })), notes: [], curve: sec.soloCurve }, ctx, [PLAIN, rule], { force: rule.name });
+    for (const rule of FORCED) {
+      const out = performSolo({ hits: sec.guitar2.map((h: GuitarHit) => ({ ...h })), notes: [], curve: sec.soloCurve }, ctx, rule.rules, { force: rule.name });
       const st = note(rule.name);
-      const used = (out.curve?.moves ?? []).filter((m) => m.rule === rule.name).length;
+      const used = (out.curve?.moves ?? []).filter((m) => m.rule === rule.name || m.intent === rule.name).length;
       st.tried++; st.used += used; st.max = Math.max(st.max, used);
-      const again = performSolo({ hits: sec.guitar2.map((h: GuitarHit) => ({ ...h })), notes: [], curve: sec.soloCurve }, ctx, [PLAIN, rule], { force: rule.name });
+      const again = performSolo({ hits: sec.guitar2.map((h: GuitarHit) => ({ ...h })), notes: [], curve: sec.soloCurve }, ctx, rule.rules, { force: rule.name });
       if (JSON.stringify(out.hits) !== JSON.stringify(again.hits)) fail(`${s} ${rule.name}: the same seed gave another performance`);
       const ev = reread(out.hits, notes);
       const vv = notCarried(verify(ev, notes, vctx), notes);
@@ -220,8 +222,8 @@ for (let i = 0; i < N; i++) {
       const uu = unplayable(ev, vctx);
       if (uu.length) fail(`${s} section ${si} (the player): ${uu.length} notes have no place on the neck`);
       const mv = (out.curve?.moves ?? []) as { rule: string; step: number }[];
-      const long = notes.filter((n) => n.len >= 5 && !n.frozen).length;
-      const changed = mv.filter((m) => m.rule !== 'plain');
+      const long = notes.filter((n) => n.len >= 4 && !n.frozen).length;
+      const changed = mv.filter((m, k) => m.rule !== 'plain' && notes[k]?.len >= 4);
       NAT.notes += notes.length; NAT.long += long; NAT.changed += changed.length;
       const L = (NAT.byLead[lead.kind] ??= { long: 0, changed: 0 });
       L.long += long; L.changed += changed.length;
@@ -274,8 +276,8 @@ for (let f = 0; f < F; f++) {
   const v0 = verify(events, notes, vctx);
   if (v0.some((x) => x.code !== 'silence' && x.code !== 'speed' && x.code !== 'range')) { fz.bad++; fail(`fuzz ${f} (${meter} ${bpm} bpm): the random melody itself breaks ${describe(v0)}`); continue; }
   fz.melodies++; fz.notes += notes.length;
-  for (const rule of ALL_RULES) {
-    const out = performSolo(base, ctx, [PLAIN, rule], { force: rule.name });
+  for (const rule of FORCED) {
+    const out = performSolo(base, ctx, rule.rules, { force: rule.name });
     fz.rewritten += out.hits.length - hits.length > 0 ? 1 : 0;
     // judged against the checker, but only for what it says that the random melody did not already
     const ev = reread(out.hits, notes);
@@ -287,7 +289,7 @@ for (let f = 0; f < F; f++) {
 
 console.log(`${T.solos} solos and breaks, ${T.notes} notes: the melody passes the checker (${T.baseViolations} violations, ${T.baseUnplayable} notes with no place on the neck); ${T.mutations} kinds of damage refused`);
 console.log(`every rule forced on real solos: ${Object.entries(R).map(([k, v]) => `${k} used ${v.used} times in ${v.tried} solos (most ${v.max} a solo, ${v.sub} hits between the 16ths)`).join('; ')}`);
-console.log(`the player: ${NAT.changed} of ${NAT.long} long notes rewritten (${((100 * NAT.changed) / Math.max(1, NAT.long)).toFixed(0)}%), ${(NAT.perBar / Math.max(1, NAT.bars)).toFixed(2)} a bar, most ${NAT.maxBar} in one bar`);
+console.log(`the player: ${NAT.changed} of ${NAT.long} long notes played another way (${((100 * NAT.changed) / Math.max(1, NAT.long)).toFixed(0)}%), ${(NAT.perBar / Math.max(1, NAT.bars)).toFixed(2)} a bar, most ${NAT.maxBar} in one bar`);
 console.log(`  by rule: ${Object.entries(NAT.byRule).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ')}`);
 console.log(`  by lead player: ${Object.entries(NAT.byLead).map(([k, v]) => `${k} ${((100 * v.changed) / Math.max(1, v.long)).toFixed(0)}% of ${v.long}`).join(', ')}`);
 console.log(`fuzz: ${fz.melodies} random melodies, ${fz.notes} notes, ${fz.rewritten} performances changed, ${fz.bad} bad`);

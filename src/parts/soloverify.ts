@@ -25,7 +25,7 @@ export interface VCtx {
 }
 
 export interface Violation {
-  code: 'lost' | 'pitch' | 'onset' | 'landing' | 'length' | 'added' | 'key' | 'range' | 'overlap' | 'silence' | 'speed' | 'bend' | 'combo' | 'shape' | 'hands';
+  code: 'lost' | 'pitch' | 'onset' | 'landing' | 'length' | 'added' | 'key' | 'range' | 'overlap' | 'silence' | 'speed' | 'bend' | 'combo' | 'shape' | 'hands' | 'home' | 'out';
   /** Where (in 16ths), for the message. */
   at: number;
   msg: string;
@@ -111,6 +111,8 @@ export function verify(events: PEvent[], base: BaseNote[], c: VCtx): Violation[]
     for (const e of g) time.set(e.hit.notes[0], (time.get(e.hit.notes[0]) ?? 0) + e.len);
     const mine = time.get(n.midi) ?? 0;
     if ([...time.values()].some((x) => x > mine + 1e-6)) v.push({ code: 'pitch', at: n.t, msg: `note ${n.i} (${n.midi}) is not the pitch heard most` });
+    if (n.len >= 4 && mine < n.len / 3 - TOL) v.push({ code: 'home', at: n.t, msg: `note ${n.i} (${n.midi}) is heard for ${mine.toFixed(2)} of its ${n.len} steps: less than a third` });
+    if (g.filter((e) => e.out).length > 1) v.push({ code: 'out', at: n.t, msg: `note ${n.i} has more than one passing note outside the key` });
     if (g.some((e) => e.t < n.t - TOL || endOf(e) > n.t + n.len + TOL)) v.push({ code: 'length', at: n.t, msg: `note ${n.i} has sound outside its time` });
     if (n.anchor !== 'pitch' && !g.some((e) => e.hit.notes[0] === n.midi && Math.abs(e.t - n.t) <= TOL)) v.push({ code: 'onset', at: n.t, msg: `note ${n.i} (${n.midi}) does not start on its pitch` });
     if (n.anchor === 'all') {

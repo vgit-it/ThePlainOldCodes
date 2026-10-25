@@ -2,9 +2,10 @@
 // note without losing it: it starts on the note's pitch at its time, the note's pitch is the one heard most, and (where a rule says it
 // keeps all) it ends on it. A rule only proposes; the director scores and picks, and the checker (soloverify.ts) has the last word.
 //
-// Re-pick (the note struck again): triplet pulse, eighth pulse, stutter, gallop, ghost pulse, tremolo.
-// Shape (one note, played another way): scoop in, bend in, late bend, wide vibrato.
-// Move (notes of the key around it): shimmer (hammer-on and back), trill, tail run (a short run off the end), turn and return.
+// Flurry (the note struck again): triplet pulse, eighth pulse, stutter, gallop, ghost pulse, tremolo, trill.
+// Stay (the note held, with expression): scoop in, bend in, late bend, wide vibrato.
+// Trill (the note and the one above it, as fast as the hands go).
+// (The figures that go up and down around the note and back, or climb toward the next, are composed: solofigure.ts.)
 
 import type { Feel, GuitarHit } from '../idea';
 import { SCALES } from '../theory';
@@ -39,7 +40,6 @@ const isInKey = (s: Span, m: number) => keyPcs(s).has(mod(m, 12));
 
 /** How long a number of 16ths lasts at this song's tempo. */
 const ms = (s: Span, steps: number) => (steps * 15000) / s.ctx.song.bpm;
-const tag = (s: Span, id: string) => s.read.tags.find((t) => t.id === id)?.w ?? 0;
 const beatOf = (s: Span) => beatAt(s.ctx.song, s.note.t);
 
 /** A new event for the note: the hit as it is, with these changes, not held on through a short rest after it. */
@@ -76,14 +76,12 @@ function repick(s: Span, lens: number[], loud: number, min = 2): PEvent[] | null
   return out;
 }
 
-const shuffling = (s: Span) => tag(s, 'shuffle-groove') >= 0.5;
-
 // ---------------------------------------------------------------- re-pick
 
 const TRIPLET_PULSE: Rule = {
   name: 'triplet-pulse', keeps: 'all',
   profile: {
-    feel: feel(0.2, -0.1, 0.2, 0, 0), heavy: true, vetoes: ['final-landing'],
+    group: 'flurry', feel: feel(0.2, -0.1, 0.2, 0, 0), heavy: true, vetoes: ['final-landing'],
     likes: { 'shuffle-groove': 1.6, 'long-with-room': 0.2, 'rising-energy': 0.3, 'high-energy': 0.2, 'eighths-groove': -0.3, 'sixteenths-groove': -0.2 },
   },
   weight: (s) => (plainPick(s) && s.note.len >= 5 ? 1 : 0),
@@ -98,7 +96,7 @@ const TRIPLET_PULSE: Rule = {
 const EIGHTH_PULSE: Rule = {
   name: 'eighth-pulse', keeps: 'all',
   profile: {
-    feel: feel(0, 0, -0.1, 0.2, -0.2), vetoes: ['final-landing'],
+    group: 'flurry', feel: feel(0, 0, -0.1, 0.2, -0.2), vetoes: ['final-landing'],
     likes: { 'eighths-groove': 0.6, 'quarters-groove': 0.5, 'open-drums': 0.2, 'rising-energy': 0.3, 'sixteenths-groove': -0.3, 'shuffle-groove': -0.5 },
   },
   weight: (s) => (plainPick(s) && s.note.len >= 6 ? 1 : 0),
@@ -113,7 +111,7 @@ const EIGHTH_PULSE: Rule = {
 const STUTTER_HOLD: Rule = {
   name: 'stutter-hold', keeps: 'all',
   profile: {
-    feel: feel(0.5, 0.3, 0.1, 0.1, -0.4), heavy: true, vetoes: ['final-landing', 'closing'],
+    group: 'flurry', feel: feel(0.5, 0.3, 0.1, 0.1, -0.4), heavy: true, vetoes: ['final-landing', 'closing'],
     likes: { 'sixteenths-groove': 0.7, 'under-fill': 0.6, 'into-snare': 0.4, 'into-crash': 0.3, 'busy-drums': 0.3, 'high-energy': 0.4, 'shuffle-groove': -0.5, 'open-drums': -0.2 },
   },
   weight: (s) => (plainPick(s) && s.note.len >= 5 ? 1 : 0),
@@ -123,7 +121,7 @@ const STUTTER_HOLD: Rule = {
 const GALLOP: Rule = {
   name: 'gallop', keeps: 'all',
   profile: {
-    feel: feel(0.7, 0.6, -0.1, 0.6, -0.4), heavy: true, vetoes: ['final-landing', 'closing'],
+    group: 'flurry', feel: feel(0.7, 0.6, -0.1, 0.6, -0.4), heavy: true, vetoes: ['final-landing', 'closing'],
     likes: { 'high-energy': 0.6, 'eighths-groove': 0.4, 'sixteenths-groove': 0.2, 'high-tension': 0.3, 'shuffle-groove': -0.6, 'low-energy': -0.6 },
   },
   weight: (s) => (plainPick(s) && s.note.len >= 6 ? 1 : 0),
@@ -137,7 +135,7 @@ const GALLOP: Rule = {
 const GHOST_PULSE: Rule = {
   name: 'ghost-pulse', keeps: 'main',
   profile: {
-    feel: feel(0.3, 0.5, 0.2, -0.2, -0.6), heavy: true, vetoes: ['final-landing', 'closing'],
+    group: 'flurry', feel: feel(0.3, 0.5, 0.2, -0.2, -0.6), heavy: true, vetoes: ['final-landing', 'closing'],
     likes: { 'sixteenths-groove': 0.6, 'on-kick': 0.4, 'on-snare': 0.3, 'busy-drums': 0.3, 'shuffle-groove': -0.4, 'open-drums': -0.3, 'low-energy': -0.4 },
   },
   weight: (s) => (plainPick(s) && s.note.len >= 6 ? 1 : 0),
@@ -160,7 +158,7 @@ const GHOST_PULSE: Rule = {
 const TREMOLO_HOLD: Rule = {
   name: 'tremolo-hold', keeps: 'all',
   profile: {
-    feel: feel(0.6, 0.6, 0.1, 0.5, -0.2), heavy: true,
+    group: 'flurry', feel: feel(0.6, 0.6, 0.1, 0.5, -0.2), heavy: true,
     likes: { 'climax-note': 0.7, 'held-peak': 0.5, 'peak-note': 0.4, 'high-tension': 0.5, 'into-crash': 0.5, crest: 0.3, 'low-energy': -0.5 },
   },
   weight: (s) => (plainPick(s) && s.note.len >= 6 ? 1 : 0),
@@ -178,7 +176,7 @@ const TREMOLO_HOLD: Rule = {
 const SCOOP_IN: Rule = {
   name: 'scoop-in', keeps: 'all',
   profile: {
-    feel: feel(-0.3, -0.3, 0.2, 0, 0.8),
+    group: 'stay', feel: feel(-0.3, -0.3, 0.2, 0, 0.8),
     likes: { 'phrase-start': 0.6, 'first-note': 0.3, 'leap-up': 0.4, 'held-bar': 0.2, 'low-energy': 0.2, 'step-up': 0.1 },
   },
   weight: (s) => (plainPick(s) && s.note.len >= 3 ? 1 : 0),
@@ -192,7 +190,7 @@ const SCOOP_IN: Rule = {
 const BEND_IN: Rule = {
   name: 'bend-in', keeps: 'all',
   profile: {
-    feel: feel(0, 0.1, 0.1, 0.3, 0.3),
+    group: 'stay', feel: feel(0, 0.1, 0.1, 0.3, 0.3),
     likes: { 'peak-note': 0.5, 'held-peak': 0.4, 'leap-up': 0.3, 'high-register': 0.3, 'climax-note': 0.4, 'step-up': 0.2, 'answer-landing': 0.2 },
   },
   weight: (s) => (plainPick(s) && s.note.len >= 3 && [1, 2].some((b) => isInKey(s, s.note.midi - b)) ? 1 : 0),
@@ -208,7 +206,7 @@ const BEND_IN: Rule = {
 const LATE_BEND: Rule = {
   name: 'late-bend', keeps: 'all',
   profile: {
-    feel: feel(-0.3, 0, 0.1, 0.2, 0.6),
+    group: 'stay', feel: feel(-0.3, 0, 0.1, 0.2, 0.6),
     likes: { 'long-with-room': 0.4, 'held-bar': 0.5, 'long-before-rest': 0.4, 'phrase-end': 0.3, 'call-hanging': 0.2 },
   },
   weight: (s) => (plainPick(s) && s.note.len >= 8 && [1, 2].some((b) => isInKey(s, s.note.midi - b)) ? 1 : 0),
@@ -223,7 +221,7 @@ const LATE_BEND: Rule = {
 const WIDE_VIBRATO: Rule = {
   name: 'wide-vibrato', keeps: 'all',
   profile: {
-    feel: feel(-0.5, -0.3, -0.1, 0.2, 0.6),
+    group: 'stay', feel: feel(-0.5, -0.3, -0.1, 0.2, 0.6),
     likes: { 'held-bar': 0.5, 'long-before-rest': 0.5, 'phrase-end': 0.4, 'low-energy': 0.3, 'final-landing': 0.4, 'answer-landing': 0.3 },
   },
   weight: (s) => (plainPick(s) && s.note.len >= 6 && (s.event.hit.vib ?? 0) < 20 ? 1 : 0),
@@ -232,37 +230,10 @@ const WIDE_VIBRATO: Rule = {
 
 // ---------------------------------------------------------------- move
 
-const SHIMMER: Rule = {
-  name: 'shimmer', keeps: 'all',
-  profile: {
-    feel: feel(0.2, -0.4, 0.7, -0.3, 0.1), heavy: true,
-    likes: { 'high-register': 0.3, 'beat-note': 0.1, 'static-repeat': 0.5, 'long-with-room': 0.2, 'rising-energy': 0.2, 'high-energy': 0.2 },
-  },
-  weight: (s) => (plainPick(s) && s.note.len >= 5 ? 1 : 0),
-  realise: (s, rng) => {
-    const u = shuffling(s) ? beatOf(s) / 3 : 1;
-    if (ms(s, u) < 45) return null;
-    const r = s.note.len - 4 * u >= 2 && rng.chance(0.4) ? 2 : 1;
-    const need = 2 * r * u + 2;
-    if (s.note.len < need - 1e-6) return null;
-    const up = inKey(s, s.note.midi, 1);
-    const v = s.event.hit.vel;
-    const out: PEvent[] = [piece(s, s.note.t, u, { vel: v * 0.9 })];
-    let t = s.note.t + u;
-    for (let j = 0; j < r; j++) {
-      out.push(piece(s, t, u, { midi: up, art: 'legato', vel: v * 0.8 }));
-      t += u;
-      if (j < r - 1) { out.push(piece(s, t, u, { art: 'legato', vel: v * 0.85 })); t += u; }
-    }
-    out.push(hold(s, t, { art: 'legato' }));
-    return out;
-  },
-};
-
 const TRILL: Rule = {
   name: 'trill', keeps: 'all',
   profile: {
-    feel: feel(0.5, -0.2, 0.6, -0.1, -0.1), heavy: true,
+    group: 'flurry', feel: feel(0.5, -0.2, 0.6, -0.1, -0.1), heavy: true,
     likes: { 'high-energy': 0.3, 'static-repeat': 0.3, 'long-with-room': 0.2, 'rising-energy': 0.2 },
   },
   weight: (s) => (plainPick(s) && s.note.len >= 6 ? 1 : 0),
@@ -279,56 +250,8 @@ const TRILL: Rule = {
   },
 };
 
-const TAIL_RUN: Rule = {
-  name: 'tail-run', keeps: 'main',
-  profile: {
-    feel: feel(0.1, -0.1, 0.6, 0, 0.2),
-    likes: { 'long-before-rest': 0.8, 'phrase-end': 0.5, 'call-hanging': 0.4, 'answer-landing': 0.3, 'long-with-room': 0.3 },
-  },
-  weight: (s) => (plainPick(s) && s.note.len >= 6 ? 1 : 0),
-  realise: (s, rng) => {
-    const n = s.note;
-    const up = tag(s, 'call-hanging') >= 0.5;
-    const quick = s.ctx.song.bpm <= 115 && rng.chance(s.ctx.lead.kind === 'shredder' ? 0.5 : 0.1);
-    const u = quick ? 0.5 : shuffling(s) ? beatOf(s) / 3 : 1;
-    const k = rng.pick([2, 3, 3]);
-    if (ms(s, u) < 45 || n.len - k * u < 3) return null;
-    const v = s.event.hit.vel;
-    const out: PEvent[] = [{ t: n.t, len: snap(n.len - k * u), base: n.i, hit: { ...s.event.hit, len: n.len - k * u } }];
-    let m = n.midi, t = n.t + n.len - k * u;
-    for (let j = 0; j < k; j++) {
-      m = inKey(s, m, up ? 1 : -1);
-      out.push(piece(s, t, u, { midi: m, art: 'legato', vel: v * (0.85 - 0.05 * j) }));
-      t += u;
-    }
-    return out;
-  },
-};
-
-const TURN_RETURN: Rule = {
-  name: 'turn-return', keeps: 'all',
-  profile: {
-    feel: feel(-0.1, -0.2, 0.6, -0.1, 0.3), heavy: true,
-    likes: { 'long-over-chord-change': 0.6, 'long-with-room': 0.5, 'pre-climax': 0.3, 'held-bar': 0.3 },
-  },
-  weight: (s) => (plainPick(s) && s.note.len >= 8 ? 1 : 0),
-  realise: (s) => {
-    const n = s.note;
-    const u = shuffling(s) ? beatOf(s) / 3 : 1;
-    if (ms(s, u) < 45 || n.len - 4 * u < 3) return null;
-    const v = s.event.hit.vel;
-    const pitches = [inKey(s, n.midi, 1), n.midi, inKey(s, n.midi, -1)];
-    const out: PEvent[] = [{ t: n.t, len: snap(n.len - 4 * u), base: n.i, hit: { ...s.event.hit, len: n.len - 4 * u } }];
-    let t = n.t + n.len - 4 * u;
-    pitches.forEach((m, j) => { out.push(piece(s, t, u, { midi: m, art: 'legato', vel: v * (0.85 - 0.03 * j) })); t += u; });
-    out.push(piece(s, t, u, { art: 'legato', vel: v * 0.9, keepVib: true }));
-    return out;
-  },
-};
-
-/** The ways to play a long note. */
+/** The ways to play a long note that are not figures (the figures are composed: solofigure.ts): the note struck again and again (flurry) and the note held with expression (stay). */
 export const LONG_RULES: Rule[] = [
-  TRIPLET_PULSE, EIGHTH_PULSE, STUTTER_HOLD, GALLOP, GHOST_PULSE, TREMOLO_HOLD,
+  TRIPLET_PULSE, EIGHTH_PULSE, STUTTER_HOLD, GALLOP, GHOST_PULSE, TREMOLO_HOLD, TRILL,
   SCOOP_IN, BEND_IN, LATE_BEND, WIDE_VIBRATO,
-  SHIMMER, TRILL, TAIL_RUN, TURN_RETURN,
 ];

@@ -32,6 +32,8 @@ export interface RuleProfile {
   vetoes?: string[];
   /** Busy or showy: two heavy ones never sit side by side, and the budget counts them. */
   heavy?: boolean;
+  /** Which intention it serves: a held note played with expression (stay), or the note struck again and again (flurry). */
+  group?: 'stay' | 'flurry';
 }
 
 export interface Rule {

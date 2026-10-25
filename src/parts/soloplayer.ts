@@ -12,6 +12,9 @@ import type { Guitar2Part } from './guitar2';
 import { type PEvent, eventsToHits, readBase } from './soloevents';
 import { readSolo } from './soloread';
 import { type Rule, type Span, covers, fitOf } from './solorules';
+import { type Intent, composeFigures } from './solofigure';
+import { intentWeights } from './solointent';
+import { profileFor } from '../verse/intervals';
 import { LIVE_RULES } from './solorules-live';
 import { personOf, signaturesOf } from './soloperson';
 import { type VCtx, type Violation, unplayable, verify } from './soloverify';
@@ -39,9 +42,6 @@ export interface PlayerOpts {
   force?: string;
 }
 
-/** How much of the time the player decorates a note it could (a pro is mostly restraint). */
-const RESTRAINT = 0.55;
-
 const violationKey = (v: Violation) => `${v.code}@${v.at.toFixed(2)}`;
 
 export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIVE_RULES, o: PlayerOpts = {}): Guitar2Part {
@@ -67,11 +67,14 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
   const signatures = new Set(signaturesOf(person, c.seed));
   const phraseOf = (i: number) => read.phrases.find((p) => i >= p.from && i <= p.to);
   const barOf = (t: number) => Math.max(0, c.song.bars.findIndex((b) => t >= b.start && t < b.start + b.len));
-  const perBar = new Map<number, number>();
   const used = new Map<string, number>();
-  const chosen: string[] = notes.map(() => 'plain');
-  const heavyOf = new Map(rules.map((r) => [r.name, !!r.profile?.heavy]));
-  let lastRewritten = -9;
+  interface Choice { intent: Intent | 'plain'; name: string; contour?: string; cell?: string }
+  const chosen: Choice[] = notes.map(() => ({ intent: 'plain', name: 'plain' }));
+  const recent: string[] = [];
+  let lastRule = { i: -9, name: '' };
+  // the notes the hands cannot finger as they are (a rewrite is only held against what it breaks itself)
+  const baseBad = new Set(unplayable(ev0, vctx).map((e) => e.base));
+  const handsOk = () => !unplayable(assemble(), vctx).some((e) => e.base !== undefined && !baseBad.has(e.base));
 
   notes.forEach((note, i) => {
     const nr = read.notes[i];
@@ -86,76 +89,110 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     // what the moment wants, with the player's own lean
     const want = {} as Feel;
     for (const k of Object.keys(nr.feel) as (keyof Feel)[]) want[k] = Math.max(-1, Math.min(1, nr.feel[k] + person.lean[k]));
+    const rng = new Rng(`${c.seed}-player-${note.t}-${note.midi}`);
+    if (note.frozen) { moves[i].note = 'the last note is carried into the next section'; return; }
 
-    // everything that fits, scored (fit of the span x the player's taste x a pet move coming back x not the same again and again)
-    const prevHeavy = i - 1 === lastRewritten && heavyOf.get(chosen[i - 1]);
+    // the rules that play the note itself (held with expression, or struck again and again), scored: fit x taste x a pet move x not the same again
     const scored = rules
       .filter((r) => r.name !== 'plain' && covers(r, note))
       .map((r) => {
         const fit = fitOf(r, span, want);
-        const novelty = (i - lastRewritten <= 3 && chosen[lastRewritten] === r.name ? 0.4 : 1) / (1 + 0.25 * (used.get(r.name) ?? 0));
+        const novelty = (i - lastRule.i <= 3 && lastRule.name === r.name ? 0.4 : 1) / (1 + 0.25 * (used.get(r.name) ?? 0));
         return { r, fit, w: fit * (o.force === r.name ? 1 : person.taste[r.name] ?? 1) * (signatures.has(r.name) ? 2.5 : 1) * novelty };
       })
-      .filter((x) => x.fit > 0)
+      .filter((x) => x.fit > 0 && x.w > 0)
       .sort((a, b) => b.w - a.w);
     moves[i].options = scored.map((x) => x.r.name);
     moves[i].scores = scored.slice(0, 5).map((x) => [x.r.name, Math.round(x.w * 100) / 100]);
-    let pool = scored.filter((x) => x.w > 0 && !(prevHeavy && x.r.profile?.heavy));
-    if (!pool.length) { moves[i].note = scored.length ? 'nothing the player would play here' : 'no rule fits'; return; }
 
-    const rng = new Rng(`${c.seed}-player-${note.t}-${note.midi}`);
-    // a copy of a phrase is played as its source was (mostly): the same move, or the same restraint
-    let first: Rule | null = null;
+    /** Puts events in the note's place; they stay only if the checker (and, for a figure, the hands) find nothing new. */
+    const attempt = (evs: PEvent[] | null, hands: boolean): boolean => {
+      if (!evs) return false;
+      groups[i] = evs.map((e) => ({ ...e, base: note.i }));
+      if (!fresh().length && (!hands || handsOk())) return true;
+      groups[i] = plainOf(i);
+      return false;
+    };
+    const drawn = <T,>(items: { v: T; w: number }[]): T[] => {
+      const rest = [...items], out: T[] = [];
+      while (rest.length) { const pick = rng.weighted(rest.map((x) => [x, x.w] as [typeof x, number])); out.push(pick.v); rest.splice(rest.indexOf(pick), 1); }
+      return out;
+    };
+    const done = (choice: Choice, intent: string, fig?: string) => {
+      moves[i].rule = choice.name; moves[i].intent = intent; if (fig) moves[i].fig = fig;
+      chosen[i] = choice;
+      if (choice.intent !== 'plain') { used.set(choice.name, (used.get(choice.name) ?? 0) + 1); lastRule = { i, name: choice.name }; }
+    };
+    const byGroup = (g: 'stay' | 'flurry') => scored.filter((x) => x.r.profile?.group === g);
+
+    // a note too short for a figure: held, now and then with expression
+    if (note.len < 4) {
+      const stay = byGroup('stay');
+      if (!stay.length || !rng.chance(0.5 * person.density)) { moves[i].note = 'short: left plain'; return; }
+      for (const r of drawn(stay.map((x) => ({ v: x.r, w: x.w })))) {
+        if (attempt(r.realise(span, new Rng(`${c.seed}-rule-${r.name}-${note.t}-${note.midi}`)), false)) { done({ intent: 'stay', name: r.name }, 'stay'); return; }
+      }
+      return;
+    }
+
+    // what the note is for
+    const flurry = byGroup('flurry');
+    const figuresOn = rules.some((r) => r.name === 'figures');
+    const canBridge = figuresOn && note.anchor !== 'all' && !!span.next && span.after <= 2;
+    const weights = intentWeights({ mood: c.mood, e01, tag: tagw, person, canBridge, flurryFit: flurry.length ? flurry[0].w : 0 });
+    if (!figuresOn) weights.return = 0;
+    if (i >= 1 && chosen[i - 1].intent === 'flurry') weights.flurry = 0;
+    if (i >= 2 && chosen[i - 2].intent === 'flurry') weights.flurry *= 0.5;
+    if (o.force) {
+      // (for the checks: the named rule, or every figure of a named intention)
+      if (rules.some((r) => r.name === o.force)) { for (const k of Object.keys(weights) as Intent[]) weights[k] = 0; weights[rules.find((r) => r.name === o.force)!.profile?.group ?? 'stay'] = 1; }
+      else if (o.force === 'return' || o.force === 'bridge') { for (const k of Object.keys(weights) as Intent[]) weights[k] = 0; weights[o.force] = 1; }
+    }
+    if (weights.stay + weights.return + weights.bridge + weights.flurry <= 0) { moves[i].note = 'no rule to play it with'; return; }
+    const order: Intent[] = drawn((Object.keys(weights) as Intent[]).filter((k) => weights[k] > 0).map((k) => ({ v: k, w: weights[k] })));
+    // the same move as the phrase this one repeats (mostly)
     const ph = phraseOf(i);
     const src = ph?.copyOf !== undefined ? read.phrases[ph.copyOf] : undefined;
     const srcI = src && ph ? src.from + (i - ph.from) : -1;
-    if (src && srcI <= src.to && rng.chance(0.85)) {
-      if (chosen[srcI] === 'plain') { moves[i].note = 'as the phrase it repeats'; return; }
-      first = pool.find((x) => x.r.name === chosen[srcI])?.r ?? null;
-    }
+    const copy: Choice | null = src && srcI <= src.to && rng.chance(0.85) && !o.force ? chosen[srcI] : null;
+    if (copy && copy.intent !== 'plain') { const k = order.indexOf(copy.intent); if (k > 0) { order.splice(k, 1); order.unshift(copy.intent); } }
+    else if (copy && !o.force) { moves[i].note = 'as the phrase it repeats'; moves[i].intent = 'stay'; return; }
 
-    if (!first) {
-      // whether to play something at all: the player's habit, lifted by the energy and by a note that wants an ending
-      const bar = barOf(note.t);
-      const cap = e01 > 0.55 ? 2 : 1;
-      let p = RESTRAINT * person.density * (0.55 + 0.9 * e01)
-        * (1 + 0.5 * tagw('long-before-rest') + 0.3 * tagw('phrase-end') + 0.3 * tagw('held-peak'))
-        * Math.min(1, note.len / 8) ** 0.8;
-      if (i - 1 === lastRewritten) p *= 0.55;
-      const best = pool[0].w;
-      p *= best < 0.4 ? 0.15 + 0.85 * (best / 0.4) ** 1.5 : 1 + 0.4 * Math.min(1, (best - 0.4) / 2);
-      if (o.force && pool.some((x) => x.r.name === o.force)) p = 1;
-      else if ((perBar.get(bar) ?? 0) >= cap) p = 0;
-      if (!rng.chance(Math.min(0.92, p))) { moves[i].note = 'left plain'; return; }
-    }
-
-    // several ways: the draw is by weight, and every one that fails the checker gives way to the next
-    const order: Rule[] = [];
-    if (o.force) { const f = pool.find((x) => x.r.name === o.force); if (f) order.push(f.r); }
-    if (first && !order.includes(first)) order.push(first);
-    const rest = pool.filter((x) => !order.includes(x.r));
-    while (rest.length) {
-      const pick = rng.weighted(rest.map((x) => [x, x.w] as [typeof x, number]));
-      order.push(pick.r);
-      rest.splice(rest.indexOf(pick), 1);
-    }
-    for (const r of order) {
-      const evs = r.realise(span, new Rng(`${c.seed}-rule-${r.name}-${note.t}-${note.midi}`));
-      if (!evs) continue;
-      groups[i] = evs.map((e) => ({ ...e, base: note.i }));
-      if (!fresh().length) {
-        moves[i].rule = r.name; chosen[i] = r.name; lastRewritten = i;
-        used.set(r.name, (used.get(r.name) ?? 0) + 1);
-        perBar.set(barOf(note.t), (perBar.get(barOf(note.t)) ?? 0) + 1);
-        return;
+    const tension = c.tension[barOf(note.t)];
+    const failed: string[] = [];
+    for (const intent of order) {
+      if (intent === 'stay' || intent === 'flurry') {
+        const pool = byGroup(intent).map((x) => ({ v: x.r, w: x.w * (copy?.name === x.r.name ? 6 : 1) }));
+        // (a held note is only sometimes plain: the weight of the plain hold is the weight of an average way to decorate it)
+        if (intent === 'stay' && !o.force) {
+          if (rng.chance(0.3) || !pool.length) { done({ intent: 'stay', name: 'plain' }, 'stay'); if (failed.length) moves[i].note = `held: no ${failed.join(' or ')} fit`; return; }
+        }
+        for (const r of drawn(pool)) {
+          if (attempt(r.realise(span, new Rng(`${c.seed}-rule-${r.name}-${note.t}-${note.midi}`)), false)) { done({ intent, name: r.name }, intent); if (failed.length) moves[i].note = `no ${failed.join(' or ')} fit`; return; }
+        }
+        failed.push(intent);
+        continue;
       }
-      groups[i] = plainOf(i);
+      const figs = composeFigures(span, {
+        intent, person, want, profile: profileFor(c.mood, 'solo', tension), avoid: recent.slice(-3),
+        prefer: copy && copy.intent === intent ? { contour: copy.contour, cell: copy.cell } : undefined,
+      }, new Rng(`${c.seed}-fig-${intent}-${note.t}-${note.midi}`));
+      if (!figs.length) { failed.push(intent); continue; }
+      moves[i].scores = [...figs].sort((a, b) => b.w - a.w).slice(0, 5).map((f) => [`${f.contour} ${f.cell}`, Math.round(f.w * 100) / 100]);
+      const list = drawn(figs.map((f) => ({ v: f, w: f.w })));
+      for (const f of list.slice(0, 10)) {
+        if (attempt(f.events, true)) {
+          recent.push(f.contour);
+          done({ intent, name: `${intent}·${f.contour}`, contour: f.contour, cell: f.cell }, intent, f.label);
+          return;
+        }
+      }
+      failed.push(intent);
     }
     moves[i].note = 'every try failed the check';
   });
 
   // the hands have the last word: a note with no place on the neck goes back to being played as it was
-  const baseBad = new Set(unplayable(ev0, vctx).map((e) => e.base));
   for (let guard = 0; guard < notes.length; guard++) {
     const bad = unplayable(assemble(), vctx).filter((e) => e.base !== undefined && !baseBad.has(e.base));
     if (!bad.length) break;
@@ -167,7 +204,7 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
   const changed = moves.filter((m) => m.rule !== 'plain');
   const fine = hits.some((h) => h.shift || h.exact);
   const tally = new Map<string, number>();
-  for (const m of changed) tally.set(m.rule, (tally.get(m.rule) ?? 0) + 1);
+  for (const m of changed) tally.set(m.intent ?? m.rule, (tally.get(m.intent ?? m.rule) ?? 0) + 1);
   return {
     hits,
     notes: [...base.notes, changed.length
