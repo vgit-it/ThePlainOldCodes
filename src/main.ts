@@ -1,15 +1,13 @@
 import './audio/live';
 import './style.css';
-import { TIMBRE_CHOICES, type TimbreChoice, type VocalChoice } from './audio/singer';
+import { TIMBRE_CHOICES } from './audio/singer';
 import { HIGH_VOICES, type HighVoice, leadHigh } from './parts/singers';
 import { MOOD_LABEL, type MoodChoice } from './tension';
 import * as Tone from 'tone';
-import { Engine, type LayerSettings } from './audio/engine';
+import { Engine } from './audio/engine';
 import { CHORD_INSTRUMENTS } from './audio/instruments';
 import type { GenreSel } from './genres';
-import { LAYER_PARTS, type LayerPart, type MixPart } from './audio/mixer';
-import { type Rendered, encodeMp3, encodeWav, isSilent, renderAudio, zipFiles } from './export/audio';
-import { exportBaseName, toMidi } from './export/midi';
+import { LAYER_PARTS, type LayerPart } from './audio/mixer';
 import { generate as generateIdea, MAIN_METHOD, randomSeeds } from './generator';
 import type { ChordSheet, GenOptions, Idea, Seeds, SectionKind } from './idea';
 import { METER_CHOICES } from './rhythm';
@@ -28,11 +26,13 @@ import { SETS_DEFAULT, setsOf } from './verse/emotion';
 import { BASS_SHARE_DEFAULT } from './verse/bassline';
 import { hasPins } from './parts/sheet';
 import { highlightBar, markSection, renderIdea, renderTrack } from './ui/render';
+import { $ } from './page/dom';
+import { readLink, setupShare } from './page/share';
+import { setupExport } from './page/exporter';
+import { setupReal } from './page/real';
 
 // every idea made the main way (the lead and rhythm guitar's ways of playing, the vocal's writers: MAIN_METHOD)
 const generate = (o: GenOptions, s?: Seeds) => generateIdea({ ...o, ...MAIN_METHOD }, s);
-
-const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const genreSel = $<HTMLSelectElement>('genre');
 const meterSel = $<HTMLSelectElement>('meter');
@@ -59,10 +59,12 @@ const locks = new Set<PartKey>();
 let baseStatus = 'Loading sounds…';
 const setStatus = (msg: string) => { status.textContent = msg || baseStatus; };
 engine.onStatus = setStatus;
+// the link, export and real-sound buttons live in src/page/ (they see the song through these)
+const page = { engine, idea: () => idea, track: () => track, setStatus, setPlaying };
+const updateLink = setupShare(page);
+const buildExport = setupExport(page);
+const showReal = setupReal(page);
 // real amps (see showReal)
-const realBtn = $<HTMLButtonElement>('realamps');
-const realHint = $('realhint');
-let preparing = false;
 engine.onBar = highlightBar;
 // the melody view: the sung line over the chords, with a playhead
 const roll = buildRoll($('roll'));
@@ -200,149 +202,6 @@ chordReset.onclick = () => {
   setStatus('Chords back to the generator\'s.');
   setTimeout(() => setStatus(''), 3000);
 };
-
-/* ---- shareable link: the address always holds the current idea (and track) */
-
-interface Shared { o: GenOptions; s: Seeds; t?: TrackOptions; l?: LayerSettings; v?: VocalChoice; b?: VocalChoice; w?: TimbreChoice }
-
-function updateLink() {
-  if (!idea) return;
-  const layers = engine.layerSettings;
-  const data: Shared = { o: idea.opts, s: idea.seeds, ...(track ? { t: track.opts } : {}), ...(Object.keys(layers).length ? { l: layers } : {}), ...(engine.vocal !== 'off' ? { v: engine.vocal } : {}), ...(engine.vocal !== 'off' && engine.backingVocal !== 'auto' ? { b: engine.backingVocal } : {}), ...(engine.vocal !== 'off' && engine.vocalTimbre !== 'auto' ? { w: engine.vocalTimbre } : {}) };
-  try {
-    history.replaceState(null, '', `#${btoa(encodeURIComponent(JSON.stringify(data)))}`);
-  } catch { /* history blocked: no link */ }
-}
-
-function readLink(): Shared | null {
-  try {
-    const h = location.hash.slice(1);
-    if (!h) return null;
-    const d = JSON.parse(decodeURIComponent(atob(h))) as Shared;
-    return d.o && d.s?.song ? d : null;
-  } catch {
-    return null;
-  }
-}
-
-$('copylink').onclick = async () => {
-  updateLink();
-  try {
-    await navigator.clipboard.writeText(location.href);
-    setStatus('Link copied: it opens this exact idea (and track).');
-  } catch {
-    setStatus('Copy the address from the address bar to share this idea.');
-  }
-  setTimeout(() => setStatus(''), 3000);
-};
-
-// the band view plays this same song (idea, track, parts and singer travel in the link)
-$('openband').onclick = () => {
-  updateLink();
-  const url = new URL('band.html', location.href);
-  url.searchParams.set('art', '');
-  url.hash = location.hash;
-  window.open(url, '_blank');
-};
-
-/* ---- export: the idea, or the whole track in track mode */
-
-type ExportKind = 'midi' | 'mp3' | 'wav' | 'stems';
-interface ExportFile { bytes: Uint8Array; name: string; type: string }
-
-const STEM_NAMES: Record<MixPart, string> = {
-  vocal: 'vocal', backing: 'backing-vocals', chords: 'rhythm-guitar', guitar2: 'guitar-2', bass: 'bass', drums: 'drums', keys: 'piano', pad: 'pad', strings: 'strings', perc: 'percussion',
-};
-const exportButtons = ['ex-mp3', 'ex-wav', 'ex-stems', 'ex-midi'].map((id) => $<HTMLButtonElement>(id));
-let exporting = false;
-
-/** Build an export file (no download): MIDI straight away, audio rendered offline first. */
-async function buildExport(kind: ExportKind, progress: (msg: string) => void = () => {}): Promise<ExportFile | null> {
-  if (!idea) return null;
-  const list = track ? track.sections : [idea];
-  const base = exportBaseName(idea, !!track);
-  if (kind === 'midi') {
-    const bytes = toMidi(list, {
-      timbre: engine.vocalTimbre,
-      chordIdFor: (i) => engine.chordIdFor(i), guitar2IdFor: (i) => engine.guitar2IdFor(i),
-      keysFor: (i) => engine.layerFor(i, 'keys'), padFor: (i) => engine.layerFor(i, 'pad'),
-      stringsFor: (i) => engine.layerFor(i, 'strings'), percFor: (i) => engine.layerFor(i, 'perc'),
-      vocal: engine.vocal, backing: engine.backingVocal,
-    });
-    return { bytes, name: `${base}.mid`, type: 'audio/midi' };
-  }
-  const t0 = performance.now();
-  let pct = -1;
-  // a percentage when the browser reports progress, otherwise the time so far
-  const tick = setInterval(() => {
-    if (pct < 0) progress(`Rendering audio… ${Math.round((performance.now() - t0) / 1000)} s`);
-  }, 500);
-  progress('Rendering audio…');
-  let r: Rendered;
-  try {
-    // real amps: the electric guitars (and a driven bass) first (those already prepared while playing are reused)
-    const prepared = await engine.prepareFor(list, (p) => {
-      pct = Math.round(p * 100);
-      progress(`Preparing real amps… ${pct}%`);
-    });
-    pct = -1;
-    r = await renderAudio(list, engine.settings(), kind === 'stems', (p) => {
-      pct = Math.round(p * 100);
-      progress(`Rendering audio… ${pct}%`);
-    }, prepared);
-  } finally {
-    clearInterval(tick);
-  }
-  if (kind === 'wav') return { bytes: encodeWav(r.mix, r.sampleRate), name: `${base}.wav`, type: 'audio/wav' };
-  if (kind === 'mp3') {
-    const bytes = await encodeMp3(r.mix, r.sampleRate, 320, (p) => progress(`Encoding MP3… ${Math.round(p * 100)}%`));
-    return { bytes, name: `${base}.mp3`, type: 'audio/mpeg' };
-  }
-  progress('Packing stems…');
-  const files: Record<string, Uint8Array> = { [`${base}-mix.wav`]: encodeWav(r.mix, r.sampleRate) };
-  for (const [part, chs] of Object.entries(r.stems!) as [MixPart, Float32Array[]][]) {
-    if (!isSilent(chs)) files[`${base}-${STEM_NAMES[part]}.wav`] = encodeWav(chs, r.sampleRate);
-  }
-  return { bytes: await zipFiles(files), name: `${base}-stems.zip`, type: 'application/zip' };
-}
-
-function download(f: ExportFile) {
-  const url = URL.createObjectURL(new Blob([new Uint8Array(f.bytes)], { type: f.type }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = f.name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
-
-async function exportFile(kind: ExportKind) {
-  if (exporting || !idea) return;
-  exporting = true;
-  exportButtons.forEach((b) => { b.disabled = true; });
-  // rendering takes the computer's full attention: stop playback first
-  if (kind !== 'midi' && engine.playing) { engine.stop(); setPlaying(false); }
-  const t0 = performance.now();
-  try {
-    const f = await buildExport(kind, setStatus);
-    if (f) {
-      download(f);
-      const mb = f.bytes.length / 1048576;
-      const secs = Math.round((performance.now() - t0) / 1000);
-      setStatus(`Saved ${f.name} (${mb < 1 ? `${Math.max(1, Math.round(mb * 1024))} KB` : `${mb.toFixed(1)} MB`}${kind === 'midi' ? '' : `, made in ${secs} s`})`);
-    }
-  } catch (e) {
-    setStatus(`Couldn't export: ${e instanceof Error ? e.message : String(e)}`);
-  } finally {
-    exporting = false;
-    exportButtons.forEach((b) => { b.disabled = false; });
-    setTimeout(() => { if (!exporting) setStatus(''); }, 6000);
-  }
-}
-
-$('ex-mp3').onclick = () => exportFile('mp3');
-$('ex-wav').onclick = () => exportFile('wav');
-$('ex-stems').onclick = () => exportFile('stems');
-$('ex-midi').onclick = () => exportFile('midi');
 
 /* ---- playback follows the track */
 
@@ -678,47 +537,6 @@ engine.mixer.setMasterVolume(+master.value);
 master.oninput = () => {
   engine.mixer.setMasterVolume(+master.value);
   try { localStorage.setItem('mig.volume', master.value); } catch { /* storage blocked */ }
-};
-
-// the real sound, prepared on request (all at once, so playback stays smooth), then used when playing:
-// the guitars through real amps, and the singer's lines polished (cleaned up, through a vocal chain)
-const realList = () => (track ? track.sections : idea ? [idea] : []);
-function showReal() {
-  if (preparing) return;
-  const list = realList();
-  const st = list.length ? engine.realStateFor(list) : 'none';
-  const amps = list.length ? engine.ampStateFor(list) : 'none';
-  const voice = list.length && engine.singsIn(list);
-  const on = engine.realAmpsOn && st === 'ready';
-  // what it does here: the amps (if this has driven guitars and they can run), the voice (if someone sings)
-  const what = [amps !== 'none' && amps !== 'failed' ? 'guitars through real amps (Marshall, Fender for clean, a dUg for driven bass)' : '', voice ? 'the voice cleaned up and through a vocal chain (tube preamp, opto compressor)' : ''].filter(Boolean).join('; ');
-  realBtn.disabled = st === 'none' || st === 'failed';
-  realBtn.textContent = on ? 'Real sound on ✓' : st === 'todo' ? 'Prepare real sound' : st === 'ready' ? 'Use real sound' : 'Real sound';
-  realHint.textContent = st === 'failed' ? 'Real amps can\'t run on this device.'
-    : st === 'none' ? 'For electric guitars, driven bass and the singer (none in this one).'
-    : on ? `On: ${what}. Tap to go back.`
-    : st === 'ready' ? 'Prepared: tap to use it.'
-    : engine.realAmpsOn ? 'Changed since: prepare again for the real sound.'
-    : `Real sound: ${what}. Takes a moment, then plays smoothly.`;
-}
-engine.onRealChange = showReal;
-realBtn.onclick = async () => {
-  // tap while preparing: cancel; tap when on: back to the simple sound
-  if (preparing) { engine.setRealAmps(false); return; }
-  const list = realList();
-  if (!list.length) return;
-  if (engine.realAmpsOn && engine.realStateFor(list) === 'ready') { engine.setRealAmps(false); return; }
-  // preparing takes the computer's full attention: stop playback first
-  if (engine.playing) { engine.stop(); setPlaying(false); }
-  preparing = true;
-  const label = (p: number) => { realBtn.textContent = `Preparing… ${Math.round(p * 100)}% · tap to cancel`; };
-  label(0);
-  realHint.textContent = 'Polishing the voice, and running the guitars through the amps, section by section.';
-  const st = await engine.prepareRealAmps(list, label);
-  preparing = false;
-  showReal();
-  if (st === 'ready' && engine.realAmpsOn) setStatus('Real sound ready — tap Play.');
-  else if (st === 'failed') setStatus('Real amps didn\'t work here — playing the simple amp.');
 };
 
 $('gen').onclick = async () => {

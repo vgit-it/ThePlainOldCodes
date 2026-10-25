@@ -148,7 +148,7 @@ The page fixes the classic vocal writer's settings (`MAIN_VOCAL` in `src/generat
 
 ## Phase 7 (optional, later): smaller files
 
-**`track.ts` DONE 2026-10-25** (1,924 → 870 lines; six files in `src/sections/`: join, energy, harmony, arrangement, seams, guitar2). Pure move; `song-check` identical. `main.ts` next, only if Paul says.
+**`track.ts` DONE 2026-10-25** (1,924 → 870 lines; six files in `src/sections/`: join, energy, harmony, arrangement, seams, guitar2). Pure move; `song-check` identical. **`main.ts` DONE 2026-10-25** (770 → 588 lines; link, export and real-sound buttons moved to `src/page/`). Not a pure cut-and-paste: the three pieces read the song through small getters, because `main.ts` keeps the state. Checked in a real browser (old build vs new: same links, same MIDI file, same labels). Phase 7 stops here unless Paul wants more.
 
 Big files cost the most tokens whenever they have to be read: `src/parts/melody.ts` (2,178 lines), `src/track.ts` (1,922), `src/verse/verse.ts` (1,305), `src/audio/engine.ts` (1,166), `src/parts/soloplan.ts` (1,177), `src/guide/line.ts` (1,218 before Phase 3), `src/main.ts` (771).
 
