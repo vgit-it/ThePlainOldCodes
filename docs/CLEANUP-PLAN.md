@@ -136,7 +136,9 @@ As built: all 50 docs now start with `Status: <live | always on | experiment | r
 3. `docs/README.md` matches the result.
 4. No code changes.
 
-## Phase 6: vocal dead code: list only, then ask Paul (no removal without a yes)
+## Phase 6: vocal dead code: list only, then ask Paul (no removal without a yes) — LISTED 2026-10-25, waiting for Paul's answer
+
+As built: `docs/VOCAL-DEADCODE.md` (measured with code coverage over the 40-song run: about 950 lines never run, mostly in `melody.ts`; who else reaches each option; what removing would change; three answers to pick from). **Nothing removed.** If Paul says yes, do it as its own PR and update this line.
 
 The page fixes the classic vocal writer's settings (`MAIN_VOCAL` in `src/generator.ts`: rhythm `words`, melody `learned`, `vocalReal` and `vocalPatterns` on). So these look unreachable from the page: the vocal rhythm writers `classic` and `grid`, the melody writers `classic` (motif), `shaped` and `first`, the Moves and Energy menus' manual choices, and maybe much of `src/parts/melody.ts` (2,178 lines), `first.ts`, `moves.ts`, `energy.ts` and `vocal.ts`.
 

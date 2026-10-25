@@ -44,6 +44,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `VOCAL-BASS.md`: the bass-led vocal.
 - `ARC.md`, `PATTERNS.md`, `REALISM.md`, `WORDS-REAL.md`: real-song numbers the vocal leans on.
 - `VOCAL-WORDS.md`, `VOCAL-LEARNED.md`, `VOICE-WORDS.md`: words and the learned melody.
+- `VOCAL-DEADCODE.md`: which vocal code the page can no longer reach (a list for Paul; nothing removed).
 - Older vocal writers (not in the page now): `VOCAL-RHYTHM.md`, `VOCAL-MELODY.md`, `VOCAL-FIRST.md`, `VOCAL-MOVES.md`, `VOCAL-ENERGY.md`.
 - Guide line leftovers (the card is gone; the singer still uses its tune and feel code): `GUIDE-TUNE.md` (`src/guide/tune.ts`), `GUIDE-FEEL.md` (`src/guide/feel.ts`). The Guide and Anchor line writers' docs are in `archive/GUIDE.md` and `archive/GUIDE-ANCHOR.md`.
 
