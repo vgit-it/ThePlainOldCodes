@@ -41,7 +41,12 @@ export interface PlayerCtx {
   /** The section's energy level and kind. */
   energy: number;
   kind: SectionKind;
+  /** Breath switch (docs/SOLO-MELODY.md, step 0f): after a busy stretch of quick notes, the next note (and the rest before it) is left as written. */
+  breath?: boolean;
 }
+
+/** Breath switch: this many quick events (under a beat) in a row count as a busy stretch. */
+const BREATH_AFTER = 6;
 
 export interface PlayerOpts {
   /** For checks: always try this rule first where it applies. */
@@ -95,6 +100,13 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
   });
   /** Notes already played as part of a run begun on an earlier note. */
   const claimed = new Set<number>();
+  /** Breath switch: how many quick sounding events in a row end just before note `i` (what its earlier notes, and the fills before them, play now). */
+  const quickBefore = (i: number): number => {
+    const evs = [...groups.slice(0, i).flat(), ...[...extras].filter(([k]) => k < i).flatMap(([, v]) => v)].filter((e) => !e.hit.mute).sort((a, b) => a.t - b.t);
+    let n = 0;
+    for (let k = evs.length - 1; k >= 0 && evs[k].len < 4; k--) n++;
+    return n;
+  };
 
   notes.forEach((note, i) => {
     if (claimed.has(i)) return;
@@ -107,6 +119,7 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     for (const k of Object.keys(nr.feel) as (keyof Feel)[]) want[k] = Math.max(-1, Math.min(1, nr.feel[k] + person.lean[k]));
     const rng = new Rng(`${c.seed}-player-${note.t}-${note.midi}`);
     if (note.frozen) { moves[i].note = 'the last note is carried into the next section'; return; }
+    if (c.breath && !o.force && quickBefore(i) >= BREATH_AFTER) { moves[i].note = 'a breath after a busy stretch'; return; }
 
     // the rules that play the note itself (held with expression, or struck again and again), scored: fit x taste x a pet move x not the same again
     const scored = rules
@@ -306,6 +319,7 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
       if (note.frozen) return;
       const span = spanFor(i);
       if (span.before < 2 - 1e-6) return;
+      if (c.breath && !o.force && quickBefore(i) >= BREATH_AFTER) { moves[i].note = moves[i].note ?? 'the rest before it stays silent: a breath after a busy stretch'; return; }
       const rng = new Rng(`${c.seed}-rest-${note.t}-${note.midi}`);
       const nr = read.notes[i];
       const e01 = (Number(nr.facts.energy ?? 0) + 1) / 2;

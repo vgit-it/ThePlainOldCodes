@@ -30,6 +30,9 @@ const PICK_T = 1.5;
 
 /** The chance an answer plays its call's rhythm again. */
 const ECHO_RHYTHM = 0.55;
+/** Rhythm motif switch: the first cell of a phrase is this many beats (then to the next beat), and each time round it comes back with this chance. */
+const MOTIF_BEATS = 2;
+const MOTIF_KEEP = 0.8;
 /** How much the mood's liking of an interval counts against the height and the rest (chord notes are few, so the moods need a push to be heard). */
 const MOOD_K = 1.6;
 /** How hard a note is pulled toward the height the energy and the phrase want (per semitone). */
@@ -156,10 +159,36 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
     const endLen = wantEnd && span >= beatOf(A) * 2 ? pickEnd(A, span) : 0;
     const lens: number[] = [];
     let pos = A;
-    while (pos < A + span - endLen) {
-      const l = pickLen(pos, A + span - endLen - pos, lens);
-      lens.push(l);
-      pos += l;
+    const stop = A + span - endLen;
+    if (!o.rhythmMotif) {
+      while (pos < stop) {
+        const l = pickLen(pos, stop - pos, lens);
+        lens.push(l);
+        pos += l;
+      }
+    } else {
+      // the motif: the first cell (two beats, to the next beat) comes back, mostly, through the phrase; a cell that does not fit is written new
+      let cell: number[] | null = null;
+      while (pos < stop) {
+        if (cell) {
+          const size = cell.reduce((a, b) => a + b, 0);
+          let q = pos, fits = pos + size <= stop && rng.chance(MOTIF_KEEP);
+          for (const l of cell) {
+            if (!fits) break;
+            const barEnd = barAt(q).start + barAt(q).len;
+            if (!canHold(q, l) || (q + l > barEnd && q !== barAt(q).start)) fits = false;
+            q += l;
+          }
+          if (fits) { lens.push(...cell); pos += size; continue; }
+        }
+        const from = lens.length, p0 = pos;
+        while (pos < stop && (pos - p0 < MOTIF_BEATS * beatOf(p0) || !isBeat(pos))) {
+          const l = pickLen(pos, stop - pos, lens);
+          lens.push(l);
+          pos += l;
+        }
+        if (isBeat(pos) || pos === stop) cell = lens.slice(from);
+      }
     }
     if (endLen) lens.push(endLen);
     return lens;
