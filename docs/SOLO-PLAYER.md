@@ -417,3 +417,53 @@ Numbers (106 solos and breaks, 2,054 long notes; made-up grid of 125,000 figures
 - Every figure: fills the note's time exactly, starts on the note, the note is the pitch heard most, in the key, never too quick for the tempo, a return ends on the note, a bridge stops short of the next note; every result in real solos passes the checker and the hands.
 
 Not yet: figures are short on one-beat notes (a neighbour and back); two figures in a bar-long note, pet figures, push and drag (sub-step 4); a flourish does not yet end on a snare or a crash on purpose; the real lick shapes of the library as a shape (`LIB_SHAPES`).
+
+## 17. Round after listening (2026-10-25): no repeated notes, trills at the tempo, quick bends and flourishes (plan, not built)
+
+Paul listened to Melody + player (step 3b) and said:
+1. **No triplet pulses, and nothing else that just plays the same note again and again.** Trills are fine, but they must **suit the song's tempo**.
+2. **More quick bends, followed by quick note flourishes.**
+3. A bug: **bends drawn at the end of a solo did not play** (found and fixed, 17.4).
+
+### 17.1 What goes (the "same note again" rules)
+- Removed from the player: triplet-pulse, eighth-pulse, stutter-hold, gallop, ghost-pulse, tremolo-hold. These all strike one pitch again; none of them moves. (`solorules-long.ts`; the rule code can stay in the file but out of `LONG_RULES`, so the check scripts and an old track note still read.)
+- The **flurry** intention (8% of long notes) goes with them. Its share goes to return, bridge and the new bend-flourish (17.3). Only **trill** stays from that family, as a figure (17.2).
+- Stay (held on purpose, 25%) keeps its four expressions: wide vibrato, scoop, bend in, late bend. They keep one pitch, but they are the slow, mood-pushing hold, not a repeat.
+- Not repeats, so they stay: a pedal figure (main note, a neighbour, main note, another note: it moves), shapes that return to the held note, a note that is simply held.
+- Check added: **no figure and no rule plays the same pitch twice in a row** (the figure search already bans it; the rules and the trill must obey too). One exception only: the tail of a return is the held note itself.
+
+### 17.2 Trills that follow the tempo
+Today a trill is one hit with `trill: d`, and the engine alternates at a fixed 14 notes a second whatever the tempo. That is a fast buzz at 70 bpm and a smear at 180.
+- Write the trill **as notes** on the grid: alternating note and scale neighbour (a semitone or a tone, by the key), hammered and pulled (`legato`, 40 ms floor), at a **subdivision of the beat chosen from the tempo**: aim for 90 to 150 ms a note, so 8th-note triplets or 16ths at slow tempos, 16ths at middle, 32nds only above about 160 bpm where 16ths are over 100 ms apart no longer. Never quicker than the legato floor, never slower than a 16th trill that still sounds like a trill (about 180 ms).
+- It lands on the held note exactly on a beat position (the last trill note is the main note, on a grid step), so it does not drift off the beat.
+- Length: a beat or two, or the whole note if short; a long note trills for part and holds the rest. Shredder and melodic like it; blues rarely.
+- It counts as a figure of its own (`return·trill`), so it is checked like one (the note heard most, in the key, fingerable).
+- Where else a "trill" hit is written (the legacy lead, licks) stays as it was; this is the player only.
+
+### 17.3 Quick bends, then quick flourishes (new: **bend-flourish**)
+What it is: the note is **bent quickly into pitch** (struck a half or whole step below and pushed up in about 60 to 120 ms, the bend-in already in the engine), or **struck bent and let down** (a quick release), and **straight after, a quick flourish**: 3 to 6 notes in 16ths or triplets, hammered and pulled and picked, in the key, that **comes back to the held note** (a return) or **runs toward the next note** (a bridge).
+- A new head kind in the composer: `figureHead` already accepts a bend or slide head; it gets a **quick** version (the bend takes at most a 16th to an 8th, never a slow push) and the composer is told "the head is a bend", so the motion starts right after it.
+- The flourish uses the same search (mood intervals, the key, the chord notes on strong beats). Its **shapes** are the fast ones: a descending pentatonic run, a rising run into a top note, a turn, a hammer-pull trio, a rake of three notes (all existing shapes, favoured and sped up), and the flourish rhythm cells are the quick ones (16ths, triplets, a 16th-triplet mix, `build`).
+- **Bend size by mood** (the vocal's interval work): half step for dark, tense, melancholic (tight, sad); whole step for happy, triumphant, angry (open, strong); a bend up into the note is far more common than a release (rising feels like effort; a release only for melancholic and dreamy).
+- **How much**: roughly **one long note in three** gets a quick bend now (today bend-in is a stay rule at about one in eight). Melodic and bluesy lean on it most, raw and shredder less, funky least. The player has the taste for it like any shape, with a pet version per solo ("this player keeps bending into the note and running").
+- **Where**: best on notes that are long enough to bend and run (a beat or more), after a rest or a landing (an attack), and on strong beats. Not twice in a row (as flurries were), never on the final landing (that is held, with a late bend if the player likes it).
+- The checker: the bend must land (the existing `bend` code covers it) and the flourish must finish before the note ends; the hands must find the fingering for the bend then the run.
+- The Played row names it `bend·run`, `bend·turn`; the tap detail says "quick bend, then a run back to the note".
+
+### 17.4 The bug: end-of-solo bends that did not play (fixed 2026-10-25)
+The solo's last note rings on into the next section and bends to its first chord (`carrySolo`, `docs/SOLO-PLAN.md` round 2). The roll draws that bend at the end of the solo. Two things kept it from being heard:
+- **The bend began on the bar line**, exactly where the next section takes over: the lead's level steps down (the solo's lead boost goes, the next section's level comes in; about 12 dB lower measured in a real render) and the note has been ringing for 2 seconds, so the move was almost gone. **Fixed**: the move now **ends** on the bar line (it starts about a quarter second before), so it is heard in the solo's own level as the chord arrives. Rendered and measured: the pitch now rises (208 Hz to 233 Hz) in the last 0.2 s of the solo, loud.
+- **With Prepare real sound on**, a section after the solo that has no lead part of its own (a bridge or verse without Guitar 2) had no lead render, so the carried note was cut at the bar line, before the bend. **Fixed**: a section that follows a lead note ringing into it gets the lead render too (`realParts` in `engine.ts`).
+- Both only touch the carried last note. The plan check (`solo-plan-check`) now says the bend must end on the bar line; the old writer is note for note unchanged.
+- Not fixed, noted: the sampled guitar note is 4 seconds long and has faded by the time it bends; a longer ring (or re-picking the note quietly just before the bend) would sound fuller. Left for when Paul listens again.
+
+### 17.5 Sub-steps (each one heard)
+1. **Out go the repeaters** (17.1): remove the six rules and the flurry intention, move their weight, update the checks (`solo-rules-check`, `solo-figure-check`, `solo-player-check`: no repeated pitch, the hold share unchanged at about 25%, return and bridge up).
+2. **Trill at the tempo** (17.2): the trill as written notes; a check across tempos 60 to 200 (every note gap between 70 and 180 ms, the last note on the main pitch on the grid).
+3. **Bend-flourish** (17.3): the quick head, the quick shapes, the mood bend size, the player's taste; a check that about a third of long notes get it, that no two in a row, and that the bend lands and the run fits.
+4. Then the rest of the 15.9 list (two figures in a bar-long note, pet figures, push and drag) and step 4 (short notes, joints, rests) on the same composer: the quick bend and the flourish are first-class there too (a quick bend into a short note, a flourish in a joint).
+
+### 17.6 Questions (my picks first)
+- Does "the same note again and again" also cover **the pedal figure** (main, neighbour, main, other)? Pick: **no, it moves**; it stays, a little less often.
+- Should the quick bend also open **short notes** (under a beat)? Pick: **yes, in step 4**, only on strong beats and only for the bluesy and melodic players.
+- Flourish length: 3 to 6 notes. Longer, up to 8, for the shredder? Pick: **yes, shredder only, when the note is a bar long**.
