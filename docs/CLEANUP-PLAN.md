@@ -84,7 +84,9 @@ As built: the menu has three entries; `soloPlan` is `'on' | 'off' | 'perform'`; 
 6. Docs: in `docs/SOLO-MELODY.md` and `docs/SOLO-PLAYER.md`, a one-line note at the top that only "Melody + player" is in the menu now (the other steps live on inside it). Record what was removed in ARCHIVE.md.
 7. Check: `npm run song-check` must pass unchanged (only `off` / `on` / `perform` are in it), plus the solo check scripts and the build. Ask Paul to try one song with each of the three options on his phone.
 
-## Phase 3: the old Guide line (1 PR)
+## Phase 3: the old Guide line (1 PR) — DONE 2026-10-25
+
+As built: `anchor.ts`, `real.ts`, `dynamics.ts` removed; `line.ts` cut from 1,217 to about 115 lines (types and numbers the singer uses; `GuideIdeas` now has only `tune`, `bends`, `feel`, `carry`, `breath`, `leadIn`). `tune.ts`, `words.ts`, `feel.ts` untouched. Not in the plan: `real.ts` was also used by `realism-lab`, `realism-lean` and `skeleton-lean`; the first two lost only their Guide / Anchor parts (they still score the vocal writers), `skeleton-lean` went. `GUIDE-FEEL.md` and `GUIDE-TUNE.md` stay in `docs/` (their code is live); `GUIDE.md` and `GUIDE-ANCHOR.md` moved to `docs/archive/`. `song-check` unchanged. **Left for later (Phase 4 or 6):** `src/realism/skeleton.ts` + `skeleton*.json` are now used only by a study script (`lakh-skeleton`) and `band-art`; `leanOf` in `src/realism/patterns.ts` and `lean.json` still carry unused `anchorRhythm` / `anchorShape`; `GuideLine` / `GuideNote` names could be renamed.
 
 The Guide card left the page on 2026-10-17. Its writers are dead; some of its helpers are used by the singer.
 

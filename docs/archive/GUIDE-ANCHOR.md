@@ -1,3 +1,5 @@
+> **Archived 2026-10-25.** The Guide line writer this describes was removed from the code (clean-up Phase 3). The code is in git: see `docs/ARCHIVE.md`.
+
 # Anchor line (Guide line switch; 2026-10-14)
 
 Paul's idea: a melody built the way many real vocal lines are, mostly one note, sung in a steady rhythm,

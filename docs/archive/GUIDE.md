@@ -1,3 +1,5 @@
+> **Archived 2026-10-25.** The Guide line writer this describes was removed from the code (clean-up Phase 3). The code is in git: see `docs/ARCHIVE.md`.
+
 # Guide line (experiment, 2026-10-14)
 
 A first step toward a new way of writing the vocal melody. Paul's idea: start from a system of notes
@@ -576,7 +578,7 @@ Measured (84 songs, held notes clashing with a chord under them, guard off → o
 `npm run guide-check` also writes every song in 5 keys and scales, guarded and not, and checks the rules.
 
 ## Anchor line (switch; 2026-10-14)
-A writer of its own behind the **Anchor line** switch: one main note per 4 bars, most words sung on it in a rhythm pattern by genre, broken by an accent near it. See `docs/GUIDE-ANCHOR.md`.
+A writer of its own behind the **Anchor line** switch: one main note per 4 bars, most words sung on it in a rhythm pattern by genre, broken by an accent near it. See `docs/archive/GUIDE-ANCHOR.md`.
 
 ## Patterns (switch, with the Anchor line; 2026-10-16)
 The Guide card's **Patterns** switch now changes the Guide line itself, not only the copy guard. See `docs/PATTERNS.md` ("The Guide line").

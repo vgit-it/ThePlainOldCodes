@@ -1,6 +1,5 @@
 // Patterns (docs/PATTERNS.md): which of the library's patterns the app's lines already sing on their own (Patterns
-// off), against how many real songs sing them: the vocal writers, and the Guide card's Anchor line apart (it writes
-// its own way). Writes src/realism/lean.json: per pattern, how much more often to pick it (a pattern real songs sing
+// off), against how many real songs sing them: the vocal writers. Writes src/realism/lean.json: per pattern, how much more often to pick it (a pattern real songs sing
 // more than the app does picked more, the app's own plain ones less), so the switch brings what the writers lack.
 // Counts only. Run: npm run realism-lean (N songs per genre and writer).
 import fs from 'node:fs';
@@ -10,14 +9,10 @@ import { buildTrack, defaultTrackOptions } from '../../src/track';
 import { RHYTHMS, SHAPES, type QNote, rhythmKeys, shapeKeys } from '../../src/realism/patterns';
 import { chordPc } from '../../src/theory';
 import { chordTones, MINORISH } from '../../src/parts/guitar2';
-import { sungSong, writeLine } from '../../src/guide/real';
-import type { GuideIdeas } from '../../src/guide/line';
 import data from '../../src/realism/patterns.json';
 
 const GENRES: Genre[] = ['rock', 'pop', 'funk', 'hardrock', 'metal', 'grunge', 'altmetal'];
 const WRITERS = [{}, { vocalRhythm: 'grid' }, { vocalRhythm: 'words' }, { vocalMelody: 'shaped' }, { vocalMelody: 'first' }, { vocalRhythm: 'grid', vocalMelody: 'first' }];
-/** The Anchor line as it's sung: plain, and with its card's switches on (Best of several left out: it only picks). */
-const ANCHORS: GuideIdeas[] = [{ anchor: true }, { anchor: true, hook: true, color: true, arc: true, band: true, spine: true, breath: true, leadIn: true }];
 const N = Number(process.env.N ?? 8);
 /** How far toward the real songs' share: 0 none, 1 all the way (the ratio's power), and the most and least a pick leans. */
 const POW = 0.6, MAX = 4, MIN = 0.2;
@@ -43,7 +38,7 @@ const harmony = (secs: any[]) => {
 };
 const seeds = (s: string) => ({ song: s, chords: s + 'c', drums: s + 'd', strum: s + 's', bass: s + 'b', vocal: s + 'v' });
 
-const vocal = counts(), anchor = counts();
+const vocal = counts();
 for (const g of GENRES) for (let i = 0; i < N; i++) {
   const s = `lean-${g}-${i}`;
   for (const w of WRITERS) {
@@ -60,15 +55,6 @@ for (const g of GENRES) for (let i = 0; i < N; i++) {
     const { roots, band } = harmony(secs), first = secs[0].song;
     tally(vocal, qs, roots, band, first.key % 12, MINORISH.includes(first.mode));
   }
-  // the Anchor line, as the lab hears it (its words sung)
-  const idea = generate({ genre: g, meter: '4/4', weirdness: 0.3 } as Parameters<typeof generate>[0], seeds(s));
-  const tr = buildTrack(idea, defaultTrackOptions(idea));
-  if (tr.sections[0].song.bars.some((b) => b.len !== 16)) continue;
-  const { roots, band } = harmony(tr.sections);
-  for (const ideas of ANCHORS) {
-    const sg = sungSong(tr.sections, writeLine(tr.sections, tr.mood, 'in', 0, 'some', null, ideas, null, null), 0);
-    tally(anchor, sg.notes.map((n) => ({ q: Math.round(n.s * 4), e: n.e * 4, p: n.p })), roots, band, sg.tonic, sg.minor);
-  }
 }
 const realSongs = Number(/(\d+) on-grid/.exec(data.source)?.[1] ?? 1159);
 const lean = (rows: typeof RHYTHMS, app: Map<string, number>, songs: number) => {
@@ -82,9 +68,8 @@ const lean = (rows: typeof RHYTHMS, app: Map<string, number>, songs: number) => 
 };
 const L = {
   rhythm: lean(RHYTHMS, vocal.r, vocal.songs), shape: lean(SHAPES, vocal.s, vocal.songs),
-  anchorRhythm: lean(RHYTHMS, anchor.r, anchor.songs), anchorShape: lean(SHAPES, anchor.s, anchor.songs),
 };
-fs.writeFileSync('src/realism/lean.json', JSON.stringify({ source: `The app's own lines (Patterns off: ${vocal.songs} vocal lines, ${anchor.songs} Anchor lines) against the library's real song counts: a pattern's pick leans by (real share / the app's share)^${POW}, ${MIN}-${MAX} (docs/PATTERNS.md).`, ...L }));
+fs.writeFileSync('src/realism/lean.json', JSON.stringify({ source: `The app's own lines (Patterns off: ${vocal.songs} vocal lines) against the library's real song counts: a pattern's pick leans by (real share / the app's share)^${POW}, ${MIN}-${MAX} (docs/PATTERNS.md).`, ...L }));
 const top = (o: Record<string, number>, d: 1 | -1) => Object.entries(o).sort((a, b) => d * (b[1] - a[1])).slice(0, 8).map(([k, v]) => `${k} x${v}`).join('  ');
-console.log({ vocal: vocal.songs, anchor: anchor.songs });
+console.log({ vocal: vocal.songs });
 for (const [k, o] of Object.entries(L)) { console.log(`${k} up:  `, top(o, 1)); console.log(`${k} down:`, top(o, -1)); }
