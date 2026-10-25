@@ -1,6 +1,8 @@
 // The solo player's figure composer (docs/SOLO-PLAYER.md, section 15): turns a long note into a short expression that keeps the note's
 // mood going: the note struck, a figure of 1 to 7 notes (hammer-ons, pull-offs, picked notes, 16ths, 8ths, triplets) and, for a return,
-// back on the note. A bridge starts on the note and builds toward the next one. Many candidates are made (a place in time, a rhythm, a
+// back on the note. A bridge starts on the note and builds toward the next one. A return can also open with a quick bend into the note and
+// run on at once in a flourish of uneven lengths with now and then a 16th of air (docs/SOLO-PLAYER.md, section 17), or be a trill written
+// as notes at a speed that suits the tempo. Many candidates are made (a place in time, a rhythm, a
 // shape, a path of notes found by a search that uses the mood's own interval costs, a way of playing each step); the director draws one
 // by weight and the checker has the last word.
 //
@@ -16,12 +18,13 @@ import { SCALES } from '../theory';
 import { TUNINGS } from '../theory/fretboard';
 import { type Profile, intervalCost } from '../verse/intervals';
 import { chordTones } from './guitar2';
+import type { Mood } from '../tension';
 import type { Person } from './soloperson';
 import { type PEvent, snap } from './soloevents';
 import type { Span } from './solorules';
 import { beatAt } from './soloverify';
 
-export type Intent = 'stay' | 'return' | 'bridge' | 'flurry';
+export type Intent = 'stay' | 'return' | 'bridge';
 
 export interface FigureAsk {
   intent: 'return' | 'bridge';
@@ -34,6 +37,10 @@ export interface FigureAsk {
   avoid?: string[];
   /** A figure to play again moved to this note (a copy of a phrase): its contour and rhythm cell. */
   prefer?: { contour?: string; cell?: string };
+  /** The mood (the size of a bend into the note). */
+  mood: Mood;
+  /** The chance of a draw opening with a quick bend (0: none; a return only). */
+  bend?: number;
 }
 
 export interface Figure {
@@ -48,6 +55,8 @@ export interface Figure {
   label: string;
   /** How many notes the figure has between the head and the landing. */
   m: number;
+  /** For a bend and run: the lengths of the flourish (`16 16 8t . 16`: a dot is a 16th of air). */
+  lens?: string;
 }
 
 const feel = (agitation: number, roughness: number, ornament: number, weight: number, looseness: number): Feel => ({ agitation, roughness, ornament, weight, looseness });
@@ -271,7 +280,14 @@ export function composeFigures(s: Span, ask: FigureAsk, rng: Rng, tries = 28): F
   }
 
   const out: Figure[] = [];
+  const preferBend = !!ask.prefer?.contour?.startsWith('bend-');
+  const bendP = bridge || h.bend || h.slide ? 0 : preferBend ? 1 : ask.bend ?? 0;
   for (let attempt = 0; attempt < tries; attempt++) {
+    // ---- a quick bend into the note, then a flourish
+    if (bendP > 0 && rng.chance(bendP)) {
+      out.push(...bendFlourish(s, ask, rng, { notes, mainIdx, ms, dMin, beat, shuffle, canOut, home, only: preferBend ? ask.prefer!.contour!.slice(5) : undefined }));
+      continue;
+    }
     // ---- the rhythm: a unit of time, a cell, how many notes
     const isBridge = bridge;
     const units: { v: number; w: number }[] = [];
@@ -344,12 +360,169 @@ export function composeFigures(s: Span, ask: FigureAsk, rng: Rng, tries = 28): F
     const pos: Pos[] = targets.map((target, i) => { const q = { t, dur: durs[i], target }; t += durs[i]; return q; });
     const paths = searchPath(s, ask, pos, mainIdx, notes, n.midi, isBridge ? { pitch: endPitch! } : null, canOut);
     for (const path of paths.slice(0, 2)) {
-      const events = playPath(s, ask, { head, durs, tail, path, isBridge, ms, pos });
+      const events = playPath(s, ask, { head, tail, path, isBridge, ms, pos });
       if (!events || !heardMost(events, n.midi)) continue;
       const moves = path.pitches.map((p, i) => p - (i ? path.pitches[i - 1] : n.midi)).filter((d) => d !== 0);
       const label = moves.map((d) => `${d > 0 ? 'up' : 'down'} ${Math.abs(d)}`).join(', ');
       const cost = path.cost / (m + 1);
       out.push({ events, intent: ask.intent, contour: def.name, cell: cellName, layout, w: Math.exp(-cost / 1.2), label, m });
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- a quick bend, then a flourish
+
+interface FlourishK { notes: number[]; mainIdx: number; ms: number; dMin: number; beat: number; shuffle: boolean; canOut: boolean; home: number; only?: string }
+
+/** How the shapes suit a flourish run (the quick ones). */
+const FLOURISH_SHAPE: Record<string, number> = { turn: 1.5, 'stair-down': 1.6, 'stair-up': 1.2, wave: 1.3, arch: 1.2, zigzag: 1.2, 'arpeggio-down': 1.1, 'arpeggio-up': 1.1, dip: 1, pedal: 0.7, 'neighbour-up': 0.5, 'neighbour-down': 0.5, enclosure: 0.8, 'leap-fill': 0.8 };
+/** How much the player lets a flourish breathe (a 16th of air). */
+const AIR: Record<string, number> = { melodic: 0.8, bluesy: 1.2, shredder: 0.4, raw: 1.2, funky: 1.3 };
+
+/** The name of a length in 16ths, for the roll: 16, 8, 8t (an 8th triplet), 16t, 16. (dotted); a dot is a 16th of air. */
+function lenName(v: number, beat: number): string {
+  const near = (a: number) => Math.abs(v - a) < 0.02;
+  if (near(1)) return '16'; if (near(2)) return '8'; if (near(beat / 3)) return '8t'; if (near(beat / 6)) return '16t'; if (near(1.5)) return '16.'; if (near(0.5)) return '32';
+  return String(+v.toFixed(2));
+}
+
+/** A run of lengths for a flourish: random, but a run quick-to-slow or slow-to-quick now and then, never more than three equal in a row, and the last not the shortest. */
+function drawLengths(rng: Rng, m: number, units: { v: number; w: number }[]): number[] | null {
+  for (let tries = 0; tries < 14; tries++) {
+    const durs = Array.from({ length: m }, () => wpick(rng, units)!);
+    const r = rng.next();
+    if (r < 0.25) durs.sort((a, b) => a - b); else if (r < 0.4) durs.sort((a, b) => b - a);
+    let run = 1, ok = true;
+    for (let i = 1; i < m; i++) { run = Math.abs(durs[i] - durs[i - 1]) < 1e-6 ? run + 1 : 1; if (run > 3) ok = false; }
+    if (m > 1 && durs[m - 1] < Math.min(...durs.slice(0, m - 1)) - 1e-6) ok = false;
+    if (ok) return durs;
+  }
+  return null;
+}
+
+/**
+ * A return that opens with a quick bend into the note (struck a half or whole step below and pushed up at once, then held for a moment) and runs on
+ * in a flourish of 3 to 6 notes (8 for a shredder on a bar-long note) of uneven lengths, now and then a 16th of air in it, and comes back to the note.
+ */
+function bendFlourish(s: Span, ask: FigureAsk, rng: Rng, k: FlourishK): Figure[] {
+  const n = s.note, L = n.len, person = ask.person, want = ask.want, P = ask.profile;
+  const { notes, mainIdx, ms, dMin, beat } = k;
+  const pcs = scaleOf(s.ctx.song).pcs;
+  // the bend: a half step for the tight moods, a whole step for the open ones (the way up into the note; the note is in the key)
+  const open = ask.mood === 'happy' || ask.mood === 'triumphant' || ask.mood === 'angry', tight = ask.mood === 'dark' || ask.mood === 'tense' || ask.mood === 'melancholic';
+  const sizes = [1, 2].filter((b) => pcs.has(mod(n.midi - b, 12)));
+  if (!sizes.length) return [];
+  const b = sizes.length === 2 ? (rng.chance(open ? 0.75 : tight ? 0.25 : 0.5) ? 2 : 1) : sizes[0];
+  // (the bend has to land in the head: the engine's own time for it)
+  const minHead = Math.max(2, Math.ceil((0.123 + b * 0.025) / 0.97 / (ms / 1000)));
+  if (minHead > 5) return [];
+  // (quick: a moment, at most about half a second whatever the tempo)
+  const hq = Math.min(minHead + (rng.chance(0.3) ? 1 : 0) + (rng.chance(0.15) ? 2 : 0), Math.max(minHead, Math.floor(500 / ms)));
+  // the lengths a flourish draws from (not quicker than the pick can go)
+  const units: { v: number; w: number }[] = (k.shuffle
+    ? [{ v: snap(beat / 3), w: 3 }, { v: snap(beat / 6), w: 1.2 }, { v: snap(beat / 2), w: 0.8 }, { v: 1, w: 0.3 }]
+    : [{ v: 1, w: 3 }, { v: 2, w: 1.4 }, { v: snap(beat / 3), w: 0.9 }, { v: snap(beat / 6), w: 0.7 }, { v: 1.5, w: 0.5 }]).filter((u) => u.v >= dMin - 1e-6);
+  if (!units.length) return [];
+  const defs = CONTOURS.filter((d) => (k.only ? d.name === k.only : true) && d.m[0] >= 2 && d.m[0] <= 5);
+  const pick = wpick(rng, defs.map((d) => {
+    const f = d.feel;
+    const d2 = (Object.keys(f) as (keyof Feel)[]).reduce((a, key) => a + (f[key] - want[key]) ** 2, 0);
+    let w = Math.exp(-d2 / 1.5) * (FLOURISH_SHAPE[d.name] ?? 1) * (person.figures[d.name] ?? 1) ** 2.5;
+    w *= 1 + 0.6 * (P.up - 0.5) * 2 * d.dir;
+    return { v: d, w };
+  }));
+  if (!pick) return [];
+  const long = person.kind === 'shredder' && L >= 16;
+  const mTop = Math.min(pick.m[1], long ? 8 : 6);
+  const minHome = Math.max(2, L * k.home);
+  // how many notes: as many as the time gives, 3 to 6 by the feel
+  const wantM = clamp(Math.round(3.4 + 1.6 * want.agitation + 1.2 * want.ornament + (rng.next() - 0.5) * 2), 3, mTop);
+  const out: Figure[] = [];
+  // (a short note takes a flourish of two notes)
+  for (let m = Math.min(wantM, mTop); m >= Math.max(L < 8 ? 2 : 3, pick.m[0]); m--) {
+    const durs = drawLengths(rng, m, units);
+    if (!durs) continue;
+    // a 16th of air between two notes of the flourish (not first after the bend)
+    const gapAt = m >= 3 && rng.chance(0.22 * (AIR[person.kind] ?? 1)) ? rng.int(1, m - 1) : -1;
+    const F = durs.reduce((a, x) => a + x, 0) + (gapAt >= 0 ? 1 : 0);
+    const tail = snap(L - hq - F);
+    if (tail < Math.max(2, minHome - hq) - 1e-6 || tail < 2 * dMin) continue;
+    const pitchesToMain = (pitch: number) => pitch === n.midi;
+    let t = n.t + hq;
+    const pos: Pos[] = durs.map((dur, i) => { if (i === gapAt) t += 1; const q = { t, dur, target: 0 }; t += dur; return q; });
+    const A = clamp(Math.round(P.size / 1.8 + 0.6 * want.agitation + (rng.next() - 0.5)), 1, 4);
+    const targets = pick.targets(m, A, rng.next());
+    pos.forEach((q, i) => { q.target = targets[i]; });
+    for (const path of searchPath(s, ask, pos, mainIdx, notes, n.midi, null, k.canOut).slice(0, 2)) {
+      // (a gap right before a landing that is the last figure note would make the landing late)
+      if (gapAt === m - 1 && pitchesToMain(path.pitches[m - 1])) continue;
+      const events = playPath(s, ask, { head: hq, headHit: { bend: b }, tail, path, isBridge: false, ms, pos });
+      if (!events || !heardMost(events, n.midi)) continue;
+      const moves = path.pitches.map((p, i) => p - (i ? path.pitches[i - 1] : n.midi)).filter((d) => d !== 0);
+      const lens = durs.flatMap((d, i) => (i === gapAt ? ['.', lenName(d, beat)] : [lenName(d, beat)])).join(' ');
+      out.push({
+        events, intent: 'return', contour: `bend-${pick.name}`, cell: gapAt >= 0 ? 'random+air' : 'random', layout: 'bend-run',
+        w: Math.exp(-(path.cost / (m + 1)) / 1.2), label: `bend ${b}, ${moves.map((d) => `${d > 0 ? 'up' : 'down'} ${Math.abs(d)}`).join(', ')}`, m, lens,
+      });
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- the trill, written as notes
+
+/**
+ * A trill that suits the tempo: the note and the scale note above (or below) it, hammered and pulled, written note by note at the speed the tempo
+ * allows (70 to 180 ms a note, as near 105 as the beat's divisions come), then the note held. It ends on the note on a beat division.
+ */
+export function composeTrill(s: Span, _ask: FigureAsk, rng: Rng): Figure[] {
+  const n = s.note, h = s.event.hit, L = n.len, song = s.ctx.song;
+  if (!figureHead(h) || L < 6 || h.bend || h.slide) return [];
+  const { notes } = scaleOf(song);
+  const mainIdx = notes.indexOf(n.midi);
+  if (mainIdx < 0) return [];
+  const ms = msStep(s), beat = beatAt(song, n.t);
+  const shuffle = s.read.tags.some((t) => t.id === 'shuffle-groove' && t.w >= 0.5);
+  // the unit: the division of the beat whose note is nearest 105 ms (a straight feel keeps to 16ths and 8ths, a shuffle to triplets)
+  const divs = (shuffle ? [beat / 6, beat / 3, beat / 2] : [0.5, 1, 2, beat / 6, beat / 3]).map(snap).filter((u) => u * ms >= 70 && u * ms <= 180);
+  if (!divs.length) return [];
+  const u = divs.reduce((best, x) => (Math.abs(Math.log(x * ms / 105)) < Math.abs(Math.log(best * ms / 105)) ? x : best));
+  const g = shuffle ? snap(beat / 3) : u >= 2 ? 2 : 1;
+  const out: Figure[] = [];
+  for (const dir of [1, 1, -1]) {
+    const nbIdx = mainIdx + dir;
+    if (nbIdx < 0 || nbIdx >= notes.length || Math.abs(notes[nbIdx] - n.midi) > 3) continue;
+    const nb = notes[nbIdx];
+    const D = beat * rng.pick([1, 1, 2]);
+    let r = Math.max(2, Math.round((D / u + 1) / 2));
+    for (; r >= 2; r--) {
+      const run = (2 * r - 1) * u;
+      // the landing starts on a division of the beat, counted from the note, with a head (the note held or struck) of at least a unit before the first change
+      const minT = run + u;
+      const cands: number[] = [];
+      for (let T = Math.ceil(minT / g - 1e-6) * g; T <= L - Math.max(2, L * 0.36); T = snap(T + g)) cands.push(T);
+      if (!cands.length) continue;
+      const T = cands[Math.min(cands.length - 1, rng.int(0, 1))];
+      const head = snap(T - run);
+      const land = snap(L - T);
+      if (head < u - 1e-6 || land < Math.max(2, L * 0.36) - 1e-6) continue;
+      const events: PEvent[] = [{ t: n.t, len: head, base: n.i, hit: { ...h, len: head } }];
+      let t = n.t + head;
+      for (let j = 0; j < 2 * r - 1; j++) {
+        const up = j % 2 === 0;
+        const { vib: _v, ...base } = landingHit(h);
+        const hit: GuitarHit = { ...base, step: Math.floor(t), len: u, notes: [up ? nb : n.midi], vel: clamp(h.vel * (up ? 0.88 : 0.92), 0.2, 1.2), exact: true, art: 'legato' };
+        delete hit.shift;
+        events.push({ t: snap(t), len: snap(u), base: n.i, hit });
+        t += u;
+      }
+      const land0 = landingHit(h);
+      events.push({ t: snap(t), len: snap(land), base: n.i, hit: { ...land0, step: Math.floor(t), len: land, art: 'legato', vel: h.vel * 0.94 } });
+      if (Math.abs(t + land - (n.t + L)) > 0.05 || !heardMost(events, n.midi)) continue;
+      const word = Math.abs(u - 1) < 0.02 ? '16ths' : Math.abs(u - 2) < 0.02 ? '8ths' : Math.abs(u - beat / 3) < 0.02 ? '8th triplets' : Math.abs(u - beat / 6) < 0.02 ? '16th triplets' : '32nds';
+      out.push({ events, intent: 'return', contour: 'trill', cell: word, layout: 'trill', w: 1, label: `trill ${dir > 0 ? 'above' : 'below'} (${nb - n.midi > 0 ? '+' : ''}${nb - n.midi}) in ${word}, ${r} turns`, m: 2 * r - 1 });
+      break;
     }
   }
   return out;
@@ -363,17 +536,17 @@ function heardMost(events: PEvent[], midi: number): boolean {
   return [...time.values()].every((x) => x <= mine + 1e-6);
 }
 
-/** The path as events: the head, the figure's notes (how each is played), the landing. Null if two notes in a row are the same and not a pedal. */
-function playPath(s: Span, ask: FigureAsk, p: { head: number; durs: number[]; tail: number; path: Path; isBridge: boolean; ms: number; pos: Pos[] }): PEvent[] | null {
+/** The path as events: the head, the figure's notes (how each is played), the landing. Null if the time does not add up. */
+function playPath(s: Span, ask: FigureAsk, p: { head: number; headHit?: Partial<GuitarHit>; tail: number; path: Path; isBridge: boolean; ms: number; pos: Pos[] }): PEvent[] | null {
   const n = s.note, h = s.event.hit, person = ask.person;
   const hands = s.ctx.hands;
   const events: PEvent[] = [];
-  // the head: the note as it was, cut short
-  events.push({ t: n.t, len: snap(p.head), base: n.i, hit: { ...h, len: p.head } });
+  // the head: the note as it was, cut short (a bend into it, for a bend and run)
+  events.push({ t: n.t, len: snap(p.head), base: n.i, hit: { ...h, len: p.head, ...(p.headHit ?? {}) } });
   let prevPitch = n.midi;
-  let t = n.t + p.head;
-  const rng = (k: number) => { const x = Math.sin((n.t * 131 + n.midi * 17 + k * 7.31 + p.durs.length) * 12.9898) * 43758.5453; return x - Math.floor(x); };
-  const play = (pitch: number, dur: number, k: number, out: boolean, vel: number) => {
+  let end = n.t + p.head;
+  const rng = (k: number) => { const x = Math.sin((n.t * 131 + n.midi * 17 + k * 7.31 + p.pos.length) * 12.9898) * 43758.5453; return x - Math.floor(x); };
+  const play = (pitch: number, t: number, dur: number, k: number, out: boolean, vel: number) => {
     const d = pitch - prevPitch;
     const msDur = dur * p.ms;
     let art: GuitarHit['art'] = 'pick';
@@ -389,23 +562,25 @@ function playPath(s: Span, ask: FigureAsk, p: { head: number; durs: number[]; ta
     if (out) { e.out = true; hit.out = true; }
     events.push(e);
     prevPitch = pitch;
-    t += dur;
+    end = t + dur;
   };
   const m = p.path.pitches.length;
+  let mergedAt = -1;
   p.path.pitches.forEach((pitch, i) => {
     const last = i === m - 1;
     // (the last figure note of a return that is the note itself is the landing: it takes the tail's time too)
-    if (!p.isBridge && last && pitch === n.midi) return;
-    play(pitch, p.durs[i], i, p.path.out[i], h.vel * (0.78 + 0.2 * ((i + 1) / m)));
+    if (!p.isBridge && last && pitch === n.midi) { mergedAt = p.pos[i].t; return; }
+    play(pitch, p.pos[i].t, p.pos[i].dur, i, p.path.out[i], h.vel * (0.78 + 0.2 * ((i + 1) / m)));
   });
   if (!p.isBridge) {
-    const lastLen = p.path.pitches[m - 1] === n.midi ? p.durs[m - 1] + p.tail : p.tail;
+    const t = mergedAt >= 0 ? mergedAt : end;
+    const lastLen = mergedAt >= 0 ? p.pos[m - 1].dur + p.tail : p.tail;
     const d = n.midi - prevPitch;
     const pLeg = clamp(0.2 + 0.6 * hands.legato + person.legato * 0.4, 0, 0.9);
     const art: GuitarHit['art'] = d !== 0 && Math.abs(d) <= 4 && rng(99) < pLeg ? 'legato' : 'pick';
     const land = landingHit(h);
     events.push({ t: snap(t), len: snap(lastLen), base: n.i, hit: { ...land, step: Math.floor(t), len: lastLen, art, vel: h.vel * 0.94 } });
-    t += lastLen;
+    end = t + lastLen;
   }
-  return Math.abs(t - (n.t + n.len)) < 0.05 ? events : null;
+  return Math.abs(end - (n.t + n.len)) < 0.05 ? events : null;
 }

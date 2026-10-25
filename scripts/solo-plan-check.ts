@@ -173,7 +173,7 @@ for (let i = 0; i < N; i++) {
         const tones = chordTones(nx.song.key, nx.chords.timeline[0].chord);
         if (last.notes.length > 1 || tones.includes(((sounding % 12) + 12) % 12)) a.carryTone++; else fail(`plan ${s}: last note ends on ${sounding}, not a note of the next chord`);
         void end;
-        if (last.bendAt !== undefined) { a.carryBend++; if (Math.abs(last.bendAt - (total - last.step - 0.5)) < 0.01) a.carryOnBar++; else fail(`plan ${s}: the bend is not on the bar line`); }
+        if (last.bendAt !== undefined) { a.carryBend++; if (Math.abs((last.bendAt + (last.lateBend ? 0.14 + last.lateBend * 0.04 : 0.12) / (15 / sec.song.bpm)) - (total - last.step - 0.25)) < 0.01 || last.bendAt === 0.5) a.carryOnBar++; else fail(`plan ${s}: the bend does not end on the bar line`); }
       }
       // (the climax sits highest for its place on the planned height: a solo whose height runs against its energy has no 'highest')
       const up = (l: { step: number; midi: number }) => l.midi - c.centre[Math.min(c.centre.length - 1, l.step)];

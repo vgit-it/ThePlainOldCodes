@@ -26,9 +26,9 @@ import { type VCtx, type Violation, describe, unplayable, verify } from '../src/
 
 const ALL_RULES = LIVE_RULES.filter((r) => r.name !== 'plain' && r.name !== 'figures');
 /** What is forced, one after the other: each rule alone, and every figure of an intention (a return, a bridge). */
-const FORCED = [...ALL_RULES.map((r) => ({ name: r.name, rules: [PLAIN, r] })), { name: 'return', rules: LIVE_RULES }, { name: 'bridge', rules: LIVE_RULES }];
+const FORCED = [...ALL_RULES.map((r) => ({ name: r.name, rules: [PLAIN, r] })), { name: 'return', rules: LIVE_RULES }, { name: 'bridge', rules: LIVE_RULES }, { name: 'bend-run', rules: LIVE_RULES }, { name: 'trill', rules: LIVE_RULES }];
 /** Rules that change how the one note is played and add no notes. */
-const SHAPE_ONLY = new Set(['scoop-in', 'bend-in', 'late-bend', 'wide-vibrato', 'trill']);
+const SHAPE_ONLY = new Set(['scoop-in', 'bend-in', 'late-bend', 'wide-vibrato']);
 const N = Number(process.env.N ?? 140);
 const F = Number(process.env.F ?? 300);
 const GENRES = ['rock', 'pop', 'funk', 'hardrock', 'metal', 'grunge', 'altmetal'];
@@ -188,7 +188,7 @@ for (let i = 0; i < N; i++) {
     for (const rule of FORCED) {
       const out = performSolo({ hits: sec.guitar2.map((h: GuitarHit) => ({ ...h })), notes: [], curve: sec.soloCurve }, ctx, rule.rules, { force: rule.name });
       const st = note(rule.name);
-      const used = (out.curve?.moves ?? []).filter((m) => m.rule === rule.name || m.intent === rule.name).length;
+      const used = (out.curve?.moves ?? []).filter((m) => m.rule === rule.name || m.intent === rule.name || (rule.name === 'bend-run' && m.rule.includes('·bend-')) || (rule.name === 'trill' && m.rule.endsWith('·trill'))).length;
       st.tried++; st.used += used; st.max = Math.max(st.max, used);
       const again = performSolo({ hits: sec.guitar2.map((h: GuitarHit) => ({ ...h })), notes: [], curve: sec.soloCurve }, ctx, rule.rules, { force: rule.name });
       if (JSON.stringify(out.hits) !== JSON.stringify(again.hits)) fail(`${s} ${rule.name}: the same seed gave another performance`);

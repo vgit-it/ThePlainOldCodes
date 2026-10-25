@@ -8,9 +8,13 @@
 //  3. Real solos, played naturally: the share of long notes that are held as they are follows the mood and the energy, is mostly the peaks
 //     and the landings, is about a quarter overall; no contour twice in a row; a copy of a phrase plays the same move; every lead player
 //     keeps to their own shapes; passing notes outside the key only for the players who use them.
+//  4. Section 17: no figure plays the same pitch twice running; a trill is written as notes at a speed that suits the tempo (70 to 180 ms a
+//     note) and ends on the note on a beat division; a quick bend into the note (a half or whole step, landing, in the key) then a flourish of
+//     uneven lengths with a 16th of air now and then (never first, never last, at most one), all inside the note's time; about a quarter of
+//     long notes (those with room: not the 4-step ones) open with a quick bend, never twice in a row.
 //   npm run solo-figure-check        (N=140 songs)
 import { MAIN_GUITARS, generate } from '../src/generator';
-import type { GuitarHit, NoteRead, ReadTag, Song } from '../src/idea';
+import { type GuitarHit, type NoteRead, type ReadTag, type Song, hitTime } from '../src/idea';
 import { leadHands } from '../src/players/hands';
 import { pickLead } from '../src/players/lead';
 import { Rng } from '../src/rng';
@@ -20,7 +24,7 @@ import { buildTrack, defaultTrackOptions } from '../src/track';
 import { profileFor } from '../src/verse/intervals';
 import { type BaseNote, TOL, endOf } from '../src/parts/soloevents';
 import { MOOD_FEEL } from '../src/parts/soloread';
-import { composeFigures } from '../src/parts/solofigure';
+import { composeFigures, composeTrill } from '../src/parts/solofigure';
 import { personOf } from '../src/parts/soloperson';
 import type { PlayerCtx } from '../src/parts/soloplayer';
 import type { Span } from '../src/parts/solorules';
@@ -38,6 +42,7 @@ const tagsOf = (ids: string[]): ReadTag[] => ids.map((id) => ({ id, w: 1, family
 
 // ---------------- 1 and 2. made-up spans
 const byMood: Record<string, { n: number; size: number; moves: number; down: number; notes: number }> = {};
+const BEND = { n: 0, air: 0, notes: 0, varied: 0 }, TRILL = { n: 0, ms: 0 };
 let made = 0, none = 0;
 {
   const rng = new Rng('figure-grid');
@@ -61,8 +66,9 @@ let made = 0, none = 0;
     const read: NoteRead = { i: 1, step: t, midi, len, tags: tagsOf(rng.pick([[], ['shuffle-groove'], ['eighths-groove'], ['sixteenths-groove']])), feel, facts: {} };
     const ctx: PlayerCtx = { seed: 'fg', song, lead, hands: leadHands('fg', lead), mood, tension: [], energy: 3, kind: 'solo' };
     const span: Span = { note, event: { t, len, hit, base: 1 }, read, prev: null, next: nextNote, before: 0, after: 0, ctx };
-    for (const intent of ['return', 'bridge'] as const) {
-      const figs = composeFigures(span, { intent, person, want: feel, profile: profileFor(mood, 'solo', 0.5) }, new Rng(`f${k}`), 20);
+    for (const intent of ['return', 'bridge', 'trill'] as const) {
+      const ask = { intent: intent === 'trill' ? 'return' as const : intent, person, want: feel, profile: profileFor(mood, 'solo', 0.5), mood, bend: 0.6 };
+      const figs = intent === 'trill' ? composeTrill(span, ask, new Rng(`t${k}`)) : composeFigures(span, ask, new Rng(`f${k}`), 20);
       if (!figs.length) { if (len >= 8 && intent === 'return') none++; continue; }
       for (const f of figs) {
         made++;
@@ -70,7 +76,38 @@ let made = 0, none = 0;
         const line = [...f.events].sort((a, b) => a.t - b.t);
         ok(Math.abs(line[0].t - t) < TOL, `${tag}: starts at ${line[0].t}`);
         ok(Math.abs(endOf(line[line.length - 1]) - (t + len)) < TOL, `${tag}: ends at ${endOf(line[line.length - 1])}`);
-        for (let j = 1; j < line.length; j++) ok(Math.abs(line[j].t - endOf(line[j - 1])) < TOL, `${tag}: a gap or overlap at ${line[j].t}`);
+        // (no gap but the one 16th of air a bend and run may have: not first after the bend, at most one)
+        let air = 0;
+        for (let j = 1; j < line.length; j++) {
+          const gap = line[j].t - endOf(line[j - 1]);
+          if (gap > TOL) { air++; ok(Math.abs(gap - 1) < TOL && f.contour.startsWith('bend-') && j >= 2 && j < line.length - 1, `${tag}: a gap of ${gap.toFixed(2)} at ${line[j].t}`); } else ok(Math.abs(gap) < TOL, `${tag}: an overlap at ${line[j].t}`);
+        }
+        ok(air <= 1, `${tag}: ${air} gaps of air`);
+        ok(air === 0 || (f.lens ?? '').includes('.'), `${tag}: a gap that the lengths do not show`);
+        // (never the same pitch twice running)
+        for (let j = 1; j < line.length; j++) ok(line[j].hit.notes[0] !== line[j - 1].hit.notes[0], `${tag}: the same pitch twice running at ${line[j].t}`);
+        if (f.contour.startsWith('bend-')) {
+          const hd = line[0].hit;
+          ok(hd.bend === 1 || hd.bend === 2, `${tag}: a bend of ${hd.bend}`);
+          ok(pcs.has((((midi - (hd.bend ?? 0)) % 12) + 12) % 12), `${tag}: a bend from outside the key`);
+          ok(line[0].len * (15000 / bpm) <= 650 && line[0].len <= 6, `${tag}: the bent note is held ${line[0].len} steps (${(line[0].len * (15000 / bpm)).toFixed(0)} ms)`);
+          ok(line[0].len * (15000 / bpm) * 0.97 - 3 > 100 + (hd.bend ?? 0) * 25, `${tag}: the bend has no time to land`);
+          for (const e of line.slice(1, -1)) ok(e.len * (15000 / bpm) >= 62 - 1e-6, `${tag}: a flourish note of ${(e.len * (15000 / bpm)).toFixed(0)} ms`);
+          BEND.n++; BEND.air += air; BEND.notes += f.m;
+          const lens = new Set(line.slice(1, -1).map((e) => e.len.toFixed(2)));
+          BEND.varied += lens.size > 1 ? 1 : 0;
+        }
+        if (f.contour === 'trill') {
+          const gapMs = (15000 / bpm) * (line[2].t - line[1].t);
+          ok(gapMs >= 70 - 1 && gapMs <= 180 + 1, `${tag}: trill notes ${gapMs.toFixed(0)} ms apart`);
+          const trillNotes = line.slice(1, -1);
+          ok(trillNotes.every((e, j) => e.hit.notes[0] === (j % 2 === 0 ? trillNotes[0].hit.notes[0] : midi) && e.hit.art === 'legato'), `${tag}: a trill that does not alternate`);
+          ok(trillNotes.every((e) => Math.abs(e.len - trillNotes[0].len) < 0.02), `${tag}: a trill of uneven notes`);
+          const unit = trillNotes[0].len, landAt = line[line.length - 1].t - t;
+          const beatLen = mb.groups[0], on = (g: number) => Math.abs(landAt / g - Math.round(landAt / g)) < 0.02;
+          ok(on(1) || on(beatLen / 3) || on(beatLen / 6), `${tag}: the trill lands at ${landAt.toFixed(2)}, off every division of the beat`);
+          TRILL.n++; TRILL.ms += gapMs;
+        }
         ok(line[0].hit.notes[0] === midi, `${tag}: does not start on the note`);
         ok(f.events.every((e) => e.len > 0), `${tag}: an empty event`);
         const time = new Map<number, number>();
@@ -84,12 +121,12 @@ let made = 0, none = 0;
         const ms = 15000 / bpm;
         for (let j = 1; j < line.length; j++) ok((line[j].t - line[j - 1].t) * ms >= 40 - 1e-6, `${tag}: ${(((line[j].t - line[j - 1].t) * ms)).toFixed(0)} ms between two notes`);
         const last = line[line.length - 1].hit.notes[0];
-        if (intent === 'return') ok(last === midi, `${tag}: a return that ends on ${last}`);
+        if (intent !== 'bridge') ok(last === midi, `${tag}: a return that ends on ${last}`);
         else {
           ok(last !== midi, `${tag}: a bridge that ends on the note`);
           ok(nextMidi > midi ? last < nextMidi : last > nextMidi, `${tag}: a bridge that goes past the next note (${last})`);
         }
-        ok(f.m >= 1 && f.m <= 7, `${tag}: ${f.m} notes`);
+        ok(f.m >= 1 && (f.m <= 7 || f.contour === 'trill'), `${tag}: ${f.m} notes`);
         // the mood's intervals (returns only: they all start and end on the note)
         if (intent === 'return') {
           const s = (byMood[mood] ??= { n: 0, size: 0, moves: 0, down: 0, notes: 0 });
@@ -102,7 +139,10 @@ let made = 0, none = 0;
   }
 }
 ok(none < 200, `${none} long notes of 8 steps or more could take no return figure`);
-console.log(`${made} figures over the grid, ${checks} checks`);
+console.log(`${made} figures over the grid, ${checks} checks; bend and run ${BEND.n} (${(BEND.notes / Math.max(1, BEND.n)).toFixed(1)} flourish notes, ${(100 * BEND.air / Math.max(1, BEND.n)).toFixed(0)}% with air, ${(100 * BEND.varied / Math.max(1, BEND.n)).toFixed(0)}% of uneven lengths); trills ${TRILL.n} (${(TRILL.ms / Math.max(1, TRILL.n)).toFixed(0)} ms a note on average)`);
+ok(BEND.n > 500 && BEND.air / BEND.n > 0.08 && BEND.air / BEND.n < 0.4, `air in ${(100 * BEND.air / Math.max(1, BEND.n)).toFixed(0)}% of the bend and run figures`);
+ok(BEND.varied / Math.max(1, BEND.n) > 0.6, 'the flourish lengths should mostly be uneven');
+ok(TRILL.n > 200, `only ${TRILL.n} trills over the grid`);
 const mean = (m: string) => byMood[m].size / byMood[m].moves, down = (m: string) => byMood[m].down / byMood[m].moves;
 console.log(`mood: mean interval ${MOODS.map((m) => `${m} ${mean(m).toFixed(2)}`).join(', ')}`);
 console.log(`mood: share falling ${MOODS.map((m) => `${m} ${down(m).toFixed(2)}`).join(', ')}`);
@@ -119,6 +159,7 @@ const INTENTS: Record<string, number> = {};
 const FELL: Record<string, number> = {};
 const FELL_LEN: Record<string, [number, number]> = {};
 const byLead: Record<string, { n: number; shapes: Record<string, number>; out: number }> = {};
+const RUNS = { bend: 0, trill: 0, bendRow: 0, repeats: 0, byLead: {} as Record<string, [number, number]>, air: 0 };
 let fell = 0, figures = 0, twice = 0, runs = 0, copies = 0, copySame = 0, solos = 0, distinctLow = 0, solosWithFigs = 0;
 const STAIR = ['stair-up', 'stair-down', 'zigzag', 'wave', 'climb', 'climb-zigzag', 'climb-thirds'];
 for (let i = 0; i < N; i++) {
@@ -155,11 +196,24 @@ for (let i = 0; i < N; i++) {
         figures++;
         const c = m.rule.split('·')[1];
         contours.push(c);
+        const bl = (RUNS.byLead[lead.kind] ??= [0, 0]);
+        bl[1]++;
+        if (c.startsWith('bend-')) { RUNS.bend++; bl[0]++; if (k >= 1 && mv[k - 1]?.rule.split('·')[1]?.startsWith('bend-')) RUNS.bendRow++; if (m.fig?.includes(' . ')) RUNS.air++; }
+        if (c === 'trill') RUNS.trill++;
         L.n++; L.shapes[c] = (L.shapes[c] ?? 0) + 1;
         if (c === last) twice++;
         last = c; runs++;
       } else last = '';
     });
+    // never the same pitch twice running inside a note that was played another way
+    {
+      const hits = [...sec.guitar2].filter((h: GuitarHit) => !h.mute && h.notes.length).sort((a: GuitarHit, b: GuitarHit) => hitTime(a) - hitTime(b));
+      rd.notes.forEach((n: NoteRead, k: number) => {
+        if (!mv[k] || mv[k].rule === 'plain') return;
+        const inside = hits.filter((h: GuitarHit) => hitTime(h) >= n.step - 1e-6 && hitTime(h) < n.step + n.len - 1e-6);
+        for (let j = 1; j < inside.length; j++) if (inside[j].notes[0] === inside[j - 1].notes[0] && !inside[j].mute) { RUNS.repeats++; fail(`${s}: the same pitch twice running in note ${k} (${mv[k].rule})`); }
+      });
+    }
     if (contours.length >= 6) { solosWithFigs++; if (new Set(contours).size < 3) distinctLow++; }
     // a copy of a phrase plays the same move
     rd.phrases.forEach((p: any) => {
@@ -179,6 +233,10 @@ for (let i = 0; i < N; i++) {
 }
 const share = (a: number, b: number) => (b ? a / b : 0);
 console.log(`real solos (${solos} solos and breaks): ${H.long} long notes; held on purpose ${(100 * share(H.stay, H.long)).toFixed(0)}%; ${Object.entries(INTENTS).map(([k, n]) => `${k} ${n}`).join(', ')}; every try failed ${H.failed}`);
+console.log(`quick bend then flourish: ${RUNS.bend} (${(100 * share(RUNS.bend, H.long)).toFixed(0)}% of long notes, ${RUNS.air} with a 16th of air; two in a row ${RUNS.bendRow}); trills ${RUNS.trill} (${(100 * share(RUNS.trill, H.long)).toFixed(1)}%); by lead ${Object.entries(RUNS.byLead).map(([k, v]) => `${k} ${(100 * share(v[0], v[1])).toFixed(0)}% of ${v[1]} figures`).join(', ')}`);
+ok(share(RUNS.bend, H.long) > 0.15 && share(RUNS.bend, H.long) < 0.45, `${(100 * share(RUNS.bend, H.long)).toFixed(0)}% of long notes open with a quick bend, not about a quarter`);
+ok(RUNS.bendRow === 0, `${RUNS.bendRow} quick bends in a row`);
+ok(RUNS.trill === 0 || share(RUNS.trill, H.long) < 0.1, 'too many trills');
 console.log(`  held because no figure fit: ${fell} (${Object.entries(FELL_LEN).sort().map(([k, v]) => `len ${k}: ${v[0]} of ${v[1]}`).join(', ')})`);
 console.log(`  hold share by mood: ${MOODS.map((m) => `${m} ${(100 * share(H.byMood[m]?.[0] ?? 0, H.byMood[m]?.[1] ?? 0)).toFixed(0)}%`).join(', ')}; on a climax ${(100 * share(H.peak[0], H.peak[1])).toFixed(0)}% of ${H.peak[1]}, on a landing ${(100 * share(H.landing[0], H.landing[1])).toFixed(0)}% of ${H.landing[1]}`);
 const hs = (m: string) => share(H.byMood[m]?.[0] ?? 0, H.byMood[m]?.[1] ?? 0);
@@ -193,7 +251,7 @@ console.log(`figures: ${figures}; the same contour twice running ${(100 * share(
 ok(share(twice, runs) < 0.2, `the same contour twice running ${(100 * share(twice, runs)).toFixed(0)}% of the time`);
 ok(copies < 20 || share(copySame, copies) > 0.6, `a copy plays the same move only ${(100 * share(copySame, copies)).toFixed(0)}% of the time`);
 ok(solosWithFigs < 5 || distinctLow / solosWithFigs < 0.2, `${distinctLow} of ${solosWithFigs} solos use fewer than 3 shapes`);
-const fam = (k: string, names: string[]) => share(names.reduce((a, c) => a + (byLead[k]?.shapes[c] ?? 0), 0), byLead[k]?.n ?? 0);
+const fam = (k: string, names: string[]) => share(names.reduce((a, c) => a + (byLead[k]?.shapes[c] ?? 0) + (byLead[k]?.shapes[`bend-${c}`] ?? 0), 0), byLead[k]?.n ?? 0);
 console.log(`lead players: ${Object.entries(byLead).map(([k, v]) => `${k} ${v.n} figures (runs and zigzags ${(100 * fam(k, STAIR)).toFixed(0)}%, pedal and leap-fill ${(100 * fam(k, ['pedal', 'leap-fill']) ).toFixed(0)}%, neighbour and arch ${(100 * fam(k, ['neighbour-up', 'neighbour-down', 'arch', 'dip']) ).toFixed(0)}%)`).join('; ')}`);
 if ((byLead.shredder?.n ?? 0) > 40 && (byLead.melodic?.n ?? 0) > 40) ok(fam('shredder', STAIR) > fam('melodic', STAIR) + 0.05, 'a shredder should play more runs and zigzags than a melodic player');
 if ((byLead.raw?.n ?? 0) > 25 && (byLead.melodic?.n ?? 0) > 40) ok(fam('raw', ['pedal', 'leap-fill']) > fam('melodic', ['pedal', 'leap-fill']) + 0.04, 'a raw player should play more pedals and leaps than a melodic player');

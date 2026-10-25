@@ -408,7 +408,7 @@ const capAt = (s: number) => (h: GuitarHit): GuitarHit => ({ ...h, len: Math.max
 
 /**
  * A planned solo's last note carries on (docs/SOLO-PLAN.md, round 2): it rings through the rest of the section and the next
- * section's first bar, and bends, on the bar line, to the nearest note of the next section's first chord (up to three semitones:
+ * section's first bar, and bends, finishing on the bar line, to the nearest note of the next section's first chord (up to three semitones:
  * pushed up from below, or picked bent and let down). Transitions (a band stop, band hits, a snare build) have cut the
  * section's end by now; the note is the solo's final landing, else the last note left.
  */
@@ -429,8 +429,10 @@ function carrySolo(idea: Idea, next: Idea | undefined) {
   const cur = h.notes[0] - (h.unbend ?? 0);
   const d = [0, 1, -1, 2, -2, 3, -3].find((x) => tones.includes((((cur + x) % 12) + 12) % 12));
   if (!d) return;
-  // (on the bar line: a little before, so the move is heard as the chord arrives)
-  const at = total - h.step - 0.5;
+  // (the move ends on the bar line, so it is heard in the solo's own level as the chord arrives: from the bar line on, the next section's
+  // level is under it, and the note has already died away some)
+  const six = 15 / idea.song.bpm;
+  const at = Math.max(0.5, total - h.step - (d > 0 ? 0.14 + d * 0.04 : 0.12) / six - 0.25);
   h.bend = 0;
   if (d > 0) { h.notes = [cur + d]; h.unbend = undefined; h.lateBend = d; h.bendAt = at; }
   else { h.notes = [cur]; h.lateBend = undefined; h.unbend = -d; h.bendAt = at; }

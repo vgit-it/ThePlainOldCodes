@@ -612,11 +612,12 @@ export class Engine {
     return { prev, next };
   }
 
-  /** Which parts of an item need real amps. */
-  private realParts(idea: Idea) {
+  /** Which parts of an item need real amps (`prev`: the item before; its last lead note can ring on into this one: a solo's carried note). */
+  private realParts(idea: Idea, prev: Idea | null = null) {
+    const rings = !!prev && electric(this.guitar2IdFor(prev)) && prev.guitar2.some((h) => h.step + h.len > prev.song.total + 1e-6);
     return {
       chords: electric(this.chordIdFor(idea)),
-      guitar2: electric(this.guitar2IdFor(idea)) && idea.guitar2.length > 0,
+      guitar2: (electric(this.guitar2IdFor(idea)) && idea.guitar2.length > 0) || rings,
       bass: this.bassChoice !== 'synth' && this.bassToneFor(idea) === 'driven' && idea.bass.some((n) => n),
     };
   }
@@ -646,9 +647,9 @@ export class Engine {
     const n = list.length, items: (PrepItem & { index: number })[] = [];
     for (let k = 0; k < n; k++) {
       const i = (from + k) % n;
-      const parts = this.realParts(list[i]);
-      if (!parts.chords && !parts.guitar2 && !parts.bass) continue;
       const { prev, next } = this.around(list, loop, i);
+      const parts = this.realParts(list[i], prev);
+      if (!parts.chords && !parts.guitar2 && !parts.bass) continue;
       const sub = [prev, list[i], next].filter((x): x is Idea => !!x);
       // a channel per amp its render builds: two per rhythm sound (double-tracked), one per Guitar 2
       // sound, a driven guitar's clean channel, and the bass preamp
@@ -698,7 +699,7 @@ export class Engine {
     if (this.offline) p = this.preparedAt?.(this.idx);
     else {
       if (!this.realAmps || !this.prep) return;
-      const parts = this.realParts(this.list[this.idx]);
+      const parts = this.realParts(this.list[this.idx], this.around(this.list, this.loop, this.idx).prev);
       if (!parts.chords && !parts.guitar2 && !parts.bass) return;
       // prepared for this spot, or for the same item elsewhere (a section looped on its own was
       // prepared with the track's sections around it: only its first moment's ring-over differs)
