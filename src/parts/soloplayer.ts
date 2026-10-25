@@ -12,7 +12,7 @@ import type { Guitar2Part } from './guitar2';
 import { type PEvent, eventsToHits, readBase } from './soloevents';
 import { readSolo } from './soloread';
 import { type Rule, type Span, covers, fitOf } from './solorules';
-import { type Intent, composeFigures } from './solofigure';
+import { type Intent, composeFigures, composeTrill } from './solofigure';
 import { intentWeights } from './solointent';
 import { profileFor } from '../verse/intervals';
 import { LIVE_RULES } from './solorules-live';
@@ -123,11 +123,10 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
       chosen[i] = choice;
       if (choice.intent !== 'plain') { used.set(choice.name, (used.get(choice.name) ?? 0) + 1); lastRule = { i, name: choice.name }; }
     };
-    const byGroup = (g: 'stay' | 'flurry') => scored.filter((x) => x.r.profile?.group === g);
 
     // a note too short for a figure: held, now and then with expression
     if (note.len < 4) {
-      const stay = byGroup('stay');
+      const stay = scored;
       if (!stay.length || !rng.chance(0.5 * person.density)) { moves[i].note = 'short: left plain'; return; }
       for (const r of drawn(stay.map((x) => ({ v: x.r, w: x.w })))) {
         if (attempt(r.realise(span, new Rng(`${c.seed}-rule-${r.name}-${note.t}-${note.midi}`)), false)) { done({ intent: 'stay', name: r.name }, 'stay'); return; }
@@ -136,19 +135,16 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     }
 
     // what the note is for
-    const flurry = byGroup('flurry');
     const figuresOn = rules.some((r) => r.name === 'figures');
     const canBridge = figuresOn && note.anchor !== 'all' && !!span.next && span.after <= 2;
-    const weights = intentWeights({ mood: c.mood, e01, tag: tagw, person, canBridge, flurryFit: flurry.length ? flurry[0].w : 0 });
+    const weights = intentWeights({ mood: c.mood, e01, tag: tagw, person, canBridge });
     if (!figuresOn) weights.return = 0;
-    if (i >= 1 && chosen[i - 1].intent === 'flurry') weights.flurry = 0;
-    if (i >= 2 && chosen[i - 2].intent === 'flurry') weights.flurry *= 0.5;
     if (o.force) {
       // (for the checks: the named rule, or every figure of a named intention)
-      if (rules.some((r) => r.name === o.force)) { for (const k of Object.keys(weights) as Intent[]) weights[k] = 0; weights[rules.find((r) => r.name === o.force)!.profile?.group ?? 'stay'] = 1; }
-      else if (o.force === 'return' || o.force === 'bridge') { for (const k of Object.keys(weights) as Intent[]) weights[k] = 0; weights[o.force] = 1; }
+      if (rules.some((r) => r.name === o.force)) { for (const k of Object.keys(weights) as Intent[]) weights[k] = 0; weights.stay = 1; }
+      else if (o.force === 'return' || o.force === 'bridge' || o.force === 'bend-run' || o.force === 'trill') { for (const k of Object.keys(weights) as Intent[]) weights[k] = 0; weights[o.force === 'bridge' ? 'bridge' : 'return'] = 1; }
     }
-    if (weights.stay + weights.return + weights.bridge + weights.flurry <= 0) { moves[i].note = 'no rule to play it with'; return; }
+    if (weights.stay + weights.return + weights.bridge <= 0) { moves[i].note = 'no rule to play it with'; return; }
     const order: Intent[] = drawn((Object.keys(weights) as Intent[]).filter((k) => weights[k] > 0).map((k) => ({ v: k, w: weights[k] })));
     // the same move as the phrase this one repeats (mostly)
     const ph = phraseOf(i);
@@ -161,10 +157,10 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     const tension = c.tension[barOf(note.t)];
     const failed: string[] = [];
     for (const intent of order) {
-      if (intent === 'stay' || intent === 'flurry') {
-        const pool = byGroup(intent).map((x) => ({ v: x.r, w: x.w * (copy?.name === x.r.name ? 6 : 1) }));
+      if (intent === 'stay') {
+        const pool = scored.map((x) => ({ v: x.r, w: x.w * (copy?.name === x.r.name ? 6 : 1) }));
         // (a held note is only sometimes plain: the weight of the plain hold is the weight of an average way to decorate it)
-        if (intent === 'stay' && !o.force) {
+        if (!o.force) {
           if (rng.chance(0.3) || !pool.length) { done({ intent: 'stay', name: 'plain' }, 'stay'); if (failed.length) moves[i].note = `held: no ${failed.join(' or ')} fit`; return; }
         }
         for (const r of drawn(pool)) {
@@ -173,17 +169,28 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
         failed.push(intent);
         continue;
       }
-      const figs = composeFigures(span, {
-        intent, person, want, profile: profileFor(c.mood, 'solo', tension), avoid: recent.slice(-3),
-        prefer: copy && copy.intent === intent ? { contour: copy.contour, cell: copy.cell } : undefined,
-      }, new Rng(`${c.seed}-fig-${intent}-${note.t}-${note.midi}`));
+      const profile = profileFor(c.mood, 'solo', tension);
+      const prevBend = i >= 1 && !!chosen[i - 1].contour?.startsWith('bend-');
+      const prevTrill = i >= 1 && chosen[i - 1].contour === 'trill';
+      const copied = copy && copy.intent === intent && !(prevBend && copy.contour?.startsWith('bend-')) ? { contour: copy.contour, cell: copy.cell } : undefined;
+      // a quick bend into the note, then a flourish: the player's taste for it, the mood, a pet move; not twice running, not on the final landing
+      const bendP = intent !== 'return' || prevBend || tagw('final-landing') >= 0.5 ? 0
+        : Math.min(0.92, 0.85 * (person.taste['bend-run'] ?? 1) * (signatures.has('bend-run') ? 1.5 : 1) * (['angry', 'triumphant', 'happy', 'tense'].includes(c.mood) ? 1.1 : c.mood === 'dreamy' ? 0.7 : 1) * (0.7 + 0.6 * e01) * (span.before >= 1 ? 1.15 : 1));
+      const forceBend = o.force === 'bend-run';
+      const ask = { intent, person, want, profile, mood: c.mood, avoid: recent.slice(-3), prefer: copied, bend: forceBend ? 1 : bendP };
+      const figs = [];
+      // a trill (written as notes at the tempo): the player's taste, more with energy; not twice running
+      if (intent === 'return' && !forceBend && !copied?.contour?.startsWith('bend-') && (o.force === 'trill' || copied?.contour === 'trill' || (!o.force && !prevTrill && rng.chance(Math.min(0.3, 0.07 * (person.taste.trill ?? 1) * (signatures.has('trill') ? 1.6 : 1) * (0.5 + e01)))))) {
+        figs.push(...composeTrill(span, ask, new Rng(`${c.seed}-trill-${note.t}-${note.midi}`)));
+      }
+      if (!(o.force === 'trill' && figs.length)) figs.push(...composeFigures(span, ask, new Rng(`${c.seed}-fig-${intent}-${note.t}-${note.midi}`)));
       if (!figs.length) { failed.push(intent); continue; }
       moves[i].scores = [...figs].sort((a, b) => b.w - a.w).slice(0, 5).map((f) => [`${f.contour} ${f.cell}`, Math.round(f.w * 100) / 100]);
-      const list = drawn(figs.map((f) => ({ v: f, w: f.w })));
+      const list = drawn(figs.map((f) => ({ v: f, w: f.contour === 'trill' ? 1000 : f.w })));
       for (const f of list.slice(0, 10)) {
         if (attempt(f.events, true)) {
           recent.push(f.contour);
-          done({ intent, name: `${intent}·${f.contour}`, contour: f.contour, cell: f.cell }, intent, f.label);
+          done({ intent, name: `${intent}·${f.contour}`, contour: f.contour, cell: f.cell }, intent, f.lens ? `${f.label} · lengths ${f.lens}` : f.label);
           return;
         }
       }

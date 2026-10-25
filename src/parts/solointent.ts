@@ -1,5 +1,5 @@
 // The solo player's intention for a long note (docs/SOLO-PLAYER.md, section 15): is the note held (stay), played around and come back to
-// (return), played as a climb toward the next note (bridge), or struck again and again (flurry). A long note is held as it is mostly to slow
+// (return), or played as a climb toward the next note (bridge). A long note is held as it is mostly to slow
 // things down or to push its mood (a peak, a landing, a sad or dreamy moment, a quiet one): the hold share is a dial by mood, energy, the
 // drums and the place of the note, then the player's own density.
 
@@ -21,8 +21,6 @@ export interface IntentAsk {
   person: Person;
   /** Whether a bridge to the next note is possible at all. */
   canBridge: boolean;
-  /** How well the best flurry rule fits (0: none can be played here). */
-  flurryFit: number;
 }
 
 /** How likely the note is held as it is (0.08 to 0.9): 12% to 45% by mood and energy, most of the time on a peak or a final landing. */
@@ -41,10 +39,8 @@ export function holdShare(a: IntentAsk): number {
 export function intentWeights(a: IntentAsk): Record<Intent, number> {
   const { tag } = a;
   const h = holdShare(a);
-  const ret = 0.5 * (1 + 0.3 * tag('held-bar') + 0.3 * tag('answer-landing') + 0.2 * tag('long-over-chord-change'));
+  const ret = 0.8 * (1 + 0.3 * tag('held-bar') + 0.3 * tag('answer-landing') + 0.2 * tag('long-over-chord-change'));
   const bridge = a.canBridge ? 0.25 * (1 + 0.8 * Math.max(tag('rising-energy'), tag('pre-climax'), tag('before-leap'), tag('call-hanging'), tag('falling-energy') * 0.7)) : 0;
-  const flurry = a.flurryFit > 0 ? 0.25 * Math.min(1.5, a.flurryFit / 0.5) * (0.6 + 0.8 * a.e01) : 0;
-  const rest = ret + bridge + flurry;
-  const k = (1 - h) / rest;
-  return { stay: h, return: ret * k, bridge: bridge * k, flurry: flurry * k };
+  const k = (1 - h) / (ret + bridge);
+  return { stay: h, return: ret * k, bridge: bridge * k };
 }

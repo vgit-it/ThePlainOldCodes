@@ -4,9 +4,8 @@
 //     all, stays in the key, and is the same every time.
 //  2. Offers: a rule is offered only where it can be played (a long enough note, a plain picked one), never to a frozen note, and a rule
 //     that gives up the landing is never offered a note that must keep it.
-//  3. Fit (the reading steers the choice): an angry, high-energy moment prefers a gallop, a stutter or a tremolo to a wide vibrato; a dreamy,
-//     held one the other way round; a shuffle prefers triplets and straight eighths prefer eighths; a sixteenth groove under a fill prefers
-//     the stutter; the last landing is never given a pulse.
+//  3. Fit (the reading steers the choice): an angry, high-energy moment prefers a bend in to a wide vibrato; a dreamy, held one the other
+//     way round; no rule left strikes one note again and again (Paul, 2026-10-25).
 //  4. Personality: each of the five players likes what they should (the taste sheet), keeps an allergy, and the same band is the same person.
 //  (The figures that go around the note and back or climb toward the next are checked in solo-figure-check.)
 //   npm run solo-rules-check
@@ -115,22 +114,12 @@ const wroteBy: Record<string, number> = {};
   const f = (xs: { r: string; f: number }[], name: string) => xs.find((x) => x.r === name)?.f ?? 0;
   const angry = rank(['high-energy', 'eighths-groove', 'high-tension'], { agitation: 0.8, roughness: 0.8, ornament: 0, weight: 0.7, looseness: -0.2 });
   const dreamy = rank(['low-energy', 'held-bar', 'long-before-rest', 'phrase-end'], { agitation: -0.6, roughness: -0.5, ornament: 0.3, weight: -0.4, looseness: 0.8 });
-  ok(['gallop', 'stutter-hold', 'tremolo-hold'].includes(angry[0].r), `angry and high energy: best is ${best(angry)}`);
-  ok(f(angry, 'gallop') > f(angry, 'wide-vibrato') && f(angry, 'tremolo-hold') > f(angry, 'wide-vibrato'), 'angry: a gallop and a tremolo should beat a wide vibrato');
+  ok(['bend-in', 'scoop-in'].includes(angry[0].r), `angry and high energy: best is ${best(angry)}`);
+  ok(f(angry, 'bend-in') > f(angry, 'wide-vibrato'), 'angry: a bend in should beat a wide vibrato');
   ok(['wide-vibrato', 'late-bend', 'scoop-in'].includes(dreamy[0].r), `dreamy and held: best is ${best(dreamy)}`);
-  ok(f(dreamy, 'wide-vibrato') > f(dreamy, 'gallop') * 3 && f(dreamy, 'wide-vibrato') > f(dreamy, 'stutter-hold') * 3, 'dreamy: a wide vibrato should beat a gallop and a stutter by far');
-  const shuffle = rank(['shuffle-groove'], { agitation: 0.2, roughness: 0, ornament: 0.2, weight: 0, looseness: 0 });
-  ok(f(shuffle, 'triplet-pulse') > f(shuffle, 'eighth-pulse') * 2, `a shuffle: triplets ${f(shuffle, 'triplet-pulse').toFixed(2)} vs eighths ${f(shuffle, 'eighth-pulse').toFixed(2)}`);
-  const straight = rank(['eighths-groove'], { agitation: 0, roughness: 0, ornament: -0.1, weight: 0.2, looseness: -0.2 });
-  ok(f(straight, 'eighth-pulse') > f(straight, 'triplet-pulse'), `straight eighths: eighths ${f(straight, 'eighth-pulse').toFixed(2)} vs triplets ${f(straight, 'triplet-pulse').toFixed(2)}`);
-  const funk = rank(['sixteenths-groove', 'under-fill', 'high-energy'], { agitation: 0.4, roughness: 0.3, ornament: 0.1, weight: 0, looseness: -0.5 });
-  ok(['stutter-hold', 'ghost-pulse'].includes(funk[0].r), `sixteenths under a fill: best is ${best(funk)}`);
-  const last = rank(['final-landing', 'closing', 'low-energy'], { agitation: -0.3, roughness: 0, ornament: 0, weight: 0, looseness: 0.4 });
-  for (const n of ['triplet-pulse', 'eighth-pulse', 'stutter-hold', 'gallop', 'ghost-pulse']) ok(f(last, n) === 0, `the final landing was offered ${n}`);
-  const climax = spanOf(song, { len: 12, midi: 67, tags: ['climax-note', 'held-peak', 'high-tension', 'into-crash'], feel: { agitation: 0.5, roughness: 0.5, ornament: 0.2, weight: 0.5, looseness: -0.2 } });
-  const calm = spanOf(song, { len: 12, midi: 67, tags: ['low-energy', 'held-bar'], feel: FEEL0 });
-  const trem = LONG_RULES.find((r) => r.name === 'tremolo-hold')!;
-  ok(fitOf(trem, climax, climax.read.feel) > fitOf(trem, calm, FEEL0), 'a tremolo should fit a climax under a crash better than a calm held bar');
+  ok(f(dreamy, 'wide-vibrato') > f(dreamy, 'bend-in') * 1.5, 'dreamy: a wide vibrato should beat a bend in by far');
+  // (nothing that strikes one note again and again is left to offer)
+  ok(LONG_RULES.every((r) => ['scoop-in', 'bend-in', 'late-bend', 'wide-vibrato'].includes(r.name)), `a rule that repeats a note: ${LONG_RULES.map((r) => r.name).join(', ')}`);
 }
 
 // ---------------- 4. personality
@@ -138,8 +127,8 @@ const wroteBy: Record<string, number> = {};
   const kinds = ['melodic', 'bluesy', 'shredder', 'raw', 'funky'] as const;
   const seen = new Set<string>();
   const loves: Record<string, string[]> = {
-    melodic: ['wide-vibrato', 'scoop-in', 'late-bend'], bluesy: ['bend-in', 'late-bend', 'wide-vibrato'], shredder: ['trill', 'tremolo-hold', 'stutter-hold', 'gallop', 'triplet-pulse'],
-    raw: ['gallop', 'stutter-hold', 'ghost-pulse', 'eighth-pulse', 'scoop-in'], funky: ['ghost-pulse', 'stutter-hold', 'eighth-pulse'],
+    melodic: ['wide-vibrato', 'scoop-in', 'late-bend', 'bend-run'], bluesy: ['bend-in', 'late-bend', 'wide-vibrato', 'bend-run'], shredder: ['trill', 'wide-vibrato', 'bend-run'],
+    raw: ['scoop-in', 'bend-in', 'wide-vibrato', 'bend-run'], funky: ['scoop-in', 'bend-in', 'trill', 'bend-run'],
   };
   for (const kind of kinds) {
     // a lead player of this kind, found by trying seeds
@@ -161,7 +150,7 @@ const wroteBy: Record<string, number> = {};
     ok(loved / total >= 0.55, `${kind}: only ${loved} of ${total} pet moves are ones this player is known for`);
   }
   // players differ: the signatures of a shredder and a melodic player are not the same set
-  ok([...seen].some((k) => k.startsWith('shredder:')) && ![...seen].some((k) => k === 'melodic:gallop'), 'a shredder has pet moves and a melodic player never has a gallop');
+  ok(seen.has('shredder:trill') && seen.has('bluesy:bend-run'), 'a shredder keeps a trill as a pet move and a bluesy player a bend and run');
 }
 
 console.log(`${wrote} rewrites written over the grid (${Object.entries(wroteBy).map(([k, n]) => `${k} ${n}`).join(', ')}); ${checks} checks`);
