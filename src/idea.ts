@@ -237,6 +237,8 @@ export interface SoloMove {
   /** What the note was for: stay, return, bridge or flurry (docs/SOLO-PLAYER.md, section 15), and for a figure the intervals it moves by. */
   intent?: string;
   fig?: string;
+  /** What was played in the rest just before the note (a pickup into it, or a muted scratch): its kind and a few words (section 18, step 4c). */
+  lead?: string;
 }
 
 /** When a hit sounds, in 16ths: its step and the part of a step it is late by. */

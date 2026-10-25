@@ -16,6 +16,7 @@ import { type Intent, composeFigures, composeTrill } from './solofigure';
 import { intentWeights } from './solointent';
 import { SHORT_KINDS, composeShort } from './soloshort';
 import { JOINT_KINDS, composeJoint } from './solojoint';
+import { REST_KINDS, composeRest } from './solorest';
 
 /** Every way of dressing a short note, for a check to force: a touch, a joint into the next note, or a run (a cell of short notes all leaning in). */
 export const DRESS_KINDS: string[] = [...SHORT_KINDS, ...JOINT_KINDS, 'run'];
@@ -62,7 +63,9 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
   const groups: PEvent[][] = notes.map((_, i) => plainOf(i));
   const noteEvents = new Set(notes.map((n) => n.ev));
   const others = ev0.filter((_, k) => !noteEvents.has(k));
-  const assemble = () => [...others, ...groups.flat()];
+  /** What is added in the rests, by the note that follows the rest (section 18, step 4c). */
+  const extras = new Map<number, PEvent[]>();
+  const assemble = () => [...others, ...groups.flat(), ...[...extras.values()].flat()];
 
   // what the melody itself already breaks (it should be nothing) is not held against a rewrite
   const baseline = new Set(verify(assemble(), notes, vctx).map(violationKey));
@@ -82,7 +85,7 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
   const dressedIn = new Map<number, number>();
   // the notes the hands cannot finger as they are (a rewrite is only held against what it breaks itself)
   const baseBad = new Set(unplayable(ev0, vctx).map((e) => e.base));
-  const handsOk = () => !unplayable(assemble(), vctx).some((e) => e.base !== undefined && !baseBad.has(e.base));
+  const handsOk = () => !unplayable(assemble(), vctx).some((e) => e.extra || (e.base !== undefined && !baseBad.has(e.base)));
 
   const spanFor = (k: number): Span => ({
     note: notes[k], event: ev0[notes[k].ev], read: read.notes[k], prev: notes[k - 1] ?? null, next: notes[k + 1] ?? null,
@@ -228,7 +231,7 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     }
 
     // (a check that forces one way of dressing a short note leaves the long ones as they are)
-    if (DRESS_KINDS.includes(o.force as string)) { moves[i].note = 'long: left plain'; return; }
+    if (DRESS_KINDS.includes(o.force as string) || REST_KINDS.includes(o.force as string)) { moves[i].note = 'long: left plain'; return; }
 
     // what the note is for
     const figuresOn = rules.some((r) => r.name === 'figures');
@@ -295,11 +298,44 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     moves[i].note = 'every try failed the check';
   });
 
+  // ---- rests (step 4c): the silence before a note is mostly left as the breath; now and then a pickup leans into the note, or a muted scratch
+  if (rules.some((r) => r.name === 'figures') && (!o.force || REST_KINDS.includes(o.force))) {
+    const lastSounding = (g: PEvent[]) => g.filter((e) => !e.hit.mute).reduce<PEvent | null>((b, e) => (!b || endOf(e) > endOf(b) ? e : b), null);
+    const firstSounding = (g: PEvent[]) => g.filter((e) => !e.hit.mute).reduce<PEvent | null>((b, e) => (!b || e.t < b.t ? e : b), null);
+    notes.forEach((note, i) => {
+      if (note.frozen) return;
+      const span = spanFor(i);
+      if (span.before < 2 - 1e-6) return;
+      const rng = new Rng(`${c.seed}-rest-${note.t}-${note.midi}`);
+      const nr = read.notes[i];
+      const e01 = (Number(nr.facts.energy ?? 0) + 1) / 2;
+      // (most rests stay the breath they are)
+      if (!o.force && !rng.chance(clamp(0.75 * person.density * (0.6 + 0.8 * e01), 0, 0.75))) { moves[i].note = moves[i].note ?? 'the rest before it stays silent'; return; }
+      const want = {} as Feel;
+      for (const k of Object.keys(nr.feel) as (keyof Feel)[]) want[k] = Math.max(-1, Math.min(1, nr.feel[k] + person.lean[k]));
+      const prev = i ? lastSounding(groups[i - 1]) : null;
+      const first = firstSounding(groups[i]);
+      if (!first) return;
+      const cands = composeRest(span, { person, want, profile: profileFor(c.mood, 'solo', c.tension[barOf(note.t)]), prevPitch: prev?.hit.notes[0] ?? null, nextFirst: first.hit.notes[0], silence: span.before, only: o.force }, rng);
+      const rest = cands.map((x) => [x, x.w] as [typeof x, number]);
+      while (rest.length) {
+        const pick = rng.weighted(rest);
+        rest.splice(rest.findIndex((x) => x[0] === pick), 1);
+        extras.set(i, pick.events);
+        if (!fresh().length && handsOk()) { moves[i].lead = `${pick.kind}: ${pick.label}`; return; }
+        extras.delete(i);
+      }
+    });
+  }
+
   // the hands have the last word: a note with no place on the neck goes back to being played as it was
-  for (let guard = 0; guard < notes.length; guard++) {
-    const bad = unplayable(assemble(), vctx).filter((e) => e.base !== undefined && !baseBad.has(e.base));
+  for (let guard = 0; guard < notes.length + extras.size; guard++) {
+    const bad = unplayable(assemble(), vctx).filter((e) => e.extra || (e.base !== undefined && !baseBad.has(e.base)));
     if (!bad.length) break;
-    for (const e of bad) { groups[e.base!] = plainOf(e.base!); moves[e.base!].rule = 'plain'; moves[e.base!].note = 'no place on the neck'; }
+    for (const e of bad) {
+      if (e.extra) { for (const [i, evs] of extras) if (evs.includes(e)) { extras.delete(i); delete moves[i].lead; } continue; }
+      groups[e.base!] = plainOf(e.base!); moves[e.base!].rule = 'plain'; moves[e.base!].note = 'no place on the neck';
+    }
   }
 
   const events = assemble();

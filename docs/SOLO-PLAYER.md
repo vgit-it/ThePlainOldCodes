@@ -562,3 +562,17 @@ Track options -> Solo writer -> **Melody + player**. Not listened to yet.
 - Checks: `solo-player-check` forces each kind and the run on every note it fits; `solo-figure-check` adds that the line out of a dressed note never repeats the pitch the next note starts with.
 - Numbers (106 solos, 750 short notes): dressed 213 (28%): mordent 39, grace 38, run 24 notes, slide 23, drag 20, bend 14, pass 13, approach 13, ghost 8, push 8, enclose 7, chromatic 6.
 - Not yet: 4c (rests and pickups).
+
+### 18.10 Built: 4c, rests and pickups (2026-10-25; Paul said go)
+Track options -> Solo writer -> **Melody + player**. Not listened to yet. This finishes step 4.
+- `src/parts/solorest.ts`: a rest of 2 steps or more before a note (and the silence before the first note) is mostly left as the breath. About half get one of:
+  - **pickup**: one scale note below or above the next note (a half step outside the key for bluesy and funky), then the note.
+  - **run-in**: two scale notes stepping into the next note.
+  - **circle-in**: the notes above and below the next note.
+  - **scratch**: one muted scratch on the last 16th of the rest.
+- The added notes end where the next note starts, never repeat the pitch before or after them, and leave at least a step of silence. They belong to no melody note, so the checker lets them stand only inside a gap of the melody (`PEvent.extra`); the hands must find them a place or they go.
+- Taste: the same sheets as the joints and touches (`Person.join`, `Person.dress.ghost`). Not into the last note (it is carried and bent in the next section).
+- The roll's tap detail shows "in the rest before it: ..." (`SoloMove.lead`).
+- Checks: `solo-player-check` forces each kind; `solo-figure-check` real solos (a pickup ends on the next note's start, repeats no pitch, leaves a step, is reported; about half the rests filled).
+- Numbers (106 solos): rests are about one in two solos; about 4 in 10 of them filled.
+- Step 4 is done. Not built: the quick release (struck bent and let down), a second gap, two figures in a bar-long note, pet figures.
