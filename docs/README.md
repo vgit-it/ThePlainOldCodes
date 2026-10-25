@@ -1,0 +1,52 @@
+# Docs index
+
+One line per doc. Start here, then open only what you need. `HISTORY.md` is the full decision record; `CLEANUP-PLAN.md` is the repo clean-up in phases.
+
+## App and spec
+- `HISTORY.md`: every milestone and decision, word for word (long; read only for the why).
+- `SPEC.md`: the v1 idea-generator spec (history).
+- `TRACKS.md`: how an idea grows into a track of sections.
+- `TENSION.md`: the Mood choice and the tension curve over the song.
+- `PERFORMANCE.md`: smooth playback on phones.
+- `CLEANUP-PLAN.md`: the clean-up plan, phase by phase.
+
+## Rhythm guitar and the band's playing
+- `RHYTHM.md`: rhythm guitar by character: research and how it's built.
+- `STUDY-RHYTHM.md`: 5,346 real guitar parts measured against the app.
+
+## Lead guitar and solos
+- `LEAD.md`: lead guitar and solos, scope and licks.
+- `LEAD-LINES.md`, `LEAD-FIGURES.md`, `LEAD-ROOM.md`, `LEAD-BREAKS.md`, `LEAD-LICKS.md`: lead features (always on now).
+- `SOLO-THEORY.md`: how good solos are built (research).
+- `STUDY-LEAD.md`, `STUDY-SOLO.md`: real lead parts and real solos vs the app.
+- `SOLO-NEW.md`: the "As before" solo writer (`solo2.ts`).
+- `SOLO-PLAN.md`: the planned writer, landings first.
+- `SOLO-MELODY.md`: the melody step of the planned writer.
+- `SOLO-PLAYER.md`: the melody handed to a guitarist ("Melody + player").
+- `NECK-VIEW.md`: solo on the fretboard.
+- `LICK-LAB.md`: the lick lab page.
+
+## Vocal
+- `VOCAL.md`: the demo singer and the main vocal.
+- `VERSE-SECTIONS.md`: the verse melody writer (the main one): rules, forms, meters.
+- `VOCAL-EMOTION.md`: mood in the notes (study and the mood-note switches).
+- `INTERVALS.md`: the mood in how the line moves.
+- `VOCAL-BASS.md`: the bass-led vocal.
+- `ARC.md`, `PATTERNS.md`, `REALISM.md`, `WORDS-REAL.md`: real-song numbers the vocal leans on.
+- `VOCAL-WORDS.md`, `VOCAL-LEARNED.md`, `VOICE-WORDS.md`: words and the learned melody.
+- Older vocal writers (not in the page now): `VOCAL-RHYTHM.md`, `VOCAL-MELODY.md`, `VOCAL-FIRST.md`, `VOCAL-MOVES.md`, `VOCAL-ENERGY.md`.
+- Old Guide line (card gone since 2026-10-17): `GUIDE.md`, `GUIDE-ANCHOR.md`, `GUIDE-FEEL.md`, `GUIDE-TUNE.md`.
+
+## Voice and sound
+- `VOICES.md`: voices and registers, a study.
+
+## Band view
+- `BAND-VIEW.md`: the pixel band playing the song.
+- `BAND-VIDEO.md`: render the band view as a video.
+
+## Research studies
+- `STUDY-LAKH.md`, `STUDY-POP909.md`: vocal melodies in real collections.
+- Also `STUDY-RHYTHM`, `STUDY-LEAD`, `STUDY-SOLO` above.
+
+## Archive
+- `ARCHIVE.md`: what was removed and how to get it back (added in Phase 0).

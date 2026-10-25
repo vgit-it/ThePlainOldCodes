@@ -1,3 +1,5 @@
+> **History (2026-10-25):** this is the original v1 spec of the 8-bar idea generator. The app is now a full-song generator with an animated band; the current goal and map are in `CLAUDE.md`, the milestone log in `HISTORY.md`.
+
 # Music Idea Generator — v1 Spec
 
 ## Goal
