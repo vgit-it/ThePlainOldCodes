@@ -22,6 +22,10 @@ export interface PEvent {
   base?: number;
   /** A passing note outside the key (a blue or chromatic note on a weak spot): the key check lets it be. */
   out?: boolean;
+  /** Pushed ahead of its time or dragged behind it (docs/SOLO-PLAYER.md, section 18): the checker lets it start up to half a step early. */
+  loose?: boolean;
+  /** Added in a rest before a note (a pickup into it, or a muted scratch): no melody note, and the hands must find it a place (step 4c). */
+  extra?: boolean;
 }
 
 /**

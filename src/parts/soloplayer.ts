@@ -9,11 +9,17 @@ import type { LeadPlayer } from '../players/lead';
 import { Rng } from '../rng';
 import type { Mood } from '../tension';
 import type { Guitar2Part } from './guitar2';
-import { type PEvent, eventsToHits, readBase } from './soloevents';
+import { type PEvent, TOL, endOf, eventsToHits, readBase, snap } from './soloevents';
 import { readSolo } from './soloread';
 import { type Rule, type Span, covers, fitOf } from './solorules';
 import { type Intent, composeFigures, composeTrill } from './solofigure';
 import { intentWeights } from './solointent';
+import { SHORT_KINDS, composeShort } from './soloshort';
+import { JOINT_KINDS, composeJoint } from './solojoint';
+import { REST_KINDS, composeRest } from './solorest';
+
+/** Every way of dressing a short note, for a check to force: a touch, a joint into the next note, or a run (a cell of short notes all leaning in). */
+export const DRESS_KINDS: string[] = [...SHORT_KINDS, ...JOINT_KINDS, 'run'];
 import { profileFor } from '../verse/intervals';
 import { LIVE_RULES } from './solorules-live';
 import { personOf, signaturesOf } from './soloperson';
@@ -42,6 +48,7 @@ export interface PlayerOpts {
   force?: string;
 }
 
+const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 const violationKey = (v: Violation) => `${v.code}@${v.at.toFixed(2)}`;
 
 export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIVE_RULES, o: PlayerOpts = {}): Guitar2Part {
@@ -56,7 +63,9 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
   const groups: PEvent[][] = notes.map((_, i) => plainOf(i));
   const noteEvents = new Set(notes.map((n) => n.ev));
   const others = ev0.filter((_, k) => !noteEvents.has(k));
-  const assemble = () => [...others, ...groups.flat()];
+  /** What is added in the rests, by the note that follows the rest (section 18, step 4c). */
+  const extras = new Map<number, PEvent[]>();
+  const assemble = () => [...others, ...groups.flat(), ...[...extras.values()].flat()];
 
   // what the melody itself already breaks (it should be nothing) is not held against a rewrite
   const baseline = new Set(verify(assemble(), notes, vctx).map(violationKey));
@@ -68,22 +77,29 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
   const phraseOf = (i: number) => read.phrases.find((p) => i >= p.from && i <= p.to);
   const barOf = (t: number) => Math.max(0, c.song.bars.findIndex((b) => t >= b.start && t < b.start + b.len));
   const used = new Map<string, number>();
-  interface Choice { intent: Intent | 'plain'; name: string; contour?: string; cell?: string }
+  interface Choice { intent: Intent | 'dress' | 'plain'; name: string; contour?: string; cell?: string; kind?: string }
   const chosen: Choice[] = notes.map(() => ({ intent: 'plain', name: 'plain' }));
   const recent: string[] = [];
   let lastRule = { i: -9, name: '' };
+  /** How many short notes are dressed in each bar (no piling up). */
+  const dressedIn = new Map<number, number>();
   // the notes the hands cannot finger as they are (a rewrite is only held against what it breaks itself)
   const baseBad = new Set(unplayable(ev0, vctx).map((e) => e.base));
-  const handsOk = () => !unplayable(assemble(), vctx).some((e) => e.base !== undefined && !baseBad.has(e.base));
+  const handsOk = () => !unplayable(assemble(), vctx).some((e) => e.extra || (e.base !== undefined && !baseBad.has(e.base)));
+
+  const spanFor = (k: number): Span => ({
+    note: notes[k], event: ev0[notes[k].ev], read: read.notes[k], prev: notes[k - 1] ?? null, next: notes[k + 1] ?? null,
+    before: k ? Math.max(0, notes[k].t - (notes[k - 1].t + notes[k - 1].len)) : notes[k].t,
+    after: notes[k + 1] ? Math.max(0, notes[k + 1].t - (notes[k].t + notes[k].len)) : 0,
+    ctx: c,
+  });
+  /** Notes already played as part of a run begun on an earlier note. */
+  const claimed = new Set<number>();
 
   notes.forEach((note, i) => {
+    if (claimed.has(i)) return;
     const nr = read.notes[i];
-    const span: Span = {
-      note, event: ev0[note.ev], read: nr, prev: notes[i - 1] ?? null, next: notes[i + 1] ?? null,
-      before: i ? Math.max(0, note.t - (notes[i - 1].t + notes[i - 1].len)) : note.t,
-      after: notes[i + 1] ? Math.max(0, notes[i + 1].t - (note.t + note.len)) : 0,
-      ctx: c,
-    };
+    const span = spanFor(i);
     const tagw = (id: string) => nr.tags.find((t) => t.id === id)?.w ?? 0;
     const e01 = (Number(nr.facts.energy ?? 0) + 1) / 2;
     // what the moment wants, with the player's own lean
@@ -106,11 +122,21 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     moves[i].scores = scored.slice(0, 5).map((x) => [x.r.name, Math.round(x.w * 100) / 100]);
 
     /** Puts events in the note's place; they stay only if the checker (and, for a figure, the hands) find nothing new. */
-    const attempt = (evs: PEvent[] | null, hands: boolean): boolean => {
+    const attempt = (evs: PEvent[] | null, hands: boolean, push = 0): boolean => {
       if (!evs) return false;
+      // a push: the note before gives up the time (its last event ends that much sooner)
+      const before = i ? groups[i - 1] : null;
+      if (push > 0) {
+        if (!before || notes[i - 1].anchor === 'all') return false;
+        const k = before.reduce((best, e, j) => (endOf(e) > endOf(before[best]) ? j : best), 0);
+        const e = before[k];
+        if (!e || Math.abs(endOf(e) - note.t) > TOL || e.len - push < 0.5) return false;
+        groups[i - 1] = before.map((x, j) => (j === k ? { ...x, len: snap(x.len - push), hit: { ...x.hit, len: snap(x.len - push) } } : x));
+      }
       groups[i] = evs.map((e) => ({ ...e, base: note.i }));
       if (!fresh().length && (!hands || handsOk())) return true;
       groups[i] = plainOf(i);
+      if (push > 0 && before) groups[i - 1] = before;
       return false;
     };
     const drawn = <T,>(items: { v: T; w: number }[]): T[] => {
@@ -124,15 +150,88 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
       if (choice.intent !== 'plain') { used.set(choice.name, (used.get(choice.name) ?? 0) + 1); lastRule = { i, name: choice.name }; }
     };
 
-    // a note too short for a figure: held, now and then with expression
+    // a note too short for a figure: dressed with a small touch (a grace note, a mordent, a quick bend, a slide, a scratch, a hair late or early), a third of the time
     if (note.len < 4) {
-      const stay = scored;
-      if (!stay.length || !rng.chance(0.5 * person.density)) { moves[i].note = 'short: left plain'; return; }
-      for (const r of drawn(stay.map((x) => ({ v: x.r, w: x.w })))) {
-        if (attempt(r.realise(span, new Rng(`${c.seed}-rule-${r.name}-${note.t}-${note.midi}`)), false)) { done({ intent: 'stay', name: r.name }, 'stay'); return; }
+      const figuresOn0 = rules.some((r) => r.name === 'figures');
+      if (!figuresOn0) {
+        const stay = scored;
+        if (!stay.length || !rng.chance(0.5 * person.density)) { moves[i].note = 'short: left plain'; return; }
+        for (const r of drawn(stay.map((x) => ({ v: x.r, w: x.w })))) {
+          if (attempt(r.realise(span, new Rng(`${c.seed}-rule-${r.name}-${note.t}-${note.midi}`)), false)) { done({ intent: 'stay', name: r.name }, 'stay'); return; }
+        }
+        return;
       }
+      const forced = DRESS_KINDS.includes(o.force as string) ? o.force : undefined;
+      if (o.force && !forced) { moves[i].note = 'short: left plain'; return; }
+      const prevC = i ? chosen[i - 1] : null;
+      const prevBend = !!prevC && (!!prevC.contour?.startsWith('bend-') || prevC.name === 'bend-in' || prevC.name === 'late-bend');
+      // the phrase this one repeats: dressed as it was (mostly), or left plain as it was
+      const ph0 = phraseOf(i);
+      const src0 = ph0?.copyOf !== undefined ? read.phrases[ph0.copyOf] : undefined;
+      const srcI0 = src0 && ph0 ? src0.from + (i - ph0.from) : -1;
+      const copy0: Choice | null = !forced && src0 && srcI0 <= src0.to && rng.chance(0.85) ? chosen[srcI0] : null;
+      if (copy0 && copy0.intent !== 'dress') { moves[i].note = 'as the phrase it repeats'; moves[i].intent = 'stay'; return; }
+      let only: string | undefined = forced ?? copy0?.kind;
+      if (!forced) {
+        // (a short note is the breath between the busy ones: it stays plain after a dressed note or a flourish, and at most two to a bar)
+        const busy = !!prevC && (prevC.intent === 'dress' || prevC.contour === 'trill' || !!prevC.contour?.startsWith('bend-'));
+        if (busy) { moves[i].note = 'short: a breath after a busy note'; return; }
+        if ((dressedIn.get(barOf(note.t)) ?? 0) >= 2) { moves[i].note = 'short: the bar is busy enough'; return; }
+        if (!only && !rng.chance(clamp(0.58 * person.density * (0.65 + 0.7 * e01), 0, 0.65))) { moves[i].note = 'short: left plain'; return; }
+      }
+      const profile = profileFor(c.mood, 'solo', c.tension[barOf(note.t)]);
+
+      // a run: a cell of 3 or 4 short notes that touch, each leaning into the next
+      const cell = read.cells.filter((cl) => cl.from === i && cl.to - cl.from >= 2).sort((a, b) => b.w - a.w)[0];
+      if (cell && (only === 'run' || (!only && rng.chance(clamp(0.3 * (person.join.run ?? 1), 0, 0.6))))) {
+        const last = Math.min(cell.to, cell.from + 3);
+        const changes: { k: number; m: ReturnType<typeof composeJoint>[number] }[] = [];
+        for (let k = i; k < last; k++) {
+          const nk = notes[k];
+          if (nk.len >= 4 || nk.frozen || claimed.has(k)) break;
+          const cj = composeJoint(spanFor(k), { person, want, profile, mood: c.mood, prevPitch: null, onDrum: false, prevBend: false }, new Rng(`${c.seed}-run-${nk.t}-${nk.midi}`));
+          if (!cj.length) break;
+          const pick = new Rng(`${c.seed}-runpick-${nk.t}-${nk.midi}`).weighted(cj.map((x) => [x, x.w] as [typeof x, number]));
+          changes.push({ k, m: pick });
+        }
+        if (changes.length >= 2) {
+          for (const ch of changes) groups[ch.k] = ch.m.events.map((e) => ({ ...e, base: notes[ch.k].i }));
+          if (!fresh().length && handsOk()) {
+            for (const ch of changes) {
+              chosen[ch.k] = { intent: 'dress', name: 'dress·run', contour: 'run', kind: 'run' };
+              moves[ch.k].rule = 'dress·run'; moves[ch.k].intent = 'dress'; moves[ch.k].fig = `run, ${ch.m.label}`;
+              if (ch.k > i) claimed.add(ch.k);
+            }
+            used.set('dress·run', (used.get('dress·run') ?? 0) + 1); lastRule = { i, name: 'dress·run' };
+            dressedIn.set(barOf(note.t), (dressedIn.get(barOf(note.t)) ?? 0) + changes.length);
+            return;
+          }
+          for (const ch of changes) groups[ch.k] = plainOf(ch.k);
+        }
+        if (only === 'run') { moves[i].note = 'short: no run fits'; return; }
+        only = undefined;
+      }
+      const lastOfPrev = i ? groups[i - 1].filter((e) => !e.hit.mute).reduce<PEvent | null>((b, e) => (!b || endOf(e) > endOf(b) ? e : b), null) : null;
+      const onDrum = ['on-snare', 'on-crash'].some((id) => tagw(id) >= 0.5);
+      const dressAsk = { person, want, profile, mood: c.mood, prevPitch: lastOfPrev?.hit.notes[0] ?? null, onDrum, prevBend, only };
+      const shortRng = new Rng(`${c.seed}-short-${note.t}-${note.midi}`);
+      // (a touch on the note, or a lean into the next one)
+      const cands = [...composeShort(span, dressAsk, shortRng), ...composeJoint(span, dressAsk, shortRng)];
+      if (!cands.length) { moves[i].note = 'short: no touch fits'; return; }
+      moves[i].scores = [...cands].sort((a, b) => b.w - a.w).slice(0, 5).map((m) => [m.kind, Math.round(m.w * 100) / 100]);
+      for (const m of drawn(cands.map((x) => ({ v: x, w: x.w }))).slice(0, 4)) {
+        if (attempt(m.events, true, m.push)) {
+          done({ intent: 'dress', name: `dress·${m.kind}`, contour: m.kind === 'bend' ? 'bend-short' : m.kind, kind: m.kind }, 'dress', m.label);
+          dressedIn.set(barOf(note.t), (dressedIn.get(barOf(note.t)) ?? 0) + 1);
+          return;
+        }
+      }
+      moves[i].note = 'short: every touch failed the check';
       return;
     }
+
+    // (a check that forces one way of dressing a short note leaves the long ones as they are)
+    if (DRESS_KINDS.includes(o.force as string) || REST_KINDS.includes(o.force as string)) { moves[i].note = 'long: left plain'; return; }
 
     // what the note is for
     const figuresOn = rules.some((r) => r.name === 'figures');
@@ -150,8 +249,8 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     const ph = phraseOf(i);
     const src = ph?.copyOf !== undefined ? read.phrases[ph.copyOf] : undefined;
     const srcI = src && ph ? src.from + (i - ph.from) : -1;
-    const copy: Choice | null = src && srcI <= src.to && rng.chance(0.85) && !o.force ? chosen[srcI] : null;
-    if (copy && copy.intent !== 'plain') { const k = order.indexOf(copy.intent); if (k > 0) { order.splice(k, 1); order.unshift(copy.intent); } }
+    const copy: Choice | null = src && srcI <= src.to && rng.chance(0.85) && !o.force && chosen[srcI].intent !== 'dress' ? chosen[srcI] : null;
+    if (copy && copy.intent !== 'plain' && copy.intent !== 'dress') { const k = order.indexOf(copy.intent); if (k > 0) { order.splice(k, 1); order.unshift(copy.intent); } }
     else if (copy && !o.force) { moves[i].note = 'as the phrase it repeats'; moves[i].intent = 'stay'; return; }
 
     const tension = c.tension[barOf(note.t)];
@@ -199,11 +298,44 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     moves[i].note = 'every try failed the check';
   });
 
+  // ---- rests (step 4c): the silence before a note is mostly left as the breath; now and then a pickup leans into the note, or a muted scratch
+  if (rules.some((r) => r.name === 'figures') && (!o.force || REST_KINDS.includes(o.force))) {
+    const lastSounding = (g: PEvent[]) => g.filter((e) => !e.hit.mute).reduce<PEvent | null>((b, e) => (!b || endOf(e) > endOf(b) ? e : b), null);
+    const firstSounding = (g: PEvent[]) => g.filter((e) => !e.hit.mute).reduce<PEvent | null>((b, e) => (!b || e.t < b.t ? e : b), null);
+    notes.forEach((note, i) => {
+      if (note.frozen) return;
+      const span = spanFor(i);
+      if (span.before < 2 - 1e-6) return;
+      const rng = new Rng(`${c.seed}-rest-${note.t}-${note.midi}`);
+      const nr = read.notes[i];
+      const e01 = (Number(nr.facts.energy ?? 0) + 1) / 2;
+      // (most rests stay the breath they are)
+      if (!o.force && !rng.chance(clamp(0.75 * person.density * (0.6 + 0.8 * e01), 0, 0.75))) { moves[i].note = moves[i].note ?? 'the rest before it stays silent'; return; }
+      const want = {} as Feel;
+      for (const k of Object.keys(nr.feel) as (keyof Feel)[]) want[k] = Math.max(-1, Math.min(1, nr.feel[k] + person.lean[k]));
+      const prev = i ? lastSounding(groups[i - 1]) : null;
+      const first = firstSounding(groups[i]);
+      if (!first) return;
+      const cands = composeRest(span, { person, want, profile: profileFor(c.mood, 'solo', c.tension[barOf(note.t)]), prevPitch: prev?.hit.notes[0] ?? null, nextFirst: first.hit.notes[0], silence: span.before, only: o.force }, rng);
+      const rest = cands.map((x) => [x, x.w] as [typeof x, number]);
+      while (rest.length) {
+        const pick = rng.weighted(rest);
+        rest.splice(rest.findIndex((x) => x[0] === pick), 1);
+        extras.set(i, pick.events);
+        if (!fresh().length && handsOk()) { moves[i].lead = `${pick.kind}: ${pick.label}`; return; }
+        extras.delete(i);
+      }
+    });
+  }
+
   // the hands have the last word: a note with no place on the neck goes back to being played as it was
-  for (let guard = 0; guard < notes.length; guard++) {
-    const bad = unplayable(assemble(), vctx).filter((e) => e.base !== undefined && !baseBad.has(e.base));
+  for (let guard = 0; guard < notes.length + extras.size; guard++) {
+    const bad = unplayable(assemble(), vctx).filter((e) => e.extra || (e.base !== undefined && !baseBad.has(e.base)));
     if (!bad.length) break;
-    for (const e of bad) { groups[e.base!] = plainOf(e.base!); moves[e.base!].rule = 'plain'; moves[e.base!].note = 'no place on the neck'; }
+    for (const e of bad) {
+      if (e.extra) { for (const [i, evs] of extras) if (evs.includes(e)) { extras.delete(i); delete moves[i].lead; } continue; }
+      groups[e.base!] = plainOf(e.base!); moves[e.base!].rule = 'plain'; moves[e.base!].note = 'no place on the neck';
+    }
   }
 
   const events = assemble();

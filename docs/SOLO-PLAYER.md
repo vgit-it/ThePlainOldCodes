@@ -486,3 +486,93 @@ Track options -> Solo writer -> **Melody + player**. Not listened to yet.
 - Checks: `solo-figure-check` (the grid: no repeated pitch, a trill's speed and landing, the bend lands, the gap rules, the lengths uneven; real solos: the share of quick bends, never twice running), `solo-rules-check` (no repeater is left), `solo-player-check` (bend-run and trill forced on every note, real solos and fuzz).
 - Numbers (60 songs, 919 long notes): held on purpose 26% (unchanged); quick bend then flourish 20% of long notes (about half of the returns; the notes of 4 steps have no room for a flourish, and they are a third of all long notes), as well as the bend-in held notes (about 6%); trills 1.3%; two quick bends in a row 0.
 - Not built: the quick release (struck bent and let down), a second gap, the same unevenness and air for the other figures (returns and bridges), a bend on a bridge.
+
+## 18. Step 4 plan: short notes, joints, rests (2026-10-25, plan only, not built)
+Builds on sections 16 and 17. The same composer, the same checker, the same "no repeated pitch".
+
+### 18.1 What is left plain today (measured: 30 solos, 811 notes)
+- Short notes: 255 of 811 (31%). Nearly all are one 8th (2 steps); 16ths are rare. About a tenth of the solo's time.
+- Joints: 263. 92 already joined by step 0c (a bend, or a note or two in between). The long notes' tails are already inside their figures.
+- Rests: 15 in 30 solos (one in two solos). Rare on purpose.
+- So the work is mostly the short notes.
+
+### 18.2 4a: dressing one short note (the note keeps its pitch)
+Each is a small figure of 2 to 3 notes inside the note's own time, never stealing the next note's start.
+- **Grace in**: a 16th from a scale step (or half step for bluesy) below or above, then the note.
+- **Turn**: 3 quick notes (triplet): the note, a neighbour, back to the note's pitch. Never the same pitch twice in a row.
+- **Quick bend**: bent up into the note (Paul: yes). Only on strong beats, only melodic and bluesy, only where it can land (the bend check).
+- **Slide in**: from a step or two below, for melodic, bluesy, raw.
+- **Ghost before**: one muted scratch on the 16th before (funky, raw). One, never a run.
+- **Push or drag**: the note a hair early or late, up to a 32nd, melodic and bluesy only, never on a note that sits on a kick or snare.
+- At least half the short notes stay plain: they are the breath between the flourishes. A short note right after a busy long note stays plain.
+
+### 18.3 4b: joints and runs
+- **Run**: a cell of 2 to 4 short notes played as one run (scale run, arpeggio, enclosure), both ends keep their pitch.
+- **Approach**: a short note before a longer one: the note, then 1 or 2 notes that lean into the next (from above and below, or a step), inside the short note's time.
+- Already-joined joints (step 0c) stay as they are or are replaced, never doubled.
+- Same path search and mood costs as the long-note figures.
+
+### 18.4 4c: rests and pickups
+- A rest or a tail that stays empty gets, now and then: a ghost scratch, or a pickup of 1 or 2 notes into the next note. Never more than a beat of silence, as now.
+- Rests stay rare. A funky or raw stab with the kick or snare is allowed here only.
+
+### 18.5 Safety and budget
+- The checker gets one change: a note may start up to a 32nd off its time only where push or drag says so.
+- Busy budget per bar: dressed short notes and flourishes together stay under a cap, so a bar never piles up.
+- Same checks as now: speed (60 ms pick, 40 ms legato), range, key, hands.
+
+### 18.6 Sub-steps (each one heard)
+1. 4a: dressing one short note, with push and drag.
+2. 4b: runs and approaches.
+3. 4c: rests and pickups.
+Then: two figures in a bar-long note, pet figures.
+
+### 18.7 Questions (my picks first)
+- Dress about 1 short note in 3 (the rest plain)? Pick: **yes**.
+- Push and drag only for melodic and bluesy? Pick: **yes**, up to a 32nd.
+- Build 4a first, you listen, then 4b and 4c? Pick: **yes**.
+
+### 18.8 Built: 4a, dressing one short note (2026-10-25; Paul said go)
+Track options -> Solo writer -> **Melody + player**. Not listened to yet.
+- `src/parts/soloshort.ts`: seven ways, all inside the note's own time, the note keeps its pitch:
+  - **grace**: a quick scale note (or a half step below, bluesy and funky) just before it, 32nd to 16th.
+  - **mordent**: the note, a neighbour, the note, in thirds of the note.
+  - **quick bend**: the note bent up into (half or whole step by mood), strong beats only, only where the bend lands.
+  - **slide in**: from 1 to 3 below (mostly) or 1 to 2 above.
+  - **ghost**: one muted scratch before the note (funky and raw like it, a shredder never).
+  - **drag**: the note a hair late (2/12 to 6/12 of a step). **push**: a hair early; the note before gives up that time.
+  - Each player has a taste for them (`Person.dress`): drag and push only melodic and bluesy; bend mostly bluesy and melodic.
+- The director (`soloplayer.ts`): about 1 short note in 4 is dressed (27% in the numbers). A short note after a dressed note or a flourish stays plain (the breath), at most 2 dressed to a bar, a repeated phrase dresses (or leaves plain) as its source did, no bend after a bend, no push or drag on a snare or crash.
+- Changed from the plan: a **kick** does not stop push and drag, only a snare or crash. With the kick too, 6 in 10 short notes were blocked (the kick is under most 8ths) and push and drag hardly played.
+- The checker: `PEvent.loose` lets a pushed note start up to half a step early (`length` check); everything else as before (speed, overlap, key, pitch heard most, fingering).
+- Checks: `solo-player-check` forces each way on every note it fits (and 300 fuzz melodies), `solo-figure-check` real solos (share dressed 20 to 50%, at least 5 ways played, never two in a row, at most 2 a bar, push and drag only for melodic and bluesy, no bend after a bend, a dressed note never starts by repeating the pitch before it). The figure check now picks the lead as the track does (the band seed), which fixes its by-lead numbers.
+- Numbers (106 solos, 750 short notes): dressed 206 (27%): mordent 59, grace 42, slide 34, drag 32, push 17, bend 16, ghost 6.
+- Not yet: 4b (runs and approaches), 4c (rests and pickups), a triplet burst for the shredder.
+
+### 18.9 Built: 4b, joints and runs (2026-10-25; Paul said go)
+Track options -> Solo writer -> **Melody + player**. Not listened to yet.
+- `src/parts/solojoint.ts`: a short note that touches the next one leans into it. The note is struck and keeps at least as much time as any other pitch, then one or two notes inside its own time carry the line to the next note. Never the same pitch twice in a row, never into the last note (it is carried into the next section and bent there).
+  - **pass**: the last one or two scale notes between the two (a run toward the next).
+  - **approach**: the scale note just beyond the next note, then the note.
+  - **chromatic**: a half step outside the key, below or above the next note (bluesy and funky).
+  - **enclose**: the scale notes above and below the next note, either way round.
+- **Run** (director, `soloplayer.ts`): where the reader found a cell of 3 or 4 short notes, each leans into the next, as one run. All or none: if the checker or the hands refuse any joint, the notes stay plain.
+- Each player has a taste for them (`Person.join`): the shredder passes and runs most, the funky player encloses, the bluesy player goes chromatic.
+- Joints share the 4a rules: a short note after a dressed one stays plain (a run is one unit), at most 2 single touches to a bar, a repeated phrase does what its source did.
+- Checks: `solo-player-check` forces each kind and the run on every note it fits; `solo-figure-check` adds that the line out of a dressed note never repeats the pitch the next note starts with.
+- Numbers (106 solos, 750 short notes): dressed 213 (28%): mordent 39, grace 38, run 24 notes, slide 23, drag 20, bend 14, pass 13, approach 13, ghost 8, push 8, enclose 7, chromatic 6.
+- Not yet: 4c (rests and pickups).
+
+### 18.10 Built: 4c, rests and pickups (2026-10-25; Paul said go)
+Track options -> Solo writer -> **Melody + player**. Not listened to yet. This finishes step 4.
+- `src/parts/solorest.ts`: a rest of 2 steps or more before a note (and the silence before the first note) is mostly left as the breath. About half get one of:
+  - **pickup**: one scale note below or above the next note (a half step outside the key for bluesy and funky), then the note.
+  - **run-in**: two scale notes stepping into the next note.
+  - **circle-in**: the notes above and below the next note.
+  - **scratch**: one muted scratch on the last 16th of the rest.
+- The added notes end where the next note starts, never repeat the pitch before or after them, and leave at least a step of silence. They belong to no melody note, so the checker lets them stand only inside a gap of the melody (`PEvent.extra`); the hands must find them a place or they go.
+- Taste: the same sheets as the joints and touches (`Person.join`, `Person.dress.ghost`). Not into the last note (it is carried and bent in the next section).
+- The roll's tap detail shows "in the rest before it: ..." (`SoloMove.lead`).
+- Checks: `solo-player-check` forces each kind; `solo-figure-check` real solos (a pickup ends on the next note's start, repeats no pitch, leaves a step, is reported; about half the rests filled).
+- Numbers (106 solos): rests are about one in two solos; about 4 in 10 of them filled.
+- Step 4 is done. Not built: the quick release (struck bent and let down), a second gap, two figures in a bar-long note, pet figures.
