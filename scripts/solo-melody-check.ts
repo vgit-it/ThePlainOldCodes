@@ -39,7 +39,7 @@ for (const m of MOODS) M[m] = { moves: [], up: 0, rough: 0, same: 0, leaps: 0 };
 for (let i = 0; i < N; i++) {
   const genre = GENRES[i % 7], meter = METERS[i % METERS.length], mood = MOODS[i % MOODS.length], s = `sm-${i}-${genre}`;
   const idea = generate({ genre, meter, weirdness: 0.3, ...MAIN_GUITARS } as never, { song: s, chords: s + 'c', drums: s + 'd', strum: s + 's', bass: s + 'b', vocal: s + 'v' } as never);
-  const sections = buildTrack(idea, { ...defaultTrackOptions(idea), soloPlan: 'melody', mood } as never).sections as any[];
+  const sections = buildTrack(idea, { ...defaultTrackOptions(idea), soloCheck: 'melody', mood } as never).sections as any[];
   for (const sec of sections) {
     if (!sec.section?.solo) continue;
     const total = sec.song.total, bars = sec.song.bars;

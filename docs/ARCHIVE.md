@@ -24,4 +24,5 @@ One row per thing taken out, added by the phase that removes it.
 
 | What | Why removed | Old path | Phase | Get it back |
 |---|---|---|---|---|
-| (nothing yet) | | | | |
+| Classic solo writer `generateSolo` (the first solo writer, with its lick tables and cells) | Unused since 2026-10-17; solo2, the planned writer and the melody writer replaced it. `playSolo` and `Ev` stay in `src/parts/solo.ts` (all writers use them) | `src/parts/solo.ts` (the part before `playSolo`) | 2 | `git show archive/before-cleanup:src/parts/solo.ts` |
+| Solo writer menu entries "Melody only", "Melody + gap marks", "Melody + joins", "Melody + read" | Paul keeps three: As before, Planned (landings first), Melody + player. The steps still run inside Melody + player and in the checks (`soloCheck`) | `index.html` `#t-soloplan`, `src/track.ts` (`soloPlan` values `melody` `marks` `joins` `player`) | 2 | `git show archive/before-cleanup:index.html` |
