@@ -31,7 +31,7 @@ Options + seeds → `src/generator.ts` (the idea: chords, strum, drums, bass, 8 
 - `band/`: pixel band view and video render (`band.html`).
 - `ui/`: page cards (controls, roll, neck view, chord editor, locks).
 - `export/`: MIDI and audio export. `theory/`, `rhythm/`: chords, scales, voicings, meters.
-- `lab/`: tools. `lickLab.ts` is live (`lick-lab.html`, built, not linked). Others are old (see `docs/ARCHIVE.md` once Phase 4 lands).
+- `lab/`: tools. `lickLab.ts` is live (`lick-lab.html`, built, not linked); `measure.ts` and `words.ts` serve the scripts. The old lab pages, `spike/` and `experiments/` are gone (`docs/ARCHIVE.md`).
 
 ## Rules
 - The generator is pure and deterministic given a seed. No `Math.random` or `Date` in writers.
