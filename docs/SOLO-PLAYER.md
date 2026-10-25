@@ -486,3 +486,48 @@ Track options -> Solo writer -> **Melody + player**. Not listened to yet.
 - Checks: `solo-figure-check` (the grid: no repeated pitch, a trill's speed and landing, the bend lands, the gap rules, the lengths uneven; real solos: the share of quick bends, never twice running), `solo-rules-check` (no repeater is left), `solo-player-check` (bend-run and trill forced on every note, real solos and fuzz).
 - Numbers (60 songs, 919 long notes): held on purpose 26% (unchanged); quick bend then flourish 20% of long notes (about half of the returns; the notes of 4 steps have no room for a flourish, and they are a third of all long notes), as well as the bend-in held notes (about 6%); trills 1.3%; two quick bends in a row 0.
 - Not built: the quick release (struck bent and let down), a second gap, the same unevenness and air for the other figures (returns and bridges), a bend on a bridge.
+
+## 18. Step 4 plan: short notes, joints, rests (2026-10-25, plan only, not built)
+Builds on sections 16 and 17. The same composer, the same checker, the same "no repeated pitch".
+
+### 18.1 What is left plain today (measured: 30 solos, 811 notes)
+- Short notes: 255 of 811 (31%). Nearly all are one 8th (2 steps); 16ths are rare. About a tenth of the solo's time.
+- Joints: 263. 92 already joined by step 0c (a bend, or a note or two in between). The long notes' tails are already inside their figures.
+- Rests: 15 in 30 solos (one in two solos). Rare on purpose.
+- So the work is mostly the short notes.
+
+### 18.2 4a: dressing one short note (the note keeps its pitch)
+Each is a small figure of 2 to 3 notes inside the note's own time, never stealing the next note's start.
+- **Grace in**: a 16th from a scale step (or half step for bluesy) below or above, then the note.
+- **Turn**: 3 quick notes (triplet): the note, a neighbour, back to the note's pitch. Never the same pitch twice in a row.
+- **Quick bend**: bent up into the note (Paul: yes). Only on strong beats, only melodic and bluesy, only where it can land (the bend check).
+- **Slide in**: from a step or two below, for melodic, bluesy, raw.
+- **Ghost before**: one muted scratch on the 16th before (funky, raw). One, never a run.
+- **Push or drag**: the note a hair early or late, up to a 32nd, melodic and bluesy only, never on a note that sits on a kick or snare.
+- At least half the short notes stay plain: they are the breath between the flourishes. A short note right after a busy long note stays plain.
+
+### 18.3 4b: joints and runs
+- **Run**: a cell of 2 to 4 short notes played as one run (scale run, arpeggio, enclosure), both ends keep their pitch.
+- **Approach**: a short note before a longer one: the note, then 1 or 2 notes that lean into the next (from above and below, or a step), inside the short note's time.
+- Already-joined joints (step 0c) stay as they are or are replaced, never doubled.
+- Same path search and mood costs as the long-note figures.
+
+### 18.4 4c: rests and pickups
+- A rest or a tail that stays empty gets, now and then: a ghost scratch, or a pickup of 1 or 2 notes into the next note. Never more than a beat of silence, as now.
+- Rests stay rare. A funky or raw stab with the kick or snare is allowed here only.
+
+### 18.5 Safety and budget
+- The checker gets one change: a note may start up to a 32nd off its time only where push or drag says so.
+- Busy budget per bar: dressed short notes and flourishes together stay under a cap, so a bar never piles up.
+- Same checks as now: speed (60 ms pick, 40 ms legato), range, key, hands.
+
+### 18.6 Sub-steps (each one heard)
+1. 4a: dressing one short note, with push and drag.
+2. 4b: runs and approaches.
+3. 4c: rests and pickups.
+Then: two figures in a bar-long note, pet figures.
+
+### 18.7 Questions (my picks first)
+- Dress about 1 short note in 3 (the rest plain)? Pick: **yes**.
+- Push and drag only for melodic and bluesy? Pick: **yes**, up to a 32nd.
+- Build 4a first, you listen, then 4b and 4c? Pick: **yes**.
