@@ -72,7 +72,7 @@ export interface TrackOptions {
   /** Melody + player only (step 0f): in a straight groove the player's figures start and land on the 8th, not on an odd 16th or in a triplet (missing in older links: off). */
   soloGrid?: 'on' | 'off';
   /** Melody + player only (docs/SOLO-CORE.md): "only" writes just the core notes of about half the bars, so they can be heard alone; "travel" adds moves between them (step 2); "story" plans the part of every gap in the solo's story, without notes yet (docs/SOLO-STORY.md). Missing in older links: every phrase, as before. */
-  soloCores?: 'only' | 'travel' | 'story' | 'recipes' | 'off';
+  soloCores?: 'only' | 'travel' | 'story' | 'recipes' | 'library' | 'off';
   /** Core notes only (docs/SOLO-CLIMAX.md): the climax core is played, not just held (missing in older links: off). */
   soloClimax?: 'on' | 'off';
   /** Checks only (scripts/solo-*-check.ts), never set by the page: a step of the melody + player writer on its own (the melody, with gap marks, with joins, or read and left as written). */

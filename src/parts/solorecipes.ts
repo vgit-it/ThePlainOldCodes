@@ -3,16 +3,24 @@
 // pulled off, a unison bend, a quick run); a ramp of fast notes climbing from the bottom of the range into the climax; a short rising build;
 // a long note falling, pulled off, after the climax. Gaps the size of the opening play it again, with the tag changed. Link gaps and gaps
 // too short for a phrase stay silent. The cores are not touched. Same story, same seed: same notes.
+// With the library on (docs/SOLO-LIBRARY.md) the named licks of the recipe lab join the recipes, and the gaps are strung together: wherever
+// more than a beat would be left silent, recipes are laid end to end until no rest is longer than a beat.
 
 import type { StoryGap, StoryPart } from '../idea';
 import { Rng } from '../rng';
 import { NOTE_NAMES } from '../theory';
 import { intervalCost } from '../verse/intervals';
-import type { PlacedNote } from './licks';
+import type { Role } from '../recipes/library';
+import { type PlacedNote, placeLibLick } from './licks';
 import type { Core } from './solocore';
 import { GENRE_ORDER, type MoveCtx, envOf, moveWindow, scaleSteps, weightOf } from './solomoves';
+import { JOBS, poolFor } from './sololibrary';
 import { PHRASE_MIN, RAMP_MIN } from './solostory';
 
+/** A place to lead into: a core, or a note along the way. */
+type Pt = { step: number; midi: number };
+/** The longest rest the library allows in a solo (16ths): a beat. */
+export const BEAT = 4;
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 const nearest = (list: number[], m: number) => { let b = 0, bd = Infinity; for (let i = 0; i < list.length; i++) { const d = Math.abs(list[i] - m); if (d < bd) { bd = d; b = i; } } return b; };
 
@@ -90,7 +98,7 @@ export interface StoryOut { notes: PlacedNote[]; parts: StoryPart[]; lines: stri
 // ---------------------------------------------------------------- the writer
 
 /** Writes every part of the story. `prev` for the first part is the note the solo starts around. */
-export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
+export function writeStory(c: MoveCtx, parts: Part[], cores: Core[], library = false): StoryOut {
   const env = envOf(c), { full } = env;
   const seed = 'recipes-' + c.rng.next();
   const gi = Math.max(0, GENRE_ORDER.indexOf(c.song.partGenres.strum));
@@ -101,7 +109,7 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
   const loud = (step: number, d = 0.05) => clamp(c.vel(step) + d, 0.3, 1);
 
   /** The scale notes a core's lead-in may use (indexes into the key's notes). */
-  const rangeIdx = (core: Core): [number, number] => {
+  const rangeIdx = (core: Pt): [number, number] => {
     const [lo, hi] = moveWindow(c, core);
     let h = 0;
     for (let i = full.length - 1; i >= 0; i--) if (full[i] <= hi) { h = i; break; }
@@ -111,7 +119,7 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
    * Where the tag ends (a scale note within 2 of the core): the first, by the weights, whose held note (starting at `ts`) sits inside the
    * range and does not rub the chord. `T` gives the held note's place for an end note.
    */
-  const pickEnd = (rng: Rng, core: Core, ws: [number, number][], T: (e: number) => number, ts: number, unison = false): number | null => {
+  const pickEnd = (rng: Rng, core: Pt, ws: [number, number][], T: (e: number) => number, ts: number, unison = false): number | null => {
     const ci = nearest(full, core.midi), [loI, hiI] = rangeIdx(core), left = ws.slice();
     while (left.length) {
       const q = rng.weighted(left.map(([o, w]) => [o, w] as [number, number]));
@@ -125,7 +133,7 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
     return null;
   };
   /** Whether the notes fit: window, key, no overlap, held notes that do not rub, the last note leading into the core. */
-  const fits = (ns: PlacedNote[], p: Part, core: Core): boolean => {
+  const fits = (ns: PlacedNote[], p: Part, core: Pt): boolean => {
     const s = ns.slice().sort((a, b) => a.step - b.step);
     if (!s.length) return false;
     const [lo, hi] = moveWindow(c, core);
@@ -140,7 +148,7 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
     return scaleSteps(c.song, z.midi, core.midi) <= 2 || z.art === 'slide' || z.bend > 0;
   };
   /** The mood's liking of the way in and the way out, and a chord note on the beats. */
-  const costOf = (ns: PlacedNote[], p: Part, core: Core, prev: number) => {
+  const costOf = (ns: PlacedNote[], p: Part, core: Pt, prev: number) => {
     const s = ns.slice().sort((a, b) => a.step - b.step), P = c.profile(p.to), z = s[s.length - 1];
     let cost = intervalCost(P, prev, s[0].midi, 0, false) + intervalCost(P, z.midi, core.midi, s.length > 1 ? z.midi - s[s.length - 2].midi : 0, false);
     for (const n of s) if (n.len >= 2 && env.isBeat(n.step) && !c.fit.isTone(n.midi, n.step)) cost += 0.4;
@@ -148,7 +156,7 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
   };
 
   // ---- a sung phrase: lead-in notes, then the tag
-  const sung = (p: Part, core: Core, rng: Rng, last: Tag | null, memo?: Phrase, again?: 'same' | 'new'): Cand | null => {
+  const sung = (p: Part, core: Pt, rng: Rng, last: Tag | null, memo?: Phrase, again?: 'same' | 'new'): Cand | null => {
     const end = p.to;
     let tag: Tag;
     if (memo) {
@@ -204,7 +212,7 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
   };
 
   // ---- a ramp or a build: fast notes climbing in groups, each a step higher, ending right under the core
-  const rising = (p: Part, core: Core, rng: Rng, ramp: boolean): Cand | null => {
+  const rising = (p: Part, core: Pt, rng: Rng, ramp: boolean): Cand | null => {
     const end = p.to, room = Math.min(end - p.from, ramp ? RAMP_HARD : 10), ci = nearest(full, core.midi);
     const [lo] = moveWindow(c, core);
     const lowIdx = Math.max(0, full.findIndex((m) => m >= lo));
@@ -241,7 +249,7 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
   };
 
   // ---- a fall: one long note (bent and let down, or with vibrato), pulled off down into the core
-  const fall = (p: Part, core: Core, rng: Rng): Cand | null => {
+  const fall = (p: Part, core: Pt, rng: Rng): Cand | null => {
     const end = p.to;
     const k = p.label === 'close' ? 1 : p.label === 'fall' ? rng.pick([1, 2]) : rng.pick([2, 3]), H = rng.pick([6, 8]), bent = rng.chance(0.5), ts = end - H - k;
     if (ts < p.from) return null;
@@ -252,32 +260,70 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
     return { notes: ns, recipe: `a long note ${bent ? 'bent and let down' : 'with vibrato'}, then ${k} pulled off`, bits: [{ from: ts, to: end, what: 'fall' }] };
   };
 
+  // ---- a named lick from the recipe lab (docs/SOLO-LIBRARY.md), placed to end where the part ends; cut down from its start if it is too long
+  const libOf = (p: Part, core: Pt, rng: Rng, jobs: Role[], prevMidi: number): Cand | null => {
+    const room = p.to - p.from, pool = poolFor(jobs, GENRE_ORDER[gi], c.mood, room);
+    if (!pool.length) return null;
+    const l = rng.weighted(pool).lick;
+    let from = 0;
+    while (from < l.notes.length - 2 && l.span - l.notes[from].pos > room) from++;
+    if (l.span - l.notes[from].pos > room) return null;
+    const [lo, hi] = moveWindow(c, core);
+    const ns = placeLibLick(rng, c.fit, c.song.key, l, p.to, lo, hi, prevMidi, 'any', l.who[0], clamp(c.vel(p.to), 0.3, 1), from);
+    if (!ns) return null;
+    return { notes: ns, recipe: `the lick "${l.name}"${from ? ' (cut down)' : ''}`, bits: [{ from: ns[0].step, to: p.to, what: `lick: ${l.name}` }] };
+  };
+
+  // ---- a short walk through the key, in 8ths (some 16ths and dotted 8ths), ending right by the core: the piece that always fits
+  const walk = (p: Part, core: Pt, rng: Rng, prevMidi: number): Cand | null => {
+    const durs: number[] = [];
+    for (let rem = p.to - p.from; rem > 0;) { const d = Math.min(rem, rng.weighted([[1, 3], [2, 6], [3, 1]] as [number, number][])); durs.push(d); rem -= d; }
+    const [loI, hiI] = rangeIdx(core), n = durs.length, ci = nearest(full, core.midi);
+    const a = clamp(nearest(full, prevMidi), loI, hiI), e = clamp(ci + rng.pick([-1, -1, 0, 1]), loI, hiI);
+    let idx = a, s = p.from;
+    const ns = durs.map((d, q) => {
+      let t = q === n - 1 ? e : clamp(Math.round(a + ((e - a) * (q + 1)) / n) + rng.pick([-1, 0, 0, 1]), loI, hiI);
+      if (q < n - 1 && t === idx) t = clamp(t + (t < hiI ? 1 : -1), loI, hiI);
+      idx = t;
+      const x = note(s, d, at(t), q > 0 && d === 1 && rng.chance(0.25 * LEGATO_LEAN[gi]) ? { art: 'legato' } : {});
+      s += d;
+      return x;
+    });
+    return { notes: ns, recipe: `a short walk, ${n} notes`, bits: [{ from: p.from, to: p.to, what: 'walk' }], extra: 1 };
+  };
+
+  /** The best of a few tries at a recipe (by the mood's liking of the way in and out): the same dice for the same key. */
+  const choose = (key: string, p: Part, core: Pt, prevMidi: number, make: (rng: Rng) => Cand | null, tries = 12, ok: (x: Cand) => boolean = () => true): Cand | null => {
+    const cands: { x: Cand; cost: number }[] = [];
+    for (let a = 0; a < tries; a++) {
+      const x = make(new Rng(`${seed}:${key}:${a}`));
+      if (!x || !fits(x.notes, p, core) || !ok(x)) continue;
+      cands.push({ x, cost: costOf(x.notes, p, core, prevMidi) + (x.extra ?? 0) });
+    }
+    if (!cands.length) return null;
+    const lo = Math.min(...cands.map((q) => q.cost));
+    return new Rng(`${seed}:${key}:pick`).weighted(cands.map((q) => [q.x, Math.exp(-(q.cost - lo) / 1.5)] as [Cand, number]));
+  };
+
   // ---- the parts, in order
   const memos = new Map<number, Phrase>();
   const outParts: StoryPart[] = [], notes: PlacedNote[] = [], lines: string[] = [];
   let prev = env.start, last: Tag | null = null;
   const barOf = (g: number) => { for (let i = c.song.bars.length - 1; i >= 0; i--) if (g >= c.song.bars[i].start) return i; return 0; };
+  const where = (from: number, to: number) => { const a = barOf(from) + 1, b = barOf(Math.max(from, to - 1)) + 1; return a === b ? 'bar ' + a : `bars ${a}-${b}`; };
   parts.forEach((p, i) => {
     const core = cores[p.into], room = p.to - p.from;
     if (i === 0 || parts[i - 1].into !== p.into) prev = p.into > 0 ? cores[p.into - 1].midi : env.start;
-    const attempt = (make: (rng: Rng) => Cand | null, tries = 12): Cand | null => {
-      const cands: { x: Cand; cost: number }[] = [];
-      for (let a = 0; a < tries; a++) {
-        const x = make(new Rng(`${seed}:${i}:${a}`));
-        if (!x || !fits(x.notes, p, core)) continue;
-        cands.push({ x, cost: costOf(x.notes, p, core, prev) + (x.extra ?? 0) });
-      }
-      if (!cands.length) return null;
-      const lo = Math.min(...cands.map((q) => q.cost));
-      return new Rng(`${seed}:${i}:pick`).weighted(cands.map((q) => [q.x, Math.exp(-(q.cost - lo) / 1.5)] as [Cand, number]));
-    };
+    const attempt = (make: (rng: Rng) => Cand | null, tries = 12): Cand | null => choose(String(i), p, core, prev, make, tries);
+    /** With the library on, some of the tries are a named lick that does the part's job. */
+    const mixed = (q: Part, jobs: Role[], make: (rng: Rng) => Cand | null) => (r: Rng) => (library && r.chance(0.4) ? libOf(q, core, r, jobs, prev) : make(r));
     let cand: Cand | null = null, again = '';
     if (p.role === 'link' || room < 3) cand = null;
-    else if (p.role === 'ramp') cand = attempt((r) => rising(p, core, r, true));
+    else if (p.role === 'ramp') cand = attempt(mixed(p, JOBS.ramp, (r) => rising(p, core, r, true)));
     else if (p.role === 'build' && p.repeatOf === undefined) {
       // (a build climbs; where the core sits too low to climb to, and there is room, a short sung phrase instead)
-      cand = room >= 4 ? attempt((r) => rising(p, core, r, false)) : null;
-      if (!cand && room >= PHRASE_MIN) cand = attempt((r) => sung(p, core, r, last));
+      cand = room >= 4 ? attempt(mixed(p, JOBS.build, (r) => rising(p, core, r, false))) : null;
+      if (!cand && room >= PHRASE_MIN) cand = attempt(mixed(p, JOBS.build, (r) => sung(p, core, r, last)));
     }
     else if (p.role === 'release') {
       // (a long release: first a note falling straight from the core before, then the fall into the next; the first only with the second)
@@ -287,7 +333,7 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
         const one = [note(p.from + 2, 8, at(ix), { vib: 14, vel: loud(p.from + 2, 0.02) })];
         if (fits(one, { ...p, to: p.from + 12 }, cores[Math.max(0, p.into - 1)])) { early = one; q = { ...p, from: p.from + 12 }; }
       }
-      cand = attempt((r) => fall(q, core, r));
+      cand = attempt(mixed(q, JOBS.release, (r) => fall(q, core, r)));
       if (cand && early.length) cand = { ...cand, notes: [...early, ...cand.notes], bits: [{ from: early[0].step, to: early[0].step + 8, what: 'fall' }, ...cand.bits], recipe: 'a long note falling from the core, then ' + cand.recipe };
     } else if (p.role === 'answer' || p.role === 'statement' || p.role === 'return' || p.role === 'build') {
       const memo = p.repeatOf !== undefined ? memos.get(p.repeatOf) : undefined;
@@ -296,7 +342,7 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
         cand = attempt((r) => sung(p, core, r, last, memo, way));
         if (cand) again = way === 'same' ? ' (the opening phrase again)' : ' (the opening phrase again, tag changed)';
       }
-      if (!cand && p.role !== 'build') cand = attempt((r) => sung(p, core, r, last));
+      if (!cand && p.role !== 'build') cand = attempt(mixed(p, JOBS[p.role], (r) => sung(p, core, r, last)));
       if (!cand && p.role === 'build') cand = room >= 4 ? attempt((r) => rising(p, core, r, false)) : null;
     }
     if (cand) {
@@ -304,13 +350,66 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[]): StoryOut {
       const sorted = cand.notes.slice().sort((a, b) => a.step - b.step);
       prev = sorted[sorted.length - 1].midi;
       if (cand.memo) { last = cand.memo.tag; if (p.role === 'statement') memos.set(p.into, cand.memo); }
-      const a = barOf(p.from) + 1, b = barOf(Math.max(p.from, p.to - 1)) + 1;
       outParts.push({ into: p.into, from: p.from, to: p.to, role: p.role, label: p.label, recipe: cand.recipe + again, bits: cand.bits, notes: cand.notes.length });
-      lines.push(`${a === b ? 'bar ' + a : `bars ${a}-${b}`}: ${p.label !== p.role ? p.label + ' = ' : ''}${p.role}: ${cand.recipe}${again} (${cand.notes.length} notes), into ${NOTE_NAMES[((core.midi % 12) + 12) % 12]}`);
+      lines.push(`${where(p.from, p.to)}: ${p.label !== p.role ? p.label + ' = ' : ''}${p.role}: ${cand.recipe}${again} (${cand.notes.length} notes), into ${NOTE_NAMES[((core.midi % 12) + 12) % 12]}`);
     } else if (p.role !== 'link') {
       outParts.push({ into: p.into, from: p.from, to: p.to, role: p.role, label: p.label, recipe: 'space', bits: [], notes: 0 });
     }
   });
+
+  // ---- the library: no rest longer than a beat. Where one is left, recipes are strung end to end across it
+  if (library && cores.length) {
+    interface Ev { s: number; e: number; midi: number }
+    const restsOf = () => {
+      const evs: Ev[] = [...cores.map((k) => ({ s: k.step, e: k.step + k.len, midi: k.midi })), ...notes.map((n) => ({ s: n.step, e: n.step + n.len, midi: n.midi }))].sort((a, b) => a.s - b.s);
+      const out: { from: number; to: number; prev: Ev; next: Ev }[] = [];
+      let cover = Math.min(parts.length ? parts[0].from : Infinity, evs[0].s), before: Ev = { s: cover, e: cover, midi: env.start };
+      for (const ev of evs) {
+        if (ev.s > cores[cores.length - 1].step) break;
+        if (ev.s - cover > BEAT) out.push({ from: cover, to: ev.s, prev: before, next: ev });
+        if (ev.e > cover) { cover = ev.e; before = ev; }
+      }
+      return out;
+    };
+    /** Strings pieces across one rest: a sung phrase, a climb, a named lick or a walk, each leading on from the one before and the last into what follows. */
+    const stringRest = (gap: ReturnType<typeof restsOf>[number], n: number, walkOnly: boolean) => {
+      const core = cores.find((k) => k.step >= gap.to) ?? cores[cores.length - 1], into = cores.indexOf(core);
+      const rng = new Rng(`${seed}:rest${n}${walkOnly ? 'w' : ''}`);
+      const a0 = nearest(full, gap.prev.midi), t0 = nearest(full, gap.next.midi);
+      let cur = gap.from + Math.min(rng.pick([0, 0, 1, 2]), gap.to - gap.from - 1), from = gap.prev.midi, k = 0;
+      const out: PlacedNote[] = [], bits: StoryPart['bits'] = [], names: string[] = [];
+      while (cur < gap.to) {
+        const R = gap.to - cur, opts = [8, 10, 12].filter((x) => R - x >= 4), L = R > 14 && opts.length ? rng.pick(opts) : R, end = cur + L, lastPiece = end >= gap.to;
+        // (on the way, a waypoint between where the rest begins and where it leads)
+        const way = lastPiece ? gap.next.midi : at(clamp(Math.round(a0 + ((t0 - a0) * (end - gap.from)) / (gap.to - gap.from)) + rng.pick([-1, 0, 0, 1]), 0, full.length - 1));
+        const pc: Pt = { step: end, midi: way }, pp: Part = { into, from: cur, to: end, role: 'link', label: 'strung' };
+        const tight = (x: Cand) => x.notes.reduce((m, q) => Math.min(m, q.step), Infinity) - cur <= 2;
+        const all: [string, number][] = [['sung', L >= PHRASE_MIN ? 3 : 0], ['rise', L >= 4 ? 2 : 0], ['lick', 4], ['walk', 2]];
+        const kinds = walkOnly ? ([['walk', 1]] as [string, number][]) : all.filter(([, w]) => w > 0);
+        let cand = choose(`rest${n}.${k}${walkOnly ? 'w' : ''}`, pp, pc, from, (r) => {
+          const kind = r.weighted(kinds);
+          return kind === 'sung' ? sung(pp, pc, r, last) : kind === 'rise' ? rising(pp, pc, r, false) : kind === 'lick' ? libOf(pp, pc, r, JOBS.fill, from) : walk(pp, pc, r, from);
+        }, 12, tight);
+        cand ??= choose(`rest${n}.${k}.walk`, pp, pc, from, (r) => walk(pp, pc, r, from), 12, tight);
+        if (!cand) break;
+        out.push(...cand.notes);
+        names.push(cand.recipe);
+        bits.push(...cand.bits);
+        from = cand.notes.slice().sort((x, y) => x.step - y.step)[cand.notes.length - 1].midi;
+        cur = end; k++;
+      }
+      if (!out.length) return;
+      notes.push(...out);
+      const whole = outParts.find((q) => q.recipe === 'space' && q.from <= gap.from && gap.to <= q.to);
+      const recipe = 'strung: ' + names.join(' + ');
+      if (whole) Object.assign(whole, { recipe, bits, notes: out.length });
+      else outParts.push({ into, from: gap.from, to: gap.to, role: 'link', label: 'strung', recipe, bits, notes: out.length });
+      lines.push(`${where(gap.from, gap.to)}: ${gap.to - gap.from} 16ths left open, ${recipe} (${out.length} notes)`);
+    };
+    restsOf().forEach((g, n) => stringRest(g, n, false));
+    // (whatever is still open, a walk across it)
+    for (let pass = 1; pass <= 3; pass++) restsOf().forEach((g, n) => stringRest(g, 100 * pass + n, true));
+  }
   notes.sort((a, b) => a.step - b.step);
   return { notes, parts: outParts, lines };
 }

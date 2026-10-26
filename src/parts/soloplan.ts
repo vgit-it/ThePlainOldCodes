@@ -86,7 +86,7 @@ function pickCost<T>(rng: Rng, items: { v: T; cost: number }[]): T | null {
 }
 
 /** The ways of writing a solo from core notes (docs/SOLO-CORE.md, SOLO-STORY.md, SOLO-RECIPES.md); anything else is not one. */
-export const CORE_MODES = ['only', 'travel', 'story', 'recipes'] as const;
+export const CORE_MODES = ['only', 'travel', 'story', 'recipes', 'library'] as const;
 export const isCoreMode = (x: unknown): x is (typeof CORE_MODES)[number] => (CORE_MODES as readonly unknown[]).includes(x);
 
 export interface PlanOpts {
@@ -99,7 +99,7 @@ export interface PlanOpts {
   /** Melody writer only (docs/SOLO-MELODY.md, step 0f): a phrase repeats its first beat or two of rhythm, so the tune can be followed. */
   rhythmMotif?: boolean;
   /** Melody writer only (docs/SOLO-CORE.md): only the core notes of the chosen bars are written, so they can be heard alone ('only'); or with moves between them (step 2, 'travel'). */
-  cores?: 'only' | 'travel' | 'story' | 'recipes';
+  cores?: 'only' | 'travel' | 'story' | 'recipes' | 'library';
   /** With cores (docs/SOLO-CLIMAX.md): the climax core is played (bent and held with vibrato, bent again and again, or a pedal lick) instead of held plain. */
   climax?: 'played';
 }
