@@ -23,7 +23,7 @@ import { type PlacedNote, lickFit, placedHit } from './licks';
 import type { LandingRole, PlanOpts } from './soloplan';
 import { BUSY, DENSITY, ENERGY_WORDS, energyAt, pickEnergy } from './solo2';
 import { coreLine, pickCores } from './solocore';
-import { type MoveCtx, moveLine, planMoves, writeMoves } from './solomoves';
+import { CLIMAX_WORDS, type MoveCtx, moveLine, planMoves, playClimax, writeMoves } from './solomoves';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
@@ -115,8 +115,8 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
     // (the moves have their own dice, drawn after the cores, so the cores are the same as in 'only')
     const lines: string[] = [];
     let travel: TravelMove[] | undefined;
+    const mc: MoveCtx = { rng: new Rng('moves-' + rng.next()), song, chords, fit, mood, E, window: rawWindow, profile: prof, vel: (g) => vel0 + VEL_SWING * E(g) - 0.03, drums: o.drums };
     if (o.cores === 'travel') {
-      const mc: MoveCtx = { rng: new Rng('moves-' + rng.next()), song, chords, fit, mood, E, window: rawWindow, profile: prof, vel: (g) => vel0 + VEL_SWING * E(g) - 0.03, drums: o.drums };
       const plans = planMoves(mc, cores), outs = writeMoves(mc, plans, cores);
       travel = outs.map((x) => x.rec);
       for (const x of outs) for (const n of x.notes) hits.push(placedHit(n, t, pos));
@@ -125,6 +125,15 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
         const recs = outs.filter((x) => x.rec.gap === g).map((x) => x.rec).filter((r) => r.move !== 'grace');
         if (recs.length) lines.push(moveLine(song, fit, cores[recs[0].into], recs));
       }
+    }
+    // (the climax played: drawn after the moves, so the moves are the same with it on or off; its first note is the core's)
+    const climaxCore = o.climax === 'played' ? cores.find((k) => k.role === 'climax') : undefined;
+    if (climaxCore) {
+      const { notes, way } = playClimax(mc, climaxCore);
+      const at = hits.findIndex((h) => h.step === climaxCore.step);
+      if (at >= 0) hits.splice(at, 1, ...notes.map((n) => placedHit(n, t, pos)));
+      hits.sort((a, b) => a.step - b.step);
+      lines.push(`climax (bar ${Math.floor(climaxCore.bar) + 1}): ${CLIMAX_WORDS[way]}`);
     }
     return {
       hits,

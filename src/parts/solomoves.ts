@@ -353,6 +353,45 @@ export function writeMoves(c: MoveCtx, plans: MovePlan[], cores: Core[]): MoveOu
   return outs;
 }
 
+// ---------------------------------------------------------------- the climax, played
+
+export type ClimaxWay = 'bend-vibrato' | 'bend-again' | 'pedal';
+export const CLIMAX_WORDS: Record<ClimaxWay, string> = {
+  'bend-vibrato': 'bent up into the top note, held with wide vibrato',
+  'bend-again': 'the top note bent and let down, again and again, the last one held',
+  pedal: 'quick notes that keep coming back to the top note, which ends held',
+};
+
+/**
+ * The climax core, played instead of just held (docs/SOLO-CLIMAX.md). It starts on the same step and note as the core, stays under it
+ * (the top note is the peak) and ends held on it. Three ways, picked by the genre's liking for bends and pedal notes. Notes: the core's
+ * own length; the notes are in the key. A core too short for the way picked is bent and held.
+ */
+export function playClimax(c: MoveCtx, core: Core): { notes: PlacedNote[]; way: ClimaxWay } {
+  const { full } = envOf(c);
+  const gi = Math.max(0, GENRE_ORDER.indexOf(c.song.partGenres.strum));
+  const rng = new Rng('climax-' + c.rng.next());
+  let way = rng.weighted([['bend-vibrato', 1.5], ['bend-again', weightOf(MOVE_LEAN['bend-release'][gi])], ['pedal', weightOf(MOVE_LEAN.pedal[gi])]] as [ClimaxWay, number][]);
+  const M = core.midi, L = core.len, v = clamp(c.vel(core.step) + 0.1, 0.3, 1);
+  const below = [...full].reverse().find((x) => x < M);
+  const b = clamp(below === undefined ? 1 : M - below, 1, 2);
+  const note = (step: number, len: number, o: Partial<PlacedNote> = {}, midi = M, vel = v): PlacedNote => ({ step: core.step + step, midi, len, vel, bend: 0, art: 'pick', ...o });
+  if (way === 'bend-again' && L < 8) way = 'bend-vibrato';
+  if (way === 'pedal' && L < 8) way = 'bend-vibrato';
+  if (way === 'bend-vibrato') return { way, notes: [note(0, L, { bend: b, vib: 16 })] };
+  if (way === 'bend-again') {
+    const n = clamp(Math.floor(L / 4), 2, 4), each = Math.floor(L / n);
+    return { way, notes: Array.from({ length: n }, (_, i) => (i < n - 1 ? note(i * each, each, { bend: b, unbend: b }, M, v - 0.04 * (n - 1 - i)) : note(i * each, L - i * each, { bend: b, vib: 16 }))) };
+  }
+  // pedal: the top note and a note 1 to 3 scale steps under it, in 16ths, then the top note held for the last third (4 steps at least)
+  const tail = Math.min(L - 4, Math.max(4, Math.round(L / 3))), top = nearest(full, M);
+  const offs = rng.shuffle([[1, 2, 1, 3], [2, 1, 3, 1], [1, 3, 2, 1]])[0];
+  const notes: PlacedNote[] = [];
+  for (let i = 0; i < L - tail; i++) notes.push(i % 2 === 0 ? note(i, 1) : note(i, 1, {}, full[Math.max(0, top - offs[Math.floor(i / 2) % offs.length])], v - 0.1));
+  notes.push(note(L - tail, tail, { vib: 16 }));
+  return { way, notes };
+}
+
 // ---------------------------------------------------------------- the writers
 
 /** A note on its way out (the player's marks in `o`; `chrom`: a chromatic passing note, allowed in an enclosure only). */
@@ -548,7 +587,7 @@ function make(c: MoveCtx, env: Env, p: MovePlan, core: Core, prev: number, dir: 
       return { notes: seq.map((m, i) => ({ step: end - 2 + i, len: 1, midi: m, chrom: !fit.inKey(m) })) };
     }
     case 'trill': {
-      const H = Math.min(L, rng.pick([2, 3, 4]));
+      const H = Math.min(L, rng.pick([4, 6, 8]));
       if (H < 2) return null;
       const m = full[endIdx()], up = full.find((s) => s > m);
       if (up === undefined) return null;
@@ -556,7 +595,7 @@ function make(c: MoveCtx, env: Env, p: MovePlan, core: Core, prev: number, dir: 
       return { notes: [{ step: end - H, len: H, midi: m, o: rng.chance(0.35) ? { tremolo: true } : { trill: clamp(up - m, 1, 2) } }] };
     }
     case 'bend-release': {
-      const H = Math.min(L, rng.pick([2, 3, 4])), end = p.to;
+      const H = Math.min(L, rng.pick([4, 6, 8])), end = p.to;
       if (H < 2) return null;
       const t = endIdx(), m = full[t], b = bendOf(m);
       const notes: N[] = [{ step: end - H, len: H, midi: m, o: { bend: b, unbend: b } }];
@@ -564,7 +603,7 @@ function make(c: MoveCtx, env: Env, p: MovePlan, core: Core, prev: number, dir: 
       return { notes };
     }
     case 'slide-in': {
-      const H = Math.min(L, rng.pick([2, 3, 4])), end = p.to;
+      const H = Math.min(L, rng.pick([4, 6, 8])), end = p.to;
       if (H < 2) return null;
       const t = endIdx(), m = full[t];
       if (H < 3) return { notes: [{ step: end - H, len: H, midi: m, o: { art: 'slide' } }] };
