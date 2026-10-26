@@ -33,7 +33,8 @@ Options + seeds → `src/generator.ts` (the idea: chords, strum, drums, bass, 8 
 - `page/`: the page's link, export and real-sound buttons (`share.ts`, `exporter.ts`, `real.ts`). `main.ts` keeps the state and the rest of the wiring.
 - `ui/`: page cards (controls, roll, neck view, chord editor, locks).
 - `export/`: MIDI and audio export. `theory/`, `rhythm/`: chords, scales, voicings, meters.
-- `lab/`: tools. `lickLab.ts` is live (`lick-lab.html`, built, not linked); `measure.ts` and `words.ts` serve the scripts. The old lab pages, `spike/` and `experiments/` are gone (`docs/ARCHIVE.md`).
+- `recipes/`: the lick library as data (`licks.json`, the named licks the app plays, and Paul's drafts), read/write/check (`library.ts`), facts, guesses and tab fingering (`facts.ts`). Docs: `RECIPE-LAB`.
+- `lab/`: tools. `recipeLab.ts` (`recipe-lab.html`, PC only: `npm run recipe-lab`, saves into `src/recipes/licks.json`, not built). `lickLab.ts` is live (`lick-lab.html`, built, not linked); `measure.ts` and `words.ts` serve the scripts. The old lab pages, `spike/` and `experiments/` are gone (`docs/ARCHIVE.md`).
 
 ## Rules
 - The generator is pure and deterministic given a seed. No `Math.random` or `Date` in writers.
@@ -43,6 +44,7 @@ Options + seeds → `src/generator.ts` (the idea: chords, strum, drums, bass, 8 
 - Don't read big files whole. Search first (`grep`), then read the part you need.
 
 ## Current focus
+- **Recipe lab** (`docs/RECIPE-LAB.md`): v1 built (the 67 named licks as data, the lab to write, mark, hear, save). Next: drafts and marks used by the writers, recipe templates.
 - **Solos** (Track options → Solo writer): "As before" (`solo2.ts`), "Planned (landings first)" (`soloplan.ts`), "Melody + player" (`solomelody.ts` → `soloplayer.ts`). Docs: `SOLO-NEW`, `SOLO-PLAN`, `SOLO-MELODY`, `SOLO-PLAYER`. Paul is listening to the newest steps.
 - **Vocal melody** (Vocal melody card): the verse writer and its mood-note switches (`docs/VERSE-SECTIONS.md`, `VOCAL-EMOTION`, `INTERVALS`).
 - **Repo clean-up**: `docs/CLEANUP-PLAN.md`, one phase at a time. Anything removed is in git (tag `archive/before-cleanup`, commit `ea84fd7`) and listed in `docs/ARCHIVE.md`. `node scripts/reach.mjs` lists files nothing uses.

@@ -4,6 +4,8 @@ Status: live — the lick lab page (`lick-lab.html`), built and deployed, not li
 
 Page (`lick-lab.html`, `src/lab/lickLab.ts`; `npm run dev`, then `/lick-lab.html`; built and deployed with the app, not linked from it). Pick a key and a jam, tap a lick, hear it over the band.
 
+The named licks now live in `src/recipes/licks.json`; to write, mark and save them use the recipe lab (`docs/RECIPE-LAB.md`).
+
 ## What it does
 - **Jam:** a real 8-bar idea from the generator (`buildIdea`) with the key, mode and chords set (`GenOptions.key`, `.mode`, `.chords`; `planSong` is exported for it). One chord, or the verse lab's progressions for the mode. Rock, pop or funk feel; tempo; "New band take" for other drums, strumming and bass. Guitar 2 is replaced by the lick.
 - **Placing:** one lick per chord (every 2 bars), over 1 or 2 bars of it. Named licks are fitted to the chord by `placeLibLick` as Guitar 2 does; the real kinds are fitted by `realLick` / placed on the key.

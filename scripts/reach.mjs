@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const entries = ['src/main.ts', 'src/band/main.ts', 'src/lab/lickLab.ts'];
+const entries = ['src/main.ts', 'src/band/main.ts', 'src/lab/lickLab.ts', 'src/lab/recipeLab.ts'];
 if (process.argv.includes('--scripts')) for (const f of fs.readdirSync(path.join(root, 'scripts'))) if (f.endsWith('.ts')) entries.push('scripts/' + f);
 
 const seen = new Set();

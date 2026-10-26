@@ -50,7 +50,8 @@ const PLAYERS: Record<LeadKind, LeadPlayer> = {
   },
 };
 
-const BY_GENRE: Record<Genre, [LeadKind, number][]> = {
+/** How likely each lead player is in each genre. */
+export const BY_GENRE: Record<Genre, [LeadKind, number][]> = {
   rock: [['melodic', 2], ['bluesy', 3], ['shredder', 0.5], ['raw', 1]],
   hardrock: [['melodic', 1], ['bluesy', 3], ['shredder', 2]],
   metal: [['shredder', 3], ['melodic', 1]],
