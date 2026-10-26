@@ -9,10 +9,10 @@
 //   home chord (carried into the next section: src/track.ts, carrySolo).
 // Played plain (no bends, slides or vibrato), so the tune can be heard alone. Next step: its notes become the planner's landings.
 
-import type { ChordPart, GuitarHit, Song, SoloCurve, SoloGap } from '../idea';
+import type { ChordPart, GuitarHit, Song, SoloCurve, SoloGap, TravelMove } from '../idea';
 import { type GapNote, findGaps, pickGaps } from './solomelody-gaps';
 import type { LickKind } from '../players/lead';
-import type { Rng } from '../rng';
+import { Rng } from '../rng';
 import { QUALITIES, SCALES, chordPc } from '../theory';
 import type { Mood } from '../tension';
 import { TUNINGS } from '../theory/fretboard';
@@ -23,6 +23,7 @@ import { type PlacedNote, lickFit, placedHit } from './licks';
 import type { LandingRole, PlanOpts } from './soloplan';
 import { BUSY, DENSITY, ENERGY_WORDS, energyAt, pickEnergy } from './solo2';
 import { coreLine, pickCores } from './solocore';
+import { type MoveCtx, moveLine, planMoves, writeMoves } from './solomoves';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
@@ -104,12 +105,27 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
   const busy = (DENSITY[genre] * BUSY[lick]) / 5.4;
   const vel0 = 0.8 + 0.08 * intensity;
 
-  // ---- cores only (docs/SOLO-CORE.md, step 1): about half the bars get one note that stands out, and nothing else is written
-  if (o.cores === 'only') {
+  // ---- cores only (docs/SOLO-CORE.md, step 1): about half the bars get one note that stands out, and nothing else is written;
+  // 'travel' (step 2) fills the gaps between the cores with moves
+  if (o.cores === 'only' || o.cores === 'travel') {
     const cores = pickCores({ rng, song, chords, fit, mood, tension: (b) => (o.tension?.length ? o.tension[Math.min(o.tension.length - 1, b)] : 0.5), E, centerAt, window: rawWindow, profile: prof, drums: o.drums });
     const pos = rng.int(5, 12);
     const hits = cores.map((k) => placedHit({ step: k.step, midi: k.midi, len: k.len, vel: Math.min(1, vel0 + VEL_SWING * E(k.step) + 0.05 * Math.min(2, k.noteScore) + (k.role === 'climax' ? 0.1 : 0)), bend: 0, art: 'pick' }, t, pos));
     const r2 = (v: number) => Math.round(v * 100) / 100;
+    // (the moves have their own dice, drawn after the cores, so the cores are the same as in 'only')
+    const lines: string[] = [];
+    let travel: TravelMove[] | undefined;
+    if (o.cores === 'travel') {
+      const mc: MoveCtx = { rng: new Rng('moves-' + rng.next()), song, chords, fit, mood, E, window: rawWindow, profile: prof, vel: (g) => vel0 + VEL_SWING * E(g) - 0.03, drums: o.drums };
+      const plans = planMoves(mc, cores), outs = writeMoves(mc, plans, cores);
+      travel = outs.map((x) => x.rec);
+      for (const x of outs) for (const n of x.notes) hits.push(placedHit(n, t, pos));
+      hits.sort((a, b) => a.step - b.step);
+      for (let g = 0; g <= Math.max(-1, ...plans.map((p) => p.gap)); g++) {
+        const recs = outs.filter((x) => x.rec.gap === g).map((x) => x.rec).filter((r) => r.move !== 'grace');
+        if (recs.length) lines.push(moveLine(song, fit, cores[recs[0].into], recs));
+      }
+    }
     return {
       hits,
       curve: {
@@ -118,8 +134,9 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
         centre: Array.from({ length: total }, (_, g) => centerAt(g)),
         pace: Array.from({ length: total }, (_, g) => r2(paceAt(g))),
         landings: cores.map((k) => ({ step: k.step, midi: k.midi, len: k.len, role: k.role === 'mid' ? 'core' : k.role })), neck: true,
+        ...(travel ? { travel } : {}),
       },
-      notes: [`Guitar 2: a solo (core notes only): ${cores.length} of ${bars.length} bars have one, in ${mood}: ${cores.map(coreLine).join('; ')}`],
+      notes: [`Guitar 2: a solo (${travel ? 'core notes, with moves between' : 'core notes only'}): ${cores.length} of ${bars.length} bars have one, in ${mood}: ${cores.map(coreLine).join('; ')}`, ...lines],
     };
   }
 

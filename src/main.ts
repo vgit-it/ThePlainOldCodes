@@ -437,7 +437,7 @@ function syncTrackOptions() {
   optSel.soloMotif.value = track.opts.soloMotif === 'on' ? 'on' : 'off';
   optSel.soloBreath.value = track.opts.soloBreath === 'on' ? 'on' : 'off';
   optSel.soloGrid.value = track.opts.soloGrid === 'on' ? 'on' : 'off';
-  optSel.soloCores.value = track.opts.soloCores === 'only' ? 'only' : 'off';
+  optSel.soloCores.value = track.opts.soloCores === 'only' || track.opts.soloCores === 'travel' ? track.opts.soloCores : 'off';
   // only riff genres have a riff to carry through the verses
   optSel.riffVerse.closest('label')!.style.display = track.source.guitar ? '' : 'none';
 }
@@ -448,7 +448,7 @@ for (const [k, sel] of Object.entries(optSel)) {
     if (k === 'band') return rebuildTrack({ ...track.opts, band: sel.value as 'on' | 'off' }, shown, true);
     // (the same song with its solos written another way: stay where you are)
     if (k === 'soloPlan') return rebuildTrack({ ...track.opts, soloPlan: sel.value as 'on' | 'off' | 'perform' }, shown, true);
-    if (k === 'soloCores') return rebuildTrack({ ...track.opts, soloCores: sel.value as 'only' | 'off' }, shown, true);
+    if (k === 'soloCores') return rebuildTrack({ ...track.opts, soloCores: sel.value === 'only' || sel.value === 'travel' ? sel.value : 'off' }, shown, true);
     if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
     const opts: TrackOptions = { ...track.opts, order: undefined };
     if (k === 'mood') opts.mood = sel.value as MoodChoice;

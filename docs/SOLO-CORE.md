@@ -1,10 +1,10 @@
-Status: experiment — step 1 built (2026-10-26), Paul is to listen.
+Status: experiment — steps 1 and 2 built (2026-10-26), Paul is to listen.
 
 # Solo core notes: not every bar gets one
 
 Paul: today every phrase ends on a core note (a long chord note), so most bars have one. Try a way where only some bars get a core note, and those notes and bars are hard hitting: chosen from the chords, the mood, the key and the rest. Bars without one: Paul decides later.
 
-Switch: Track options, **Solo core notes (Melody + player)**: "Every phrase (as before)" or "Chosen bars, cores only". Code: `src/parts/solocore.ts` (`pickCores`), called from `generateSoloMelody` (`PlanOpts.cores`). Check: `npm run solo-core-check`. In "cores only" the solo is just the cores, plain, with no player on top, so the skeleton can be heard alone. A link from before has no option: as before.
+Switch: Track options, **Solo core notes (Melody + player)**: "Every phrase (as before)", "Chosen bars, cores only" or (step 2) "Chosen bars, with moves between". Code: `src/parts/solocore.ts` (`pickCores`), called from `generateSoloMelody` (`PlanOpts.cores`). Check: `npm run solo-core-check`. In "cores only" the solo is just the cores, plain, with no player on top, so the skeleton can be heard alone. A link from before has no option: as before.
 
 ## A. Which bars
 Each bar scores (weights in `bar scores`):
@@ -29,7 +29,33 @@ Chosen: the climax bar (nearest the energy's crest) and the last bar always; the
 - Checked: last bar and climax have one, none 3 in a row, no 4 bars without, every core a chord note, the climax core is the highest, the same seed the same notes, an old link plays as before.
 - The last bar's core can be dropped by the song's ending (`makeEnding`) or a band stop, as the last note of every solo can; the check allows for it.
 
+## Step 2: moves between the cores
+Option **"Chosen bars, with moves between (step 2)"** (`soloCores: 'travel'`). Off by default; a link from before plays as before. The cores are exactly step 1's. The gaps between them (and the stretch before the first core) are filled with **moves**. Still no player on top, so the plan can be heard cleanly. Code: `src/parts/solomoves.ts` (`planMoves`, `writeMove`, `moveLine`), called from `generateSoloMelody`. The weights are in code only (`MOVE_LEAN`). Check: `npm run solo-moves-check`.
+
+What a move is: repeat, repeat over a chord change, answer, sequence, wave, dive and climb, stairs, arch, zigzag, leap and fill, run, trill, arpeggio, pedal, neighbour notes, enclosure, double-stops, bend and release, slide in, stabs, or a rest.
+- Every move can show up in every genre. Genre, mood, the place in the solo and the energy only change how likely each one is. A rare one (weight 1 in that genre) shows up once per solo at most.
+- Never the same move twice in a row.
+- Every move except rest and stabs ends within 2 scale steps of the next core (or bends or slides into it), so it leads in.
+- Notes stay in the key (a chromatic note only in an enclosure), inside the playable range, on the 8th grid (fast moves may use 16ths), never over a core. Strong beats lean to chord notes.
+- A gap shorter than a beat gets nothing, or one grace note. A gap longer than a bar and a half gets two moves, or a rest and a move.
+- The card says it in one line per gap, e.g. `bars 3-4: wave (down and back up) into the 3rd of Bb`.
+- A wide leap in leap-and-fill is marked `tap` in the record, for step 3.
+
+**The signature lick:** a cell of 2 to 4 notes, stated in the first gap of 8 or more 16ths (not the climax's) as a repeat or an answer. It comes back 2 or 3 times (1 or 2 in solos under 6 bars), with the same rhythm and shape, moved to the chord, and one thing changed each time: an extra note, higher, or a bend on the top note.
+
+Calls I made where the brief left room:
+- A move plays in the range of the core it leads into (the range at that core, a little wider if the core sits at its edge), not the range at its own time. Where the energy climbs, the lead-in then sits in the core's register.
+- Both moves of a long gap lead toward the core (the first one too).
+- A return counts as a repeat or an answer, whichever the move beside it is not. If the signature lands late and the gaps after it are too short, it comes back fewer times than asked (the check allows for it).
+- The song's ending can make the last core over, and trim the notes just before it. The check leaves that bit out.
+- The check plays 140 songs twice over (more, if some rare move has not shown up in 4 genres yet).
+
 ## Not done yet
-- Step 2: the melody written between the cores (bars without a core). Open question: a lead-in toward the next core, space, or the earlier motif.
-- Step 3: tune by ear (the 3rd or 7th share, how long a core is held, how far the cores jump).
-- The player is not run on the cores.
+- Step 3, the player: techniques, every one possible in every genre, weighted the same way (3 leans in, 2 normal, 1 rare). Tune the move weights by ear first. Decided weights (rock, pop, funk, hardrock, metal, grunge, altmetal):
+  - wide vibrato 3 2 1 3 3 3 2; hammer-on / pull-off 2 2 2 3 3 1 2
+  - pinch harmonic (best on the climax core) 2 1 1 3 3 2 3; natural harmonic 1 2 1 1 2 2 2
+  - tapping (on `tap` leaps) 1 1 1 2 3 1 2; palm mute (a chug between cores) 1 1 2 2 3 2 3
+  - whammy / dive bomb 1 1 1 2 3 2 2; pick scrape (into the solo: arrangement) 1 1 1 2 3 2 2
+- Sounds (a separate job): the lead has no sound yet for harmonics, tapping, whammy or pick scrape. Palm mute exists only on the rhythm guitar. Until those sounds exist, these play as plain notes.
+- Tune by ear: the 3rd or 7th share, how long a core is held, how far the cores jump.
+- The player is not run on the cores or the moves.
