@@ -23,6 +23,7 @@ import { type PlacedNote, lickFit, placedHit } from './licks';
 import type { LandingRole, PlanOpts } from './soloplan';
 import { BUSY, DENSITY, ENERGY_WORDS, energyAt, pickEnergy } from './solo2';
 import { coreLine, pickCores } from './solocore';
+import { gapPattern, planStory, storyGapLine, storyLine } from './solostory';
 import { CLIMAX_WORDS, type MoveCtx, moveLine, planMoves, playClimax, writeMoves } from './solomoves';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
@@ -107,7 +108,7 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
 
   // ---- cores only (docs/SOLO-CORE.md, step 1): about half the bars get one note that stands out, and nothing else is written;
   // 'travel' (step 2) fills the gaps between the cores with moves
-  if (o.cores === 'only' || o.cores === 'travel') {
+  if (o.cores === 'only' || o.cores === 'travel' || o.cores === 'story') {
     const cores = pickCores({ rng, song, chords, fit, mood, tension: (b) => (o.tension?.length ? o.tension[Math.min(o.tension.length - 1, b)] : 0.5), E, centerAt, window: rawWindow, profile: prof, drums: o.drums });
     const pos = rng.int(5, 12);
     const hits = cores.map((k) => placedHit({ step: k.step, midi: k.midi, len: k.len, vel: Math.min(1, vel0 + VEL_SWING * E(k.step) + 0.05 * Math.min(2, k.noteScore) + (k.role === 'climax' ? 0.1 : 0)), bend: 0, art: 'pick' }, t, pos));
@@ -125,6 +126,12 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
         const recs = outs.filter((x) => x.rec.gap === g).map((x) => x.rec).filter((r) => r.move !== 'grace');
         if (recs.length) lines.push(moveLine(song, fit, cores[recs[0].into], recs));
       }
+    }
+    // (the story: the part of every gap, planned from the cores alone; no dice and no notes)
+    const story = o.cores === 'story' ? planStory(song, cores, E) : undefined;
+    if (story) {
+      lines.push(`story (planned, no licks yet): ${storyLine(story, cores)}; ${gapPattern(story)}`);
+      for (const g of story) lines.push(storyGapLine(song, g, cores[g.into]));
     }
     // (the climax played: drawn after the moves, so the moves are the same with it on or off; its first note is the core's)
     const climaxCore = o.climax === 'played' ? cores.find((k) => k.role === 'climax') : undefined;
@@ -144,8 +151,9 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
         pace: Array.from({ length: total }, (_, g) => r2(paceAt(g))),
         landings: cores.map((k) => ({ step: k.step, midi: k.midi, len: k.len, role: k.role === 'mid' ? 'core' : k.role })), neck: true,
         ...(travel ? { travel } : {}),
+        ...(story ? { story } : {}),
       },
-      notes: [`Guitar 2: a solo (${travel ? 'core notes, with moves between' : 'core notes only'}): ${cores.length} of ${bars.length} bars have one, in ${mood}: ${cores.map(coreLine).join('; ')}`, ...lines],
+      notes: [`Guitar 2: a solo (${travel ? 'core notes, with moves between' : story ? 'core notes, story planned' : 'core notes only'}): ${cores.length} of ${bars.length} bars have one, in ${mood}: ${cores.map(coreLine).join('; ')}`, ...lines],
     };
   }
 

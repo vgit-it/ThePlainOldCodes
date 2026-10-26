@@ -95,7 +95,7 @@ export interface PlanOpts {
   /** Melody writer only (docs/SOLO-MELODY.md, step 0f): a phrase repeats its first beat or two of rhythm, so the tune can be followed. */
   rhythmMotif?: boolean;
   /** Melody writer only (docs/SOLO-CORE.md): only the core notes of the chosen bars are written, so they can be heard alone ('only'); or with moves between them (step 2, 'travel'). */
-  cores?: 'only' | 'travel';
+  cores?: 'only' | 'travel' | 'story';
   /** With cores (docs/SOLO-CLIMAX.md): the climax core is played (bent and held with vibrato, bent again and again, or a pedal lick) instead of held plain. */
   climax?: 'played';
 }
