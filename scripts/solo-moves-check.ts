@@ -3,7 +3,7 @@
 //  - No move twice in a row; a rare move (weight 1 in the genre) once per solo at most.
 //  - The signature lick comes back 2 or 3 times in solos of 6 bars or more (1 or 2 in shorter ones).
 //  - A move (except a rest or stabs) ends within 2 scale steps of the next core, or bends or slides into it.
-//  - Notes: in the key (off-scale at most 10%), inside the playable window, never over a core.
+//  - Notes: in the key (off-scale at most 10%), inside the playable window, never over a core. Short: 16ths (over half) and 8ths, holds up to 4.
 //  - The genre leans show (metal more runs, trills, arpeggios and pedals than rock; funk the most stabs; pop more stairs, arches and answers than metal);
 //    every move shows up in at least 4 genres; rests are 10-40% of the gaps; the same seed plays the same.
 //   npm run solo-moves-check        (N=140 songs, two takes of each)
@@ -37,7 +37,7 @@ const landKey = (ls: Land[]) => ls.map((l) => `${l.step}:${l.midi}:${l.len}`).jo
 const share: Record<string, Record<string, number>> = {};
 const moves: Record<string, number> = {};
 const gensWith: Record<string, Set<string>> = {};
-let gapsWithSpace = 0, noRoom = 0, solos = 0, recs = 0, space = 0, hitsN = 0, off = 0, notes = 0, withSig = 0, bigSig = 0, bigSigOk = 0, retTotal = 0, grace = 0, gaps = 0;
+let quick = 0, gapsWithSpace = 0, noRoom = 0, solos = 0, recs = 0, space = 0, hitsN = 0, off = 0, notes = 0, withSig = 0, bigSig = 0, bigSigOk = 0, retTotal = 0, grace = 0, gaps = 0;
 // (the rare moves need a few solos to show up in 4 genres: if some have not by then, more songs are played, up to 4 times as many)
 const seenIn = (m: string) => gensWith[m]?.size ?? 0;
 const missing = () => MOVE_NAMES.some((m) => seenIn(m) < 4);
@@ -66,6 +66,8 @@ for (let i = process.env.ONLY ? Number(process.env.ONLY) : 0; process.env.ONLY ?
       const ps: number[] = [...h.notes, ...(h.trill ? [Math.max(...h.notes) + h.trill] : [])];
       for (const m of ps) { notes++; if (m < lo || m > hi) fail(`${x.s}: a note outside the window (step ${h.step}, midi ${m}, window ${lo}-${hi}, ${r ? r.move + ' ' + r.from + '-' + r.to + ' into ' + r.into : 'no move'}, core ${core?.step}:${core?.midi}, centre ${centre[core ? core.step : h.step]})`); if (!inKey(m)) off++; }
       hitsN++;
+      if (h.len > 4) fail(`${x.s}: a move note ${h.len} long (step ${h.step}); moves play 16ths and 8ths`);
+      if (h.len === 1) quick++;
       if (x.lands.some((l) => h.step < l.step + l.len && l.step < h.step + h.len )) fail(`${x.s}: a move note over a core (step ${h.step})`);
     }
     // the moves in order
@@ -85,7 +87,8 @@ for (let i = process.env.ONLY ? Number(process.env.ONLY) : 0; process.env.ONLY ?
       if (r.label !== 'return' && MIN_GAP[r.move as MoveName] > r.to - r.from) fail(`${x.s}: ${r.move} in a gap of ${r.to - r.from}`);
       if (r.move === 'space' || r.move === 'stab') return;
       const hs = moveHits.filter((h: any) => h.step >= r.from && h.step < r.to).sort((p: any, q: any) => p.step - q.step);
-      if (!hs.length) { fail(`${x.s}: ${r.move} wrote no notes`); return; }
+      // (a short move into the last core can sit inside the ending's own zone, where its hits are not counted as moves)
+      if (!hs.length) { if (r.notes === 0 || x.lands[r.into]?.role !== 'end') fail(`${x.s}: ${r.move} wrote no notes`); return; }
       const z = hs[hs.length - 1], core = x.lands[r.into], top = Math.max(...z.notes);
       // (the song's ending can trim the last notes before the last core)
       if (r.into < x.lands.length - 1 && scaleSteps(x.sec.song, top, core.midi) > 2 && !(z.bend > 0) && z.art !== 'slide') fail(`${x.s}: ${r.move} ends ${scaleSteps(x.sec.song, top, core.midi)} scale steps from the core (${top} to ${core.midi}); into ${r.into}/${x.lands.length - 1}, planned last ${r.last}, from ${r.from} to ${r.to}, hits ${hs.map((h: any) => h.step + ':' + h.notes.join('.')).join(' ')}`);
@@ -116,13 +119,14 @@ console.log(`solos ${solos}, moves ${recs} (${(recs / Math.max(1, solos)).toFixe
 console.log('move share by genre:');
 console.log('  ' + 'move'.padEnd(20) + GENRES.map((g) => g.padStart(9)).join(''));
 for (const m of [...MOVE_NAMES]) console.log('  ' + m.padEnd(20) + GENRES.map((g) => pct(share[g]?.[m] ?? 0, moves[g] ?? 0).padStart(9)).join('') + `   (in ${gensWith[m]?.size ?? 0} genres)`);
-console.log(`rests: in ${pct(gapsWithSpace, gaps)} of the gaps (${pct(space, recs)} of the moves); off-scale: ${pct(off, notes)} of ${notes} notes; signature in ${withSig} of ${solos} solos, back ${(retTotal / Math.max(1, withSig)).toFixed(1)} times on average (${bigSigOk} of ${bigSig} solos of 6+ bars have 2-3; ${noRoom} more had no room for two)`);
+console.log(`rests: in ${pct(gapsWithSpace, gaps)} of the gaps (${pct(space, recs)} of the moves); off-scale: ${pct(off, notes)} of ${notes} notes; 16ths: ${pct(quick, hitsN)} of the move hits; signature in ${withSig} of ${solos} solos, back ${(retTotal / Math.max(1, withSig)).toFixed(1)} times on average (${bigSigOk} of ${bigSig} solos of 6+ bars have 2-3; ${noRoom} more had no room for two)`);
 if (!(shr('metal', ['run', 'trill', 'arpeggio', 'pedal']) > shr('rock', ['run', 'trill', 'arpeggio', 'pedal']))) fail('metal does not lean more to run, trill, arpeggio, pedal than rock');
 if (!GENRES.filter((g) => g !== 'funk').every((g) => shr('funk', ['stab']) > shr(g, ['stab']))) fail('funk does not have the most stabs');
 if (!(shr('pop', ['stairs', 'arch', 'answer']) > shr('metal', ['stairs', 'arch', 'answer']))) fail('pop does not lean more to stairs, arch, answer than metal');
 for (const m of MOVE_NAMES) if ((gensWith[m]?.size ?? 0) < 4) fail(`${m} shows up in only ${gensWith[m]?.size ?? 0} genres`);
 const sp = gapsWithSpace / Math.max(1, gaps);
 if (!(sp >= 0.1 && sp <= 0.4)) fail(`rests are in ${pct(gapsWithSpace, gaps)} of the gaps`);
+if (!(quick / Math.max(1, hitsN) >= 0.55)) fail(`only ${pct(quick, hitsN)} of the move notes are 16ths`);
 if (!(off / Math.max(1, notes) <= 0.1)) fail(`off-scale notes are ${pct(off, notes)}`);
 console.log(bad ? `${bad} FAIL` : '0 FAIL');
 if (bad) process.exitCode = 1;
