@@ -39,6 +39,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `SOLO-RECIPES.md`: stage 2 of the story: a recipe for each part (sung phrase with bend + pull-offs / unison bend / quick run, ramp from the bottom, build, fall), a Story row on the melody view. Behind a switch.
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.
+- `RECIPE-LAB.md`: the lick library as data (`src/recipes/licks.json`) and the recipe lab (PC only, `npm run recipe-lab`): write licks as tab, mark them, hear them, save.
 
 ## Vocal
 - `VOCAL.md`: the demo singer and the main vocal.

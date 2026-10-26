@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recipe lab</title>
+  <style>
+    :root { --bg: #f6f5f2; --card: #fff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e2e0da; --accent: #e8623a; --chip: #f0eee9; --ok: #2f8a4c; --warn: #b5541c; --out: #7a5af0; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #141416; --card: #1e1e21; --ink: #f2f2f3; --muted: #9a9aa0; --line: #2e2e33; --accent: #f07a52; --chip: #29292d; --ok: #5cc27d; --warn: #f0a46c; --out: #a892ff; } }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; gap: 16px; align-items: center; padding: 10px 20px; background: var(--bg); border-bottom: 1px solid var(--line); }
+    header h1 { font-size: 18px; margin: 0; }
+    header .lead { color: var(--muted); flex: 1; }
+    #saveState { color: var(--muted); }
+    #saveState.dirty { color: var(--warn); font-weight: 600; }
+    .wrap { display: grid; grid-template-columns: 340px 1fr; gap: 16px; padding: 16px 20px 48px; max-width: 1500px; margin: 0 auto; align-items: start; }
+    @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+    main { min-width: 0; }
+    aside { position: sticky; top: 62px; display: grid; gap: 8px; max-height: calc(100vh - 80px); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+    .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .card h2 button, .card h2 select { text-transform: none; letter-spacing: 0; }
+    .card h2 .sp { flex: 1; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+    label.f { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+    select, button, input, textarea { font: inherit; color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+    textarea { width: 100%; resize: vertical; }
+    input[type=number] { width: 70px; }
+    input[type=range] { padding: 0; width: 110px; }
+    input:disabled, select:disabled, textarea:disabled { opacity: .6; }
+    button { cursor: pointer; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    button:disabled { opacity: .45; cursor: default; }
+    .list { overflow: auto; display: grid; gap: 4px; align-content: start; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+    .list h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 8px 4px 2px; }
+    .list button { text-align: left; display: grid; gap: 1px; background: transparent; border-color: transparent; padding: 5px 8px; }
+    .list button:hover { background: var(--chip); }
+    .list button.on { background: var(--chip); border-color: var(--accent); }
+    .list small { color: var(--muted); font-size: 11.5px; }
+    .badge { font-size: 10.5px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); margin-left: 6px; text-transform: uppercase; letter-spacing: .04em; }
+    .badge.draft { color: var(--accent); border-color: var(--accent); }
+    .badge.dirty { color: var(--warn); border-color: var(--warn); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+    .warn { color: var(--warn); }
+    .err { color: var(--warn); font-size: 12.5px; margin: 4px 0 0; }
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chips button { padding: 3px 9px; border-radius: 999px; font-size: 12.5px; }
+    .chips button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    .chips button.guess { border-style: dashed; border-color: var(--muted); color: var(--muted); background: transparent; }
+    .field { display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .field > span { font-size: 12px; color: var(--muted); }
+    .field .g { font-size: 11.5px; color: var(--muted); margin-left: 6px; }
+    .lock { font-size: 12.5px; padding: 8px 10px; border-radius: 8px; background: var(--chip); color: var(--muted); margin-bottom: 10px; }
+    #tabBox { overflow-x: auto; border-radius: 8px; background: var(--chip); outline: none; }
+    #tabBox:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+    #tab { display: block; }
+    #tab text { font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace; dominant-baseline: central; text-anchor: middle; pointer-events: none; }
+    #tab .str { stroke: var(--muted); stroke-opacity: .55; }
+    #tab .beat { stroke: var(--muted); stroke-opacity: .18; }
+    #tab .bar { stroke: var(--muted); stroke-opacity: .55; }
+    #tab .num { fill: var(--muted); font-weight: 400; font-size: 10.5px; }
+    #tab .hit { fill: transparent; cursor: crosshair; }
+    #tab .hit:hover { fill: var(--accent); fill-opacity: .12; }
+    #tab .note rect.chip { fill: var(--card); stroke: var(--ink); stroke-width: 1; cursor: pointer; }
+    #tab .note.out rect.chip { stroke: var(--out); stroke-dasharray: 3 2; }
+    #tab .note.sel rect.chip { fill: var(--accent); stroke: var(--accent); }
+    #tab .note.sel text { fill: #fff; }
+    #tab .note text { fill: var(--ink); }
+    #tab .note .tail { stroke: var(--accent); stroke-width: 3; stroke-opacity: .35; stroke-linecap: round; }
+    #tab .play { stroke: var(--accent); stroke-width: 2; }
+    .noteEd { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+    .chk { display: flex; gap: 5px; align-items: center; font-size: 12.5px; color: var(--ink); }
+    .chk input { width: auto; }
+    .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; font-size: 13px; }
+    .facts div span { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    kbd { font: 11px ui-monospace, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; background: var(--card); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Recipe lab</h1>
+    <span class="lead">The lick library: write licks as tab, mark what they are, hear them over the band. PC only (npm run recipe-lab).</span>
+    <span id="saveState">All saved</span>
+    <button id="save" class="primary" disabled>Save <kbd>Ctrl S</kbd></button>
+  </header>
+
+  <div class="wrap">
+    <aside>
+      <div class="row">
+        <input id="q" placeholder="Search name or player" style="flex:1" />
+        <button id="new">+ New lick</button>
+      </div>
+      <div class="row">
+        <select id="fWho" title="Player"><option value="">Every player</option></select>
+        <select id="fRole" title="Job"><option value="">Any job</option><option value="-">Not marked yet</option></select>
+        <select id="fStatus" title="Status"><option value="">Live and draft</option><option value="live">Live</option><option value="draft">Draft</option></select>
+      </div>
+      <div class="list" id="list"></div>
+    </aside>
+
+    <main id="ed">
+      <section class="card">
+        <h2>Lick <span class="sp"></span>
+          <button id="dup">Copy as a draft</button>
+          <button id="del">Delete draft</button>
+        </h2>
+        <div class="lock" id="lock" hidden>Live: the app plays this lick, so its notes, name, player, speed and chord are locked (changing them would change the songs). Make a draft copy to change them. The marks below can be changed.</div>
+        <div class="row">
+          <label class="f" style="flex:1">Name <input id="name" /></label>
+          <label class="f">Player <select id="who1"></select></label>
+          <label class="f">Also <select id="who2"><option value="">nobody else</option></select></label>
+          <label class="f">Speed <select id="speed"><option>slow</option><option>mid</option><option>fast</option></select></label>
+          <label class="f">Over <select id="qq"><option value="min">minor chords</option><option value="maj">major chords</option><option value="any">either</option></select></label>
+        </div>
+        <p class="hint mono" id="idLine"></p>
+      </section>
+
+      <section class="card">
+        <h2>Tab <span class="sp"></span>
+          <label class="f" style="flex-direction:row">Over <select id="key"></select></label>
+          <button id="refinger" title="Forget the strings and finger it again with the least hand movement">Re-finger</button>
+        </h2>
+        <div id="tabBox" tabindex="0"><svg id="tab"></svg></div>
+        <p class="hint">Click a string to add a note there. Click a note to pick it, then: type the fret, <kbd>←</kbd><kbd>→</kbd> move it (<kbd>Shift</kbd> a beat), <kbd>↑</kbd><kbd>↓</kbd> a half step, <kbd>Alt</kbd>+<kbd>↑</kbd><kbd>↓</kbd> the same note on another string, <kbd>[</kbd><kbd>]</kbd> shorter or longer, <kbd>Del</kbd> remove, <kbd>Space</kbd> play. Purple dashed: a note outside the key.</p>
+        <div class="noteEd" id="noteEd">
+          <span class="hint" id="noteNone" style="margin:0">No note picked.</span>
+          <label class="f">String <select id="nStr"><option value="1">1 (high E)</option><option value="2">2 (B)</option><option value="3">3 (G)</option><option value="4">4 (D)</option><option value="5">5 (A)</option><option value="6">6 (low E)</option></select></label>
+          <label class="f">Fret <input id="nFret" type="number" min="0" max="22" /></label>
+          <label class="f">Length (16ths) <input id="nLen" type="number" min="1" max="64" /></label>
+          <label class="f">Bend <select id="nBend"><option value="0">none</option><option value="1">½ step</option><option value="2">whole step</option><option value="3">1½ steps</option><option value="4">2 steps</option></select></label>
+          <label class="f">Pre-bend <select id="nPb"><option value="0">none</option><option value="1">½ step</option><option value="2">whole step</option></select></label>
+          <label class="chk"><input id="nDown" type="checkbox" /> bend let down</label>
+          <label class="f">Double-stop <select id="nDyad"><option value="">none</option><option value="0">unison bend</option><option value="3">a minor 3rd under</option><option value="4">a major 3rd under</option><option value="5">a 4th under</option><option value="8">a minor 6th under</option><option value="9">a major 6th under</option><option value="12">an octave under</option></select></label>
+          <label class="f">Trill <select id="nTrill"><option value="0">none</option><option value="1">½ step</option><option value="2">whole step</option><option value="3">1½ steps</option></select></label>
+          <label class="chk"><input id="nLeg" type="checkbox" /> hammer / pull</label>
+          <label class="chk"><input id="nSlide" type="checkbox" /> slide in</label>
+          <label class="chk"><input id="nVib" type="checkbox" /> wide vibrato</label>
+          <label class="chk"><input id="nDead" type="checkbox" /> ghost</label>
+          <label class="chk"><input id="nRake" type="checkbox" /> rake</label>
+          <label class="chk"><input id="nTrem" type="checkbox" /> tremolo</label>
+          <label class="chk"><input id="nOut" type="checkbox" /> outside the key (meant)</label>
+        </div>
+        <label class="f" style="margin-top:10px">Notes as text (pos:note:length:techniques)
+          <textarea id="text" rows="2" class="mono" spellcheck="false"></textarea>
+        </label>
+        <p class="err" id="textErr"></p>
+      </section>
+
+      <section class="card">
+        <h2>Hear it</h2>
+        <div class="row">
+          <button id="play" class="primary" disabled>Play</button>
+          <label class="f">Mode <select id="mode"></select></label>
+          <label class="f">Chords <select id="prog"></select></label>
+          <label class="f">Feel <select id="genre"><option value="rock">Rock</option><option value="pop">Pop</option><option value="funk">Funk</option></select></label>
+          <label class="f">Tempo <input id="bpm" type="number" min="50" max="200" value="96" /></label>
+          <label class="f">Lead <select id="lead"><option value="electric-clean">Clean</option><option value="electric-crunch" selected>Crunch</option><option value="electric-dist">Distortion</option></select></label>
+          <label class="f">Lead level <input id="vLead" type="range" min="0" max="100" value="85" /></label>
+          <label class="f">Band level <input id="vBand" type="range" min="0" max="100" value="55" /></label>
+          <button id="reroll">New band take</button>
+          <button id="real">Prepare real sound</button>
+        </div>
+        <p class="hint" id="info"></p>
+        <p class="hint" id="status"></p>
+      </section>
+
+      <section class="card">
+        <h2>What it is <span class="sp"></span><button id="keep">Keep the guesses</button></h2>
+        <p class="hint" style="margin:0 0 10px">Dashed: a guess from the notes, not saved until you keep it or pick.</p>
+        <div class="field"><span>Job in a solo</span><div class="chips" id="cRole"></div></div>
+        <div class="field"><span>Genres</span><div class="chips" id="cGenres"></div></div>
+        <div class="field"><span>Moods</span><div class="chips" id="cMoods"></div></div>
+        <div class="field"><span>Energy</span><div class="chips" id="cEnergy"></div></div>
+        <div class="field"><span>Player / credit</span><input id="credit" placeholder="who it comes from or sounds like" /></div>
+        <div class="field"><span>Source</span><input id="source" placeholder="a lesson, a song, own idea" /></div>
+        <div class="field"><span>Notes</span><textarea id="about" rows="2" placeholder="anything to remember about it"></textarea></div>
+      </section>
+
+      <section class="card">
+        <h2>Worked out from the notes</h2>
+        <div class="facts" id="facts"></div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="/src/lab/recipeLab.ts"></script>
+</body>
+</html>
