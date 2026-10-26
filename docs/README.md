@@ -34,6 +34,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `SOLO-MELODY.md`: the melody step of the planned writer.
 - `SOLO-PLAYER.md`: the melody handed to a guitarist ("Melody + player").
 - `SOLO-CORE.md`: core notes in only some bars, chosen by the chords, mood and key (a switch, step 1).
+- `SOLO-CORE-STEP2.md`: build brief for step 2, the moves between the cores (delete once built).
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.
 

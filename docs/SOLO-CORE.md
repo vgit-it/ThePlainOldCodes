@@ -30,6 +30,6 @@ Chosen: the climax bar (nearest the energy's crest) and the last bar always; the
 - The last bar's core can be dropped by the song's ending (`makeEnding`) or a band stop, as the last note of every solo can; the check allows for it.
 
 ## Not done yet
-- Step 2: the melody written between the cores (bars without a core). Open question: a lead-in toward the next core, space, or the earlier motif.
+- Step 2: the moves between the cores. Decided; build brief in `SOLO-CORE-STEP2.md`.
 - Step 3: tune by ear (the 3rd or 7th share, how long a core is held, how far the cores jump).
 - The player is not run on the cores.
