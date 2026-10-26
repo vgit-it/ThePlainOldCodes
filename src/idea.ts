@@ -196,6 +196,25 @@ export interface SoloCurve {
   read?: SoloRead;
   /** Core notes with moves between (docs/SOLO-CORE.md, step 2): what was written in each gap between the cores. */
   travel?: TravelMove[];
+  /** Core notes with the story planned (docs/SOLO-STORY.md): the part of every gap between the cores. */
+  story?: StoryGap[];
+}
+
+/** The part one gap plays in the solo's story (src/parts/solostory.ts). */
+export interface StoryGap {
+  /** Which core (by order) the gap leads into, and the room it has (16ths). */
+  into: number;
+  from: number;
+  to: number;
+  /** The room in beats, the jump from the core before in scale steps (up is plus), and the energy in the middle of it. */
+  beats: number;
+  steps: number;
+  energy: number;
+  role: 'statement' | 'answer' | 'build' | 'ramp' | 'release' | 'return' | 'link';
+  /** Its name in the story line (A, A′, B, build, ramp, release, A (back)). */
+  label: string;
+  /** The gap (by core order) whose phrase it can repeat. */
+  repeatOf?: number;
 }
 
 /** One move between two core notes (src/parts/solomoves.ts): where it sits, what it is, and the core it leads into. */
