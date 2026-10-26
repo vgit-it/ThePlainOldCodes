@@ -94,6 +94,8 @@ export interface PlanOpts {
   drums?: { kick: number[]; snare: number[] };
   /** Melody writer only (docs/SOLO-MELODY.md, step 0f): a phrase repeats its first beat or two of rhythm, so the tune can be followed. */
   rhythmMotif?: boolean;
+  /** Melody writer only (docs/SOLO-CORE.md, step 1): only the core notes of the chosen bars are written, so they can be heard alone. */
+  cores?: 'only';
 }
 
 export function generateSoloPlan(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, hook: GuitarHit[] | null, intensity = 0.7, o: PlanOpts = {}): Guitar2Part {

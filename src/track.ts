@@ -71,6 +71,8 @@ export interface TrackOptions {
   soloBreath?: 'on' | 'off';
   /** Melody + player only (step 0f): in a straight groove the player's figures start and land on the 8th, not on an odd 16th or in a triplet (missing in older links: off). */
   soloGrid?: 'on' | 'off';
+  /** Melody + player only (docs/SOLO-CORE.md, step 1): "only" writes just the core notes of about half the bars, so they can be heard alone (missing in older links: every phrase, as before). */
+  soloCores?: 'only' | 'off';
   /** Checks only (scripts/solo-*-check.ts), never set by the page: a step of the melody + player writer on its own (the melody, with gap marks, with joins, or read and left as written). */
   soloCheck?: 'melody' | 'marks' | 'joins' | 'player';
   /** When the rhythm guitar plays (src/players/presence.ts): it sits out intros, verses and bridges, comes in late, drops out, as in real songs (missing in older links: off). */
@@ -620,11 +622,11 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
       const intensity = si === arc.climax ? 1 : Math.max(0, Math.min(1, (tt.reduce((a, b) => a + b, 0) / tt.length - MP.base) / Math.max(0.1, MP.peak - MP.base)));
       const soloHook = s.kind === 'solo' && soloOverChorus && hook.length ? hook : null;
       let sol = melody
-        ? generateSoloMelody(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity, { mood: arc.mood, tension: tt, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on' }, melody.mode)
+        ? generateSoloMelody(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity, { mood: arc.mood, tension: tt, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(opts.soloCores === 'only' ? { cores: 'only' as const } : {}) }, melody.mode)
         : opts.soloPlan === 'on'
         ? generateSoloPlan(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity, { mood: arc.mood, tension: tt, drums: idea.drums })
         : generateSolo2(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity);
-      if (melody && (melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-${si}`, idea, arc.mood, tt, melody.play);
+      if (melody && opts.soloCores !== 'only' && (melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-${si}`, idea, arc.mood, tt, melody.play);
       idea.guitar2 = sol.hits;
       idea.soloCurve = sol.curve;
       idea.section!.solo = true;
@@ -634,11 +636,11 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
     } else if (s.g2 === 'break') {
       // Breaks: a short melodic solo, quoting the hook, lower and sparer than a full one; the band as it is
       let sol = melody
-        ? generateSoloMelody(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on' }, melody.mode)
+        ? generateSoloMelody(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(opts.soloCores === 'only' ? { cores: 'only' as const } : {}) }, melody.mode)
         : opts.soloPlan === 'on'
         ? generateSoloPlan(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums })
         : generateSolo2(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3);
-      if (melody && (melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-break-${si}`, idea, arc.mood, arc.sections[si].tension, melody.play);
+      if (melody && opts.soloCores !== 'only' && (melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-break-${si}`, idea, arc.mood, arc.sections[si].tension, melody.play);
       idea.guitar2 = sol.hits;
       idea.soloCurve = sol.curve;
       idea.section!.lead = true;

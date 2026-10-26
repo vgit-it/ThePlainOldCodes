@@ -53,6 +53,7 @@
     "solo-read-check": "rolldown scripts/solo-read-check.ts --platform node --format esm -o node_modules/.cache/solo-read-check.mjs && node node_modules/.cache/solo-read-check.mjs",
     "solo-melody-check": "rolldown scripts/solo-melody-check.ts --platform node --format esm -o node_modules/.cache/solo-melody-check.mjs && node node_modules/.cache/solo-melody-check.mjs",
     "solo-breath-check": "rolldown scripts/solo-breath-check.ts --platform node --format esm -o node_modules/.cache/solo-breath-check.mjs && node node_modules/.cache/solo-breath-check.mjs",
+    "solo-core-check": "rolldown scripts/solo-core-check.ts --platform node --format esm -o node_modules/.cache/solo-core-check.mjs && node node_modules/.cache/solo-core-check.mjs",
     "lead-roll-check": "rolldown scripts/lead-roll-check.ts --platform node --format esm -o node_modules/.cache/lead-roll-check.mjs && node node_modules/.cache/lead-roll-check.mjs",
     "neck-check": "rolldown scripts/neck-check.ts --platform node --format esm -o node_modules/.cache/neck-check.mjs && node node_modules/.cache/neck-check.mjs",
     "form-check": "rolldown scripts/form-check.ts --platform node --format esm -o node_modules/.cache/form-check.mjs && node node_modules/.cache/form-check.mjs",

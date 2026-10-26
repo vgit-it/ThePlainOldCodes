@@ -22,6 +22,7 @@ import type { Guitar2Part } from './guitar2';
 import { type PlacedNote, lickFit, placedHit } from './licks';
 import type { LandingRole, PlanOpts } from './soloplan';
 import { BUSY, DENSITY, ENERGY_WORDS, energyAt, pickEnergy } from './solo2';
+import { coreLine, pickCores } from './solocore';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
@@ -102,6 +103,25 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
   const calmAt = (g: number) => Math.max(0, -en.paceC * E(g));
   const busy = (DENSITY[genre] * BUSY[lick]) / 5.4;
   const vel0 = 0.8 + 0.08 * intensity;
+
+  // ---- cores only (docs/SOLO-CORE.md, step 1): about half the bars get one note that stands out, and nothing else is written
+  if (o.cores === 'only') {
+    const cores = pickCores({ rng, song, chords, fit, mood, tension: (b) => (o.tension?.length ? o.tension[Math.min(o.tension.length - 1, b)] : 0.5), E, centerAt, window: rawWindow, profile: prof, drums: o.drums });
+    const pos = rng.int(5, 12);
+    const hits = cores.map((k) => placedHit({ step: k.step, midi: k.midi, len: k.len, vel: Math.min(1, vel0 + VEL_SWING * E(k.step) + 0.05 * Math.min(2, k.noteScore) + (k.role === 'climax' ? 0.1 : 0)), bend: 0, art: 'pick' }, t, pos));
+    const r2 = (v: number) => Math.round(v * 100) / 100;
+    return {
+      hits,
+      curve: {
+        shape: ENERGY_WORDS[en.shape](en), pitchC: en.pitchC, paceC: en.paceC,
+        energy: Array.from({ length: total }, (_, g) => r2(E(g))),
+        centre: Array.from({ length: total }, (_, g) => centerAt(g)),
+        pace: Array.from({ length: total }, (_, g) => r2(paceAt(g))),
+        landings: cores.map((k) => ({ step: k.step, midi: k.midi, len: k.len, role: k.role === 'mid' ? 'core' : k.role })), neck: true,
+      },
+      notes: [`Guitar 2: a solo (core notes only): ${cores.length} of ${bars.length} bars have one, in ${mood}: ${cores.map(coreLine).join('; ')}`],
+    };
+  }
 
   // ---- the beat: the smallest group of the bar (a quarter of a 4/4 bar)
   const barAt = (g: number) => bars[barIx(g)];
