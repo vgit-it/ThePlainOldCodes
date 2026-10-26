@@ -45,3 +45,5 @@ Cores and story equal to "story plan only"; licks only inside a part, never in a
 - Stage 4: mood inside the phrase (interval taste for every jump, bend size by mood), more recipes (slide into a held note, quick bend + hammer trio, tapping), mixed rhythm in builds.
 - Fewer notes if it is too busy: the lick share and the "space" share are the dials.
 - A later peak (65-80%) would give the build more room; not changed.
+
+Next: the recipe lab's licks join these recipes, and rests are strung shut: `SOLO-LIBRARY.md`.
