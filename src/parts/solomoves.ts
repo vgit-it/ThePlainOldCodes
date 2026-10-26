@@ -154,9 +154,9 @@ export function scaleSteps(song: Song, a: number, b: number): number {
 
 interface Slot { from: number; to: number; gap: number; into: number; rest?: boolean; grace?: boolean; plan?: MovePlan }
 
-/** A cell of 2 to 4 notes (8ths and quarters) that fits in `maxSpan` 16ths. */
+/** A cell of 2 to 4 notes (16ths and 8ths) that fits in `maxSpan` 16ths. */
 function makeCell(rng: Rng, maxSpan: number, fits: (span: number) => boolean = () => true): Cell | null {
-  const T = [[2, 2], [4, 2], [2, 4], [4, 4], [2, 2, 2], [4, 2, 2], [2, 2, 4], [2, 4, 2], [2, 2, 2, 2]].filter((l) => l.reduce((a, b) => a + b, 0) <= maxSpan && fits(l.reduce((a, b) => a + b, 0)));
+  const T = [[1, 1], [2, 1], [1, 2], [2, 2], [1, 1, 1], [2, 1, 1], [1, 1, 2], [1, 2, 1], [1, 1, 1, 1]].filter((l) => l.reduce((a, b) => a + b, 0) <= maxSpan && fits(l.reduce((a, b) => a + b, 0)));
   if (!T.length) return null;
   const lens = rng.pick(T), pent = rng.chance(0.6);
   return { lens, shape: randomShape(rng, lens.length, pent), pent };
@@ -357,11 +357,11 @@ export function writeMoves(c: MoveCtx, plans: MovePlan[], cores: Core[]): MoveOu
 
 /** A note on its way out (the player's marks in `o`; `chrom`: a chromatic passing note, allowed in an enclosure only). */
 interface N { step: number; len: number; midi: number; o?: Partial<PlacedNote>; chrom?: boolean }
-interface Made { notes: N[]; tap?: boolean; fast?: boolean }
+interface Made { notes: N[]; tap?: boolean }
 
 /**
  * The notes of one move. The same plan and the same previous note always give the same notes. It tries a few ways (the end note, the
- * direction, the length) and keeps those that fit: inside the playable window, in the key, on the grid, ending within 2 scale steps of
+ * direction, the length) and keeps those that fit: inside the playable window, in the key, ending within 2 scale steps of
  * the core. The mood's interval liking picks among them. Notes: none for a rest or when nothing fits.
  */
 export function writeMove(c: MoveCtx, p: MovePlan, cores: Core[], prev: number): MoveOut {
@@ -418,7 +418,7 @@ export function moveWindow(c: MoveCtx, core: { step: number; midi: number }): [n
   return [Math.min(lo, core.midi - 3), Math.max(hi, core.midi + 3)];
 }
 
-/** Whether the notes fit: the window, the key, the grid, no overlap, and the last note leading into the core. */
+/** Whether the notes fit: the window, the key, no overlap, and the last note leading into the core. */
 function valid(c: MoveCtx, made: Made, p: MovePlan, core: Core): boolean {
   const ns = made.notes.slice().sort((a, b) => a.step - b.step);
   if (!ns.length) return false;
@@ -427,7 +427,6 @@ function valid(c: MoveCtx, made: Made, p: MovePlan, core: Core): boolean {
   for (const n of ns) {
     if (n.step < end || n.step + n.len > p.to || n.len < 1) return false;
     end = n.step + n.len;
-    if (!made.fast && n.step % 2) return false;
     const ps = [n.midi, n.midi + (n.o?.trill ?? 0), n.midi - (n.o?.dyad ?? 0)];
     if (ps.some((m) => m < lo || m > hi)) return false;
     for (const m of ps) if (!c.fit.inKey(m)) { if (!n.chrom) return false; chrom++; }
@@ -453,8 +452,7 @@ function make(c: MoveCtx, env: Env, p: MovePlan, core: Core, prev: number, dir: 
   };
   /** The notes sit right up to the core: `n` of them, `u` long, as many as the room holds (in [nmin, nmax]). */
   const lay = (nmin: number, nmax: number, units: number[]) => {
-    const whole = units.every((u) => u >= 2);
-    const end = whole ? p.to - (p.to % 2) : p.to, room = end - (whole ? p.from + (p.from % 2) : p.from);
+    const end = p.to, room = end - p.from;
     let best: { u: number; n: number } | null = null;
     for (const u of units) {
       const n = Math.min(nmax, Math.floor(room / u));
@@ -466,7 +464,7 @@ function make(c: MoveCtx, env: Env, p: MovePlan, core: Core, prev: number, dir: 
     return { u: best.u, n, starts: Array.from({ length: n }, (_, i) => end - (n - i) * best!.u) };
   };
   const busyE = c.E(mid) > 0.3;
-  const slowUnits = () => (busyE ? [2] : [2, 4]);
+  const slowUnits = () => (busyE ? [1] : [1, 2]);
   const chordTone = (i: number, step: number, list: number[]) => fit.isTone(list[clamp(i, 0, list.length - 1)], step);
   /** Notes from steps in a list, with the strong beats leaning to chord notes (without breaking the shape). */
   const fromIdx = (idx: number[], starts: number[], lens: number[], list: number[] = full): N[] => {
@@ -503,36 +501,34 @@ function make(c: MoveCtx, env: Env, p: MovePlan, core: Core, prev: number, dir: 
   switch (move) {
     case 'grace': {
       const i = clamp(ci + (rng.chance(0.5) ? 1 : -1), 0, full.length - 1);
-      return { notes: [{ step: p.to - 2, len: 2, midi: full[i] }] };
+      return { notes: [{ step: p.to - 1, len: 1, midi: full[i] }] };
     }
     case 'stairs': return shapedN(stairsRel, 2, 6, slowUnits());
     case 'run': {
-      const quick = rng.chance(0.7);
-      const made = shapedN(stairsRel, 4, 8, quick ? [1] : [2]) ?? shapedN(stairsRel, 4, 8, quick ? [2] : [1]);
-      return made && { ...made, fast: true };
+      return shapedN(stairsRel, 4, 8, [1]);
     }
     case 'wave': return shapedN((n) => dips(n, rng.int(1, Math.min(3, n - 1)), dir), 3, 7, slowUnits());
     case 'arch': return shapedN((n) => dips(n, rng.int(1, Math.min(3, n - 1)), 1), 3, 7, slowUnits());
     case 'dive-climb': return shapedN((n) => {
       const f = n >= 7 ? 3 : n >= 5 ? 2 : 1, climb = n - f, bottom = -(climb - 1);
       return [...Array.from({ length: f }, (_, i) => bottom + 2 * (f - i) + (i === 0 ? 1 : 0)), ...Array.from({ length: climb }, (_, j) => bottom + j)];
-    }, 4, 8, [2]);
+    }, 4, 8, [1]);
     case 'zigzag': return shapedN((n) => {
       const w = rng.int(2, 3), sg = rng.chance(0.5) ? 1 : -1;
       return Array.from({ length: n }, (_, i) => { const k = n - 1 - i; return k === 0 ? 0 : (k % 2 ? -sg : sg) * clamp(w + 1 - Math.floor((k - 1) / 3), 2, 4); });
-    }, 3, 7, [2]);
+    }, 3, 7, [1]);
     case 'leap-fill': {
       const sgn = rng.chance(0.8) ? (prev <= core.midi ? 1 : -1) : -(prev <= core.midi ? 1 : -1);
       return shapedN((n) => Array.from({ length: n }, (_, i) => sgn * (n - 1 - i)), 2, 5, slowUnits());
     }
-    case 'pedal': return shapedN((n) => Array.from({ length: n }, (_, i) => ((n - 1 - i) % 2 === 0 ? 0 : dir * (1 + Math.floor(i / 2)))), 3, 7, [2]);
+    case 'pedal': return shapedN((n) => Array.from({ length: n }, (_, i) => ((n - 1 - i) % 2 === 0 ? 0 : dir * (1 + Math.floor(i / 2)))), 3, 7, [1]);
     case 'neighbour': {
       const pats = [[0, 1, 0], [0, -1, 0], [1, 0, -1, 0], [0, 1, 0, -1, 0], [1, 0], [-1, 0]];
       const pat = rng.pick(pats);
-      return shaped(pat, [2]);
+      return shaped(pat, [1]);
     }
     case 'sequence': {
-      const l0 = lay(4, 9, [2]);
+      const l0 = lay(4, 9, [1]);
       if (!l0) return null;
       const shapes = [[0, 1, 2], [0, 2, 1], [0, 1, 0], [0, 2, 0], [0, 1, 2, 1], [2, 1, 0]];
       const opts: [number, number][] = [];
@@ -542,43 +538,43 @@ function make(c: MoveCtx, env: Env, p: MovePlan, core: Core, prev: number, dir: 
       const shape = rng.pick(shapes.filter((s) => s.length >= k)).slice(0, k), s = rng.chance(0.7) ? 1 : 2;
       const rel: number[] = [];
       for (let j = 0; j < m; j++) for (const x of shape) rel.push(x - shape[k - 1] - dir * s * (m - 1 - j));
-      return shaped(rel, [2], rel.length);
+      return shaped(rel, [1], rel.length);
     }
     case 'enclosure': {
       const below = rng.chance(0.65) ? core.midi - 1 : full[clamp(ci - 1, 0, full.length - 1)];
       const above = !fit.inKey(below) || rng.chance(0.7) ? full[clamp(ci + 1, 0, full.length - 1)] : core.midi + 1;
-      const end = p.to - (p.to % 2), seq = rng.chance(0.5) ? [above, below] : [below, above];
-      if (end - p.from < 4) return { notes: [{ step: end - 2, len: 2, midi: seq[1], chrom: !fit.inKey(seq[1]) }] };
-      return { notes: seq.map((m, i) => ({ step: end - 4 + 2 * i, len: 2, midi: m, chrom: !fit.inKey(m) })) };
+      const end = p.to, seq = rng.chance(0.5) ? [above, below] : [below, above];
+      if (end - p.from < 2) return { notes: [{ step: end - 1, len: 1, midi: seq[1], chrom: !fit.inKey(seq[1]) }] };
+      return { notes: seq.map((m, i) => ({ step: end - 2 + i, len: 1, midi: m, chrom: !fit.inKey(m) })) };
     }
     case 'trill': {
-      const H = Math.min(L - (L % 2), rng.pick([4, 6, 8]));
-      if (H < 4) return null;
+      const H = Math.min(L, rng.pick([2, 3, 4]));
+      if (H < 2) return null;
       const m = full[endIdx()], up = full.find((s) => s > m);
       if (up === undefined) return null;
-      const end = p.to - (p.to % 2);
-      return { notes: [{ step: end - H, len: H, midi: m, o: rng.chance(0.35) ? { tremolo: true } : { trill: clamp(up - m, 1, 2) } }], fast: true };
+      const end = p.to;
+      return { notes: [{ step: end - H, len: H, midi: m, o: rng.chance(0.35) ? { tremolo: true } : { trill: clamp(up - m, 1, 2) } }] };
     }
     case 'bend-release': {
-      const H = Math.min(L - (L % 2), rng.pick([4, 6, 8])), end = p.to - (p.to % 2);
-      if (H < 4) return null;
+      const H = Math.min(L, rng.pick([2, 3, 4])), end = p.to;
+      if (H < 2) return null;
       const t = endIdx(), m = full[t], b = bendOf(m);
       const notes: N[] = [{ step: end - H, len: H, midi: m, o: { bend: b, unbend: b } }];
-      if (end - H - 2 >= p.from && rng.chance(0.5)) notes.unshift({ step: end - H - 2, len: 2, midi: full[clamp(t - dir, 0, full.length - 1)] });
+      if (end - H - 1 >= p.from && rng.chance(0.5)) notes.unshift({ step: end - H - 1, len: 1, midi: full[clamp(t - dir, 0, full.length - 1)] });
       return { notes };
     }
     case 'slide-in': {
-      const H = Math.min(L - (L % 2), rng.pick([4, 6, 8])), end = p.to - (p.to % 2);
+      const H = Math.min(L, rng.pick([2, 3, 4])), end = p.to;
       if (H < 2) return null;
       const t = endIdx(), m = full[t];
-      if (H < 4) return { notes: [{ step: end - H, len: H, midi: m, o: { art: 'slide' } }] };
+      if (H < 3) return { notes: [{ step: end - H, len: H, midi: m, o: { art: 'slide' } }] };
       const from = full[clamp(t - dir * rng.int(3, 5), 0, full.length - 1)];
-      return { notes: [{ step: end - H, len: 2, midi: from }, { step: end - H + 2, len: H - 2, midi: m, o: { art: 'slide' } }] };
+      return { notes: [{ step: end - H, len: 1, midi: from }, { step: end - H + 1, len: H - 1, midi: m, o: { art: 'slide' } }] };
     }
     case 'double-stop': {
       const types = [[3, 4], [8, 9], [5], [12]];
       const type = rng.weighted(types.map((t, i) => [t, [4, 3, 2, 0.5][i]] as [number[], number]));
-      const l = lay(1, 3, rng.chance(0.5) ? [4] : [2]);
+      const l = lay(1, 3, rng.chance(0.5) ? [2] : [1]);
       if (!l) return null;
       const t = endIdx(), rel = l.n === 1 ? [0] : l.n === 2 ? [-dir, 0] : [-2 * dir, -dir, 0];
       const notes: N[] = [];
@@ -608,7 +604,7 @@ function make(c: MoveCtx, env: Env, p: MovePlan, core: Core, prev: number, dir: 
       }
       if (ms.length < 3) return null;
       l.starts = l.starts.slice(l.n - ms.length);
-      return { notes: ms.map((m, i) => ({ step: l.starts[i], len: l.u, midi: m })), fast };
+      return { notes: ms.map((m, i) => ({ step: l.starts[i], len: l.u, midi: m })) };
     }
     case 'stab': {
       const ds = c.drums;
@@ -631,7 +627,7 @@ function make(c: MoveCtx, env: Env, p: MovePlan, core: Core, prev: number, dir: 
 
   /** The moves that play a cell: repeated, repeated over a chord change, answered, or the signature's return. */
   function cellMove(): Made | null {
-    const end = p.to - (p.to % 2);
+    const end = p.to;
     // (over a change: a cell short enough to be played 4 times at most, and still start before the last chord change)
     const last = c.chords.timeline.filter((e) => e.step > p.from && e.step < end).map((e) => e.step).pop();
     const fits = move === 'repeat-over-change' && last !== undefined
@@ -653,7 +649,7 @@ function make(c: MoveCtx, env: Env, p: MovePlan, core: Core, prev: number, dir: 
       if (p.change === 'higher') { const up = rng.int(1, 2); notes = notes.map((x, i) => (i < n - 1 ? { ...x, midi: list[clamp(nearest(list, x.midi) + up, 0, list.length - 1)] } : x)); }
       else if (p.change === 'extra note') {
         const f = notes[0];
-        notes.unshift({ step: f.step - 2, len: 2, midi: list[clamp(nearest(list, f.midi) + (rng.chance(0.5) ? 1 : -1), 0, list.length - 1)] });
+        notes.unshift({ step: f.step - 1, len: 1, midi: list[clamp(nearest(list, f.midi) + (rng.chance(0.5) ? 1 : -1), 0, list.length - 1)] });
       } else {
         const top = notes.reduce((a, b) => (b.midi > a.midi ? b : a));
         top.o = { ...top.o, bend: bendOf(top.midi) };
