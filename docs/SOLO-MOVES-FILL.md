@@ -12,6 +12,7 @@ Status: **not built.** Paul wants this looked at. Ask him before changing anythi
 - A move has a fixed size: it writes as many notes as its shape allows (`lay()` caps the count: stairs 2-6, wave 3-7, run 4-8, and so on).
 - It is lined up to **end where the next core starts**. Whatever is left in front of it stays empty.
 - Nothing asks "is there room for another move?". Even `repeat` stops at 4 plays of its cell.
+- Update: the held moves (bend, slide, trill) are back to 4-8 16ths (`SOLO-CLIMAX.md`), so the move size and silence numbers below are a little better than shown. Re-measure before building.
 - Numbers (60 songs, `cores: 'travel'`):
 
 | | Before halving | Now (16ths) |

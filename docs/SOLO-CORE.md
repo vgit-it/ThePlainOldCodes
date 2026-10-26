@@ -36,7 +36,7 @@ What a move is: repeat, repeat over a chord change, answer, sequence, wave, dive
 - Every move can show up in every genre. Genre, mood, the place in the solo and the energy only change how likely each one is. A rare one (weight 1 in that genre) shows up once per solo at most.
 - Never the same move twice in a row.
 - Every move except rest and stabs ends within 2 scale steps of the next core (or bends or slides into it), so it leads in.
-- Notes stay in the key (a chromatic note only in an enclosure), inside the playable range, never over a core. Notes are short: mostly 16ths, some 8ths, holds (trill, bend, slide) 2 to 4 16ths. The lick sits right up against the core it leads into; the silence is before it. Strong beats lean to chord notes.
+- Notes stay in the key (a chromatic note only in an enclosure), inside the playable range, never over a core. Notes are short: mostly 16ths, some 8ths; the held moves (trill, bend, slide) are 4, 6 or 8 16ths (they had been cut to 2-4 and a bend became a blip). The climax core can be played, not just held: `docs/SOLO-CLIMAX.md`. The lick sits right up against the core it leads into; the silence is before it. Strong beats lean to chord notes.
 - A gap shorter than a beat gets nothing, or one grace note. A gap longer than a bar and a half gets two moves, or a rest and a move.
 - The card says it in one line per gap, e.g. `bars 3-4: wave (down and back up) into the 3rd of Bb`.
 - A wide leap in leap-and-fill is marked `tap` in the record, for step 3.

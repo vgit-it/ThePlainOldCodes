@@ -96,6 +96,8 @@ export interface PlanOpts {
   rhythmMotif?: boolean;
   /** Melody writer only (docs/SOLO-CORE.md): only the core notes of the chosen bars are written, so they can be heard alone ('only'); or with moves between them (step 2, 'travel'). */
   cores?: 'only' | 'travel';
+  /** With cores (docs/SOLO-CLIMAX.md): the climax core is played (bent and held with vibrato, bent again and again, or a pedal lick) instead of held plain. */
+  climax?: 'played';
 }
 
 export function generateSoloPlan(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, hook: GuitarHit[] | null, intensity = 0.7, o: PlanOpts = {}): Guitar2Part {

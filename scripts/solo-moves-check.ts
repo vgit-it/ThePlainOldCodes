@@ -3,7 +3,7 @@
 //  - No move twice in a row; a rare move (weight 1 in the genre) once per solo at most.
 //  - The signature lick comes back 2 or 3 times in solos of 6 bars or more (1 or 2 in shorter ones).
 //  - A move (except a rest or stabs) ends within 2 scale steps of the next core, or bends or slides into it.
-//  - Notes: in the key (off-scale at most 10%), inside the playable window, never over a core. Short: 16ths (over half) and 8ths, holds up to 4.
+//  - Notes: in the key (off-scale at most 10%), inside the playable window, never over a core. Short: 16ths (over half) and 8ths; the held ones (bend, slide, trill) up to 8.
 //  - The genre leans show (metal more runs, trills, arpeggios and pedals than rock; funk the most stabs; pop more stairs, arches and answers than metal);
 //    every move shows up in at least 4 genres; rests are 10-40% of the gaps; the same seed plays the same.
 //   npm run solo-moves-check        (N=140 songs, two takes of each)
@@ -21,7 +21,7 @@ const fail = (m: string) => { if (bad++ < 25) console.log('FAIL ' + m); };
 const pct = (a: number, b: number) => (b ? (100 * a / b).toFixed(0) + '%' : '-');
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 
-type Sw = { soloCores?: 'only' | 'travel' | 'off' };
+type Sw = { soloCores?: 'only' | 'travel' | 'off'; soloClimax?: 'on' | 'off' };
 type Land = { step: number; midi: number; len: number; role: string };
 // (two songs for each number, so that every genre has plenty of solos: 2 x N songs in all)
 const play = (j: number, sw: Sw) => {
@@ -37,7 +37,7 @@ const landKey = (ls: Land[]) => ls.map((l) => `${l.step}:${l.midi}:${l.len}`).jo
 const share: Record<string, Record<string, number>> = {};
 const moves: Record<string, number> = {};
 const gensWith: Record<string, Set<string>> = {};
-let quick = 0, gapsWithSpace = 0, noRoom = 0, solos = 0, recs = 0, space = 0, hitsN = 0, off = 0, notes = 0, withSig = 0, bigSig = 0, bigSigOk = 0, retTotal = 0, grace = 0, gaps = 0;
+let held = 0, quick = 0, gapsWithSpace = 0, noRoom = 0, solos = 0, recs = 0, space = 0, hitsN = 0, off = 0, notes = 0, withSig = 0, bigSig = 0, bigSigOk = 0, retTotal = 0, grace = 0, gaps = 0;
 // (the rare moves need a few solos to show up in 4 genres: if some have not by then, more songs are played, up to 4 times as many)
 const seenIn = (m: string) => gensWith[m]?.size ?? 0;
 const missing = () => MOVE_NAMES.some((m) => seenIn(m) < 4);
@@ -66,7 +66,8 @@ for (let i = process.env.ONLY ? Number(process.env.ONLY) : 0; process.env.ONLY ?
       const ps: number[] = [...h.notes, ...(h.trill ? [Math.max(...h.notes) + h.trill] : [])];
       for (const m of ps) { notes++; if (m < lo || m > hi) fail(`${x.s}: a note outside the window (step ${h.step}, midi ${m}, window ${lo}-${hi}, ${r ? r.move + ' ' + r.from + '-' + r.to + ' into ' + r.into : 'no move'}, core ${core?.step}:${core?.midi}, centre ${centre[core ? core.step : h.step]})`); if (!inKey(m)) off++; }
       hitsN++;
-      if (h.len > 4) fail(`${x.s}: a move note ${h.len} long (step ${h.step}); moves play 16ths and 8ths`);
+      if (h.len > 8) fail(`${x.s}: a move note ${h.len} long (step ${h.step}); moves play 16ths and 8ths, holds up to 8`);
+      if (h.len >= 4) held++;
       if (h.len === 1) quick++;
       if (x.lands.some((l) => h.step < l.step + l.len && l.step < h.step + h.len )) fail(`${x.s}: a move note over a core (step ${h.step})`);
     }
@@ -112,6 +113,34 @@ for (let i = process.env.ONLY ? Number(process.env.ONLY) : 0; process.env.ONLY ?
 }
 // a link from before the switch (nothing set) plays as 'off' set by hand
 for (let i = 0; i < Math.min(2 * N, 12); i++) if (play(i, {}).map((x) => key(x.sec)).join('#') !== play(i, { soloCores: 'off' }).map((x) => key(x.sec)).join('#')) fail(`song ${i}: off is not the same as nothing set`);
+
+// ---- the climax played (docs/SOLO-CLIMAX.md): the moves and cores are the same, only the climax core is written another way
+let climaxSolos = 0, climaxBent = 0, climaxFast = 0;
+for (let i = 0; i < Math.min(2 * N, 40); i++) {
+  const off = play(i, { soloCores: 'travel' }), on = play(i, { soloCores: 'travel', soloClimax: 'on' });
+  if (on.map((x) => key(x.sec)).join('#') !== play(i, { soloCores: 'travel', soloClimax: 'on' }).map((x) => key(x.sec)).join('#')) fail(`song ${i}: the climax is not the same twice`);
+  on.forEach((x, k) => {
+    if (landKey(x.lands) !== landKey(off[k].lands)) fail(`${x.s}: the climax switch moved the cores`);
+    const c = x.lands.find((l) => l.role === 'climax');
+    if (!c) return;
+    const inC = (h: any) => h.step >= c.step && h.step < c.step + c.len;
+    if (key({ guitar2: x.sec.guitar2.filter((h: any) => !inC(h)) }) !== key({ guitar2: off[k].sec.guitar2.filter((h: any) => !inC(h)) })) fail(`${x.s}: the climax switch changed notes outside the climax`);
+    const hs = x.sec.guitar2.filter(inC);
+    climaxSolos++;
+    if (hs[0].step !== c.step || Math.max(...hs[0].notes) !== c.midi) fail(`${x.s}: the climax does not start on its core note`);
+    for (const h of hs) {
+      if (Math.max(...h.notes) > c.midi) fail(`${x.s}: a climax note above the top note (${Math.max(...h.notes)} over ${c.midi})`);
+      if (h.step + h.len > c.step + c.len) fail(`${x.s}: a climax note runs past its core`);
+      for (const m of h.notes) if (m !== c.midi && !SCALES[x.sec.song.mode as keyof typeof SCALES].includes(mod(m - x.sec.song.key, 12))) fail(`${x.s}: a climax note off the key (${m})`);
+    }
+    if (hs[hs.length - 1].len < 2 || Math.max(...hs[hs.length - 1].notes) !== c.midi) fail(`${x.s}: the climax does not end held on the top note`);
+    if (hs.some((h: any) => h.bend > 0)) climaxBent++;
+    if (hs.length > 3 && hs.some((h: any) => h.len === 1)) climaxFast++;
+  });
+}
+console.log(`climax played: ${climaxSolos} solos; bent ${climaxBent}, pedal ${climaxFast}, ${held} held move notes of 4+ 16ths`);
+if (!(climaxBent > 0 && climaxFast > 0)) fail('the climax is not played both ways (bent, pedal)');
+if (!(held > 0)) fail('no held move note of 4+ 16ths');
 
 // ---- the table
 const shr = (g: string, ms: string[]) => ms.reduce((s, m) => s + (share[g]?.[m] ?? 0), 0) / Math.max(1, moves[g] ?? 0);
