@@ -198,6 +198,22 @@ export interface SoloCurve {
   travel?: TravelMove[];
   /** Core notes with the story planned (docs/SOLO-STORY.md): the part of every gap between the cores. */
   story?: StoryGap[];
+  /** The story told in licks (docs/SOLO-RECIPES.md): what is played in every part, for the card and the melody view. */
+  parts?: StoryPart[];
+}
+
+/** One part of the story as it was played: where, what it is called, what was played and in which pieces. */
+export interface StoryPart {
+  into: number;
+  from: number;
+  to: number;
+  role: StoryGap['role'];
+  label: string;
+  /** What was played, in a few words. */
+  recipe: string;
+  /** The pieces of it (a sung phrase, then a bend and pull-offs), for the melody view. */
+  bits: { from: number; to: number; what: string }[];
+  notes: number;
 }
 
 /** The part one gap plays in the solo's story (src/parts/solostory.ts). */

@@ -57,7 +57,7 @@ export const MOVE_LEAN: Record<MoveName, number[]> = {
 };
 export const MOVE_NAMES = Object.keys(MOVE_LEAN) as MoveName[];
 /** 3 leans in, 2 is normal, 1 is rare. */
-const weightOf = (n: number) => (n >= 3 ? 2.5 : n === 2 ? 1 : 0.3);
+export const weightOf = (n: number) => (n >= 3 ? 2.5 : n === 2 ? 1 : 0.3);
 /** A move that is rare in a genre appears once per solo at most. */
 export const isRare = (m: MoveName, genre: string) => MOVE_LEAN[m][Math.max(0, GENRE_ORDER.indexOf(genre))] === 1;
 
@@ -119,13 +119,13 @@ export interface MoveOut { notes: PlacedNote[]; rec: TravelMove }
 
 // ---------------------------------------------------------------- the key's notes
 
-interface Env {
+export interface Env {
   full: number[]; pent: number[]; start: number;
   barOf: (g: number) => Song['bars'][number];
   isBeat: (g: number) => boolean;
 }
 const envs = new WeakMap<MoveCtx, Env>();
-function envOf(c: MoveCtx): Env {
+export function envOf(c: MoveCtx): Env {
   let e = envs.get(c);
   if (e) return e;
   const { song } = c;

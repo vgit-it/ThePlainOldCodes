@@ -9,7 +9,7 @@
 //   home chord (carried into the next section: src/track.ts, carrySolo).
 // Played plain (no bends, slides or vibrato), so the tune can be heard alone. Next step: its notes become the planner's landings.
 
-import type { ChordPart, GuitarHit, Song, SoloCurve, SoloGap, TravelMove } from '../idea';
+import type { ChordPart, GuitarHit, Song, SoloCurve, SoloGap, StoryPart, TravelMove } from '../idea';
 import { type GapNote, findGaps, pickGaps } from './solomelody-gaps';
 import type { LickKind } from '../players/lead';
 import { Rng } from '../rng';
@@ -24,6 +24,7 @@ import type { LandingRole, PlanOpts } from './soloplan';
 import { BUSY, DENSITY, ENERGY_WORDS, energyAt, pickEnergy } from './solo2';
 import { coreLine, pickCores } from './solocore';
 import { gapPattern, planStory, storyGapLine, storyLine } from './solostory';
+import { storyParts, writeStory } from './solorecipes';
 import { CLIMAX_WORDS, type MoveCtx, moveLine, planMoves, playClimax, writeMoves } from './solomoves';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
@@ -108,7 +109,7 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
 
   // ---- cores only (docs/SOLO-CORE.md, step 1): about half the bars get one note that stands out, and nothing else is written;
   // 'travel' (step 2) fills the gaps between the cores with moves
-  if (o.cores === 'only' || o.cores === 'travel' || o.cores === 'story') {
+  if (o.cores === 'only' || o.cores === 'travel' || o.cores === 'story' || o.cores === 'recipes') {
     const cores = pickCores({ rng, song, chords, fit, mood, tension: (b) => (o.tension?.length ? o.tension[Math.min(o.tension.length - 1, b)] : 0.5), E, centerAt, window: rawWindow, profile: prof, drums: o.drums });
     const pos = rng.int(5, 12);
     const hits = cores.map((k) => placedHit({ step: k.step, midi: k.midi, len: k.len, vel: Math.min(1, vel0 + VEL_SWING * E(k.step) + 0.05 * Math.min(2, k.noteScore) + (k.role === 'climax' ? 0.1 : 0)), bend: 0, art: 'pick' }, t, pos));
@@ -128,10 +129,19 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
       }
     }
     // (the story: the part of every gap, planned from the cores alone; no dice and no notes)
-    const story = o.cores === 'story' ? planStory(song, cores, E) : undefined;
-    if (story) {
+    const story = o.cores === 'story' || o.cores === 'recipes' ? planStory(song, cores, E) : undefined;
+    let told: StoryPart[] | undefined;
+    if (story && o.cores === 'story') {
       lines.push(`story (planned, no licks yet): ${storyLine(story, cores)}; ${gapPattern(story)}`);
       for (const g of story) lines.push(storyGapLine(song, g, cores[g.into]));
+    }
+    // (the story told in licks, docs/SOLO-RECIPES.md: a recipe for every part, drawn after the cores and the plan)
+    if (story && o.cores === 'recipes') {
+      const w = writeStory(mc, storyParts(story), cores);
+      for (const n of w.notes) hits.push(placedHit(n, t, pos));
+      hits.sort((a, b) => a.step - b.step);
+      told = w.parts;
+      lines.push(`story (told in licks): ${storyLine(story, cores)}; ${gapPattern(story)}`, ...w.lines);
     }
     // (the climax played: drawn after the moves, so the moves are the same with it on or off; its first note is the core's)
     const climaxCore = o.climax === 'played' ? cores.find((k) => k.role === 'climax') : undefined;
@@ -152,8 +162,9 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
         landings: cores.map((k) => ({ step: k.step, midi: k.midi, len: k.len, role: k.role === 'mid' ? 'core' : k.role })), neck: true,
         ...(travel ? { travel } : {}),
         ...(story ? { story } : {}),
+        ...(told ? { parts: told } : {}),
       },
-      notes: [`Guitar 2: a solo (${travel ? 'core notes, with moves between' : story ? 'core notes, story planned' : 'core notes only'}): ${cores.length} of ${bars.length} bars have one, in ${mood}: ${cores.map(coreLine).join('; ')}`, ...lines],
+      notes: [`Guitar 2: a solo (${travel ? 'core notes, with moves between' : story ? (told ? 'core notes, story told in licks' : 'core notes, story planned') : 'core notes only'}): ${cores.length} of ${bars.length} bars have one, in ${mood}: ${cores.map(coreLine).join('; ')}`, ...lines],
     };
   }
 

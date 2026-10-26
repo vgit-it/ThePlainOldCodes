@@ -50,7 +50,7 @@ Calls I made where the brief left room:
 - The song's ending can make the last core over, and trim the notes just before it. The check leaves that bit out.
 - The check plays 140 songs twice over (more, if some rare move has not shown up in 4 genres yet).
 
-Step 2b, the story: `docs/SOLO-STORY.md` (every gap gets a part in the solo before licks are built on it).
+Step 2b, the story: `docs/SOLO-STORY.md` (every gap gets a part in the solo before licks are built on it). Step 2c, the story told in licks: `docs/SOLO-RECIPES.md`.
 
 ## Not done yet
 - Step 3, the player: techniques, every one possible in every genre, weighted the same way (3 leans in, 2 normal, 1 rare). Tune the move weights by ear first. Decided weights (rock, pop, funk, hardrock, metal, grunge, altmetal):

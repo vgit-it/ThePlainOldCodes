@@ -25,6 +25,7 @@ import { buildVersePanel } from './verse/panel';
 import { SETS_DEFAULT, setsOf } from './verse/emotion';
 import { BASS_SHARE_DEFAULT } from './verse/bassline';
 import { hasPins } from './parts/sheet';
+import { isCoreMode } from './parts/soloplan';
 import { highlightBar, markSection, renderIdea, renderTrack } from './ui/render';
 import { $ } from './page/dom';
 import { readLink, setupShare } from './page/share';
@@ -439,7 +440,7 @@ function syncTrackOptions() {
   optSel.soloBreath.value = track.opts.soloBreath === 'on' ? 'on' : 'off';
   optSel.soloGrid.value = track.opts.soloGrid === 'on' ? 'on' : 'off';
   optSel.soloClimax.value = track.opts.soloClimax === 'on' ? 'on' : 'off';
-  optSel.soloCores.value = track.opts.soloCores === 'only' || track.opts.soloCores === 'travel' || track.opts.soloCores === 'story' ? track.opts.soloCores : 'off';
+  optSel.soloCores.value = isCoreMode(track.opts.soloCores) ? track.opts.soloCores : 'off';
   // only riff genres have a riff to carry through the verses
   optSel.riffVerse.closest('label')!.style.display = track.source.guitar ? '' : 'none';
 }
@@ -450,7 +451,7 @@ for (const [k, sel] of Object.entries(optSel)) {
     if (k === 'band') return rebuildTrack({ ...track.opts, band: sel.value as 'on' | 'off' }, shown, true);
     // (the same song with its solos written another way: stay where you are)
     if (k === 'soloPlan') return rebuildTrack({ ...track.opts, soloPlan: sel.value as 'on' | 'off' | 'perform' }, shown, true);
-    if (k === 'soloCores') return rebuildTrack({ ...track.opts, soloCores: sel.value === 'only' || sel.value === 'travel' || sel.value === 'story' ? sel.value : 'off' }, shown, true);
+    if (k === 'soloCores') return rebuildTrack({ ...track.opts, soloCores: isCoreMode(sel.value) ? sel.value : 'off' }, shown, true);
     if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
     const opts: TrackOptions = { ...track.opts, order: undefined };
     if (k === 'mood') opts.mood = sel.value as MoodChoice;
