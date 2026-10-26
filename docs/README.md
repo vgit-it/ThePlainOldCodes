@@ -36,6 +36,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `SOLO-CORE.md`: core notes in only some bars, chosen by the chords, mood and key (a switch, step 1), and the moves between them (step 2).
 - `SOLO-CLIMAX.md`: the climax core played (bend and vibrato, bent again, pedal lick), behind a switch; also the held moves back to 4-8 16ths.
 - `SOLO-STORY.md`: how a solo gets a story: study the gaps, give each a part (statement, answer, build, ramp, release, return), then phrases. Stage 1 built (the plan on the card, no licks yet).
+- `SOLO-RECIPES.md`: stage 2 of the story: a recipe for each part (sung phrase with bend + pull-offs / unison bend / quick run, ramp from the bottom, build, fall), a Story row on the melody view. Behind a switch.
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.
 

@@ -1,4 +1,4 @@
-# Solo story: every gap has a part (brief, stage 1 built)
+# Solo story: every gap has a part (brief, stages 1 and 2 built)
 
 Replaces `SOLO-MOVES-FILL.md` (the "fill the gaps" brief). Read `docs/SOLO-CORE.md` first (the cores), `docs/SOLO-THEORY.md` (the arc, phrasing) and `docs/STUDY-SOLO.md` (the real licks).
 
@@ -25,7 +25,7 @@ Replaces `SOLO-MOVES-FILL.md` (the "fill the gaps" brief). Read `docs/SOLO-CORE.
 
 ## Stages (each behind the switch, Paul listens after each)
 1. **Gap study + story on the card, no new notes.** Built. Option "Chosen bars, story plan only (step 2b)" (`soloCores: 'story'`): cores only (plus the climax if its switch is on), and the card says the story: `story (planned, no licks yet): A, ramp, PEAK, release, fall, close` and one line per gap. Check: `npm run solo-story-check`.
-2. Two or three recipes: bend then pull-offs, unison bend, the ramp. (Pull-off and hammer-on exist as `art: 'legato'`; unison bend is a dyad with the lower note bent. Listen first that they sound right in this path.)
+2. **Recipes.** Built (2026-10-26): `docs/SOLO-RECIPES.md`. Option "Chosen bars, story told in licks (step 2c)" (`soloCores: 'recipes'`): sung phrase + bend and pull-offs / unison bend / quick run, the ramp from the bottom, builds, falls; the long gap into the climax is cut into statement + ramp; the melody view marks the story. Check: `npm run solo-recipes-check`. (Pull-offs and hammers go through the hands: 96% come out real.)
 3. Repeats and variations from gap similarity.
 4. Mood inside phrases, the rest of the recipes, rhythm cells.
 
@@ -34,7 +34,7 @@ The old "with moves between" stays as it is until the story replaces it.
 ## Found while building stage 1
 - The card only showed the first line of a solo writer's notes, so the per-gap lines of "with moves between" (and now the story) never reached the page. Fixed in `track.ts`: the extra lines show under the solo's line.
 - The climax is often early (bar 3-4 of 8, bar 4 of 16), so the story is mostly "release, fall, fall...". The climax comes from step 1 (the energy crest); not changed here. Worth a look: a later peak (65-80% of the way, `SOLO-THEORY.md`) would give the build more room.
-- A long first gap that leads straight into the climax (no gap before it) should hold two parts, the statement and then the ramp. Stage 2 should split it.
+- A long first gap that leads straight into the climax (no gap before it) should hold two parts, the statement and then the ramp. Split in stage 2 (`storyParts`).
 
 ## Keep these true
 - The cores equal step 1's. Switch off = old songs unchanged; `npm run song-check` says "all 40 songs match". Never refresh `scripts/song-reference.json`.
@@ -42,4 +42,4 @@ The old "with moves between" stays as it is until the story replaces it.
 - Old links must not crash: an unknown `soloCores` value is "off".
 
 ## Before pushing
-- `npm run typecheck`, `npm run build`, `npm run song-check`, `solo-story-check`, `solo-core-check`, `solo-moves-check`, `solo-melody-check`, `solo-player-check`, `solo-breath-check`.
+- `npm run typecheck`, `npm run build`, `npm run song-check`, `solo-story-check`, `solo-recipes-check`, `solo-core-check`, `solo-moves-check`, `solo-melody-check`, `solo-player-check`, `solo-breath-check`.
