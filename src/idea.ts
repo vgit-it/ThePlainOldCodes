@@ -194,6 +194,32 @@ export interface SoloCurve {
   moves?: SoloMove[];
   /** How the solo player read the melody (docs/SOLO-PLAYER.md, step 2): the situation of every note, joint, cell and phrase. */
   read?: SoloRead;
+  /** Core notes with moves between (docs/SOLO-CORE.md, step 2): what was written in each gap between the cores. */
+  travel?: TravelMove[];
+}
+
+/** One move between two core notes (src/parts/solomoves.ts): where it sits, what it is, and the core it leads into. */
+export interface TravelMove {
+  /** The move's name, or `grace` (a single note into a core after a very short gap). */
+  move: string;
+  /** Where the move's room starts and ends (16ths; it ends where the next core starts). */
+  from: number;
+  to: number;
+  /** Which gap it is in, and which core (by order) it leads into. */
+  gap: number;
+  into: number;
+  /** The signature lick: stated once, then coming back changed. */
+  label?: 'signature' | 'return';
+  /** What changed in a return (an extra note, higher, a bend on the top note). */
+  change?: string;
+  /** How many notes it wrote, the pitch of the last one, and the pitch of the core it leads into. */
+  notes: number;
+  last: number;
+  core: number;
+  /** Which way the shape goes (1 up, -1 down), where that matters. */
+  dir?: 1 | -1;
+  /** A wide leap that step 3 may tap. */
+  tap?: boolean;
 }
 
 /** A situation the reader found in a span, and how strongly (0 to 1). */
