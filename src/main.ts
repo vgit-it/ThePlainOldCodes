@@ -421,6 +421,7 @@ const optSel = {
   soloGrid: $<HTMLSelectElement>('t-sologrid'),
   soloClimax: $<HTMLSelectElement>('t-soloclimax'),
   soloPolish: $<HTMLSelectElement>('t-solopolish'),
+  soloShape: $<HTMLSelectElement>('t-soloshape'),
   soloCores: $<HTMLSelectElement>('t-solocores'),
 };
 function syncTrackOptions() {
@@ -442,6 +443,7 @@ function syncTrackOptions() {
   optSel.soloGrid.value = track.opts.soloGrid === 'on' ? 'on' : 'off';
   optSel.soloClimax.value = track.opts.soloClimax === 'on' ? 'on' : 'off';
   optSel.soloPolish.value = track.opts.soloPolish === 'on' ? 'on' : 'off';
+  optSel.soloShape.value = track.opts.soloShape === 'on' ? 'on' : 'off';
   optSel.soloCores.value = isCoreMode(track.opts.soloCores) ? track.opts.soloCores : 'off';
   // only riff genres have a riff to carry through the verses
   optSel.riffVerse.closest('label')!.style.display = track.source.guitar ? '' : 'none';
@@ -454,7 +456,7 @@ for (const [k, sel] of Object.entries(optSel)) {
     // (the same song with its solos written another way: stay where you are)
     if (k === 'soloPlan') return rebuildTrack({ ...track.opts, soloPlan: sel.value as 'on' | 'off' | 'perform' }, shown, true);
     if (k === 'soloCores') return rebuildTrack({ ...track.opts, soloCores: isCoreMode(sel.value) ? sel.value : 'off' }, shown, true);
-    if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax' || k === 'soloPolish') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
+    if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax' || k === 'soloPolish' || k === 'soloShape') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
     const opts: TrackOptions = { ...track.opts, order: undefined };
     if (k === 'mood') opts.mood = sel.value as MoodChoice;
     else if (k === 'intro') opts.intro = sel.value as IntroChoice;

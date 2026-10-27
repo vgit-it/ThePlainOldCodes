@@ -18,7 +18,7 @@ Switch: Track options → **Solo polish (core notes)** → On. Works with any "C
 - No core lost, no rest over a beat (a late hit may add a third of a step).
 
 ## Not yet
-- Step B: story-aware polish (loudness follows the arc, push and drag on phrase starts, answers that differ from the opening, a closing gesture).
+- Step B, the story's dynamics, is built: `docs/SOLO-SHAPE.md` (switch: Solo shape).
 - Not heard yet.
 
 ## Check
