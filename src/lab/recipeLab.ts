@@ -241,7 +241,12 @@ function label(n: LibNote, at: Fingered, prev: LibNote | undefined, low: boolean
   const up = !prev || n.semi >= prev.semi;
   if (n.art === 'legato' && prev) s = (up ? 'h' : 'p') + s;
   if (n.art === 'slide') s = (up ? '/' : '\\') + s;
+  if (n.harm === 'natural') s = `<${s}>`;
+  if (n.harm === 'pinch') s += ' PH';
   if (n.rake) s = 'rk ' + s;
+  if (n.scrape) s = 'sc ' + s;
+  if (n.feedback) s += ' fb';
+  if (n.dive) s += ` dv${n.dive}`;
   if (n.trill) s += ` tr${n.trill}`;
   if (n.tremolo) s += ' ≡';
   if (n.vib) s += '~';
@@ -342,7 +347,7 @@ tabBox.addEventListener('keydown', (e) => {
 
 /* ---- the picked note */
 
-const noteCtl = ['nStr', 'nFret', 'nLen', 'nBend', 'nPb', 'nDown', 'nDyad', 'nTrill', 'nLeg', 'nSlide', 'nVib', 'nDead', 'nRake', 'nTrem', 'nOut'];
+const noteCtl = ['nStr', 'nFret', 'nLen', 'nBend', 'nPb', 'nDown', 'nDyad', 'nTrill', 'nLeg', 'nSlide', 'nVib', 'nDead', 'nRake', 'nTrem', 'nOut', 'nHarm', 'nDive', 'nFb', 'nScrape'];
 const val = (id: string) => $<HTMLInputElement>(id);
 
 function showNote() {
@@ -366,6 +371,10 @@ function showNote() {
   val('nRake').checked = !!n.rake;
   val('nTrem').checked = !!n.tremolo;
   val('nOut').checked = !!n.out;
+  val('nHarm').value = n.harm ?? '';
+  val('nDive').value = String(n.dive ?? 0);
+  val('nFb').value = String(n.feedback ?? 0);
+  val('nScrape').value = String(n.scrape ?? 0);
 }
 
 const opt = <K extends keyof LibNote>(n: LibNote, k: K, v: LibNote[K] | undefined) => { if (v === undefined || v === 0 || v === false) delete n[k]; else n[k] = v; };
@@ -389,6 +398,10 @@ for (const id of noteCtl) val(id).addEventListener('change', () => editSel((n, a
   opt(n, 'rake', val('nRake').checked);
   opt(n, 'tremolo', val('nTrem').checked);
   opt(n, 'out', val('nOut').checked);
+  opt(n, 'harm', (val('nHarm').value || undefined) as LibNote['harm']);
+  opt(n, 'dive', Number(val('nDive').value));
+  opt(n, 'feedback', Number(val('nFb').value));
+  opt(n, 'scrape', Number(val('nScrape').value));
   const moved = str !== at.str ? at.fret + OPEN[6 - at.str] - OPEN[6 - str] : fret;
   return setFret(n, str, str !== at.str && id === 'nStr' ? moved : fret);
 }));
@@ -620,6 +633,7 @@ function asWritten(l: LibLick, fit: LickFit, end: number, prev: number, songKey:
     step: at + n.pos - p0, midi: b + n.semi, len: i === l.notes.length - 1 ? Math.max(n.len, end - (at + n.pos - p0)) : n.len, vel: n.dead ? 0.55 : 0.85,
     bend: n.bend ?? 0, unbend: n.unbend, art: n.art ?? (i === 0 ? ('pick' as const) : undefined), dyad: n.dyad, trill: n.trill, tremolo: n.tremolo,
     rake: n.rake ? 2 : undefined, dead: n.dead, vib: n.vib && n.len >= 4 ? 24 : undefined,
+    harm: n.harm, dive: n.dive, feedback: n.feedback, scrape: n.scrape,
   }));
   return { notes, at, base: b };
 }

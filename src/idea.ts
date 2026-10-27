@@ -403,6 +403,15 @@ export interface GuitarHit {
   tremolo?: boolean;
   /** Raked into: the pick drags across this many muted strings just before the note. */
   rake?: number;
+  /** A harmonic (docs/GUITAR-SOUNDS.md): pinch, the picked note with its squeal an octave and a fifth up;
+   * natural, a chime at the note written (the string touched at a node, not fretted). */
+  harm?: 'pinch' | 'natural';
+  /** Whammy dive: the bar pushed down through the end of the note, this many semitones. */
+  dive?: number;
+  /** Feedback: the held note is taken over by a tone this many semitones up, swelling in (12: the octave). */
+  feedback?: number;
+  /** A pick scrape into the note: the pick's edge dragged down the strings for this many 16ths before it. */
+  scrape?: number;
   /** Sounds this much of a step after its step (a triplet: 1/3, 2/3); Guitar 2 only. */
   shift?: number;
   /** A passing note outside the key (a blue or chromatic note on a weak spot, docs/SOLO-PLAYER.md): the checks let it be. */

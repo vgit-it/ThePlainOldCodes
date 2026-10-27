@@ -44,6 +44,10 @@ export function techniques(notes: LibNote[]): string[] {
     if (n.art === 'slide') t.add('slide');
     if (n.art === 'legato') t.add('legato');
     if (n.vib) t.add('vibrato');
+    if (n.harm) t.add(n.harm === 'pinch' ? 'pinch harmonic' : 'natural harmonic');
+    if (n.dive) t.add('whammy dive');
+    if (n.feedback) t.add('feedback');
+    if (n.scrape) t.add('pick scrape');
   }
   return [...t];
 }

@@ -894,6 +894,7 @@ export class Engine {
       swell: h.swell,
       touch: h.touch,
       bend: h.bend, unbend: h.unbend, lateBend: h.lateBend, bendAt: h.bendAt !== undefined ? h.bendAt * six : undefined, trill: h.trill, tremolo: h.tremolo, rake: h.rake,
+      harm: h.harm, dive: h.dive, feedback: h.feedback, scrape: h.scrape ? h.scrape * six : undefined,
     });
   }
 
