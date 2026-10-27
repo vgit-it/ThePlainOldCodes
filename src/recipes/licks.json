@@ -9,6 +9,8 @@
       "speed": "slow",
       "q": "min",
       "notes": "0:7:6:b4,v 6:5:2 8:3:8:v",
+      "role": ["phrase", "tag"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -19,6 +21,7 @@
       "speed": "slow",
       "q": "any",
       "notes": "0:7:8:d-0,b2,v 8:5:2:c 10:0:6:v",
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -29,6 +32,10 @@
       "speed": "slow",
       "q": "min",
       "notes": "0:15:8:d-3,b2",
+      "role": ["tag", "fill"],
+      "genres": ["rock", "pop", "hardrock", "metal", "grunge", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
+      "energy": 3,
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -39,6 +46,9 @@
       "speed": "mid",
       "q": "min",
       "notes": "0:7:2:s 2:10:2 4:12:2:h 6:15:10:v",
+      "role": ["phrase", "lead-in", "ramp"],
+      "genres": ["rock", "pop", "funk", "hardrock", "metal", "grunge", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -49,6 +59,8 @@
       "speed": "mid",
       "q": "min",
       "notes": "0:14:2:pb2 2:12:2:h 4:10:2 6:12:2 8:7:8:b2,v",
+      "genres": ["rock", "pop", "funk", "hardrock", "metal", "grunge", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -59,6 +71,8 @@
       "speed": "mid",
       "q": "min",
       "notes": "0:7:4:b2,r2 4:3:2 6:0:10:v",
+      "genres": ["rock", "pop", "funk", "hardrock", "metal", "grunge", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "dreamy", "triumphant", "dark"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -69,6 +83,9 @@
       "speed": "fast",
       "q": "min",
       "notes": "0:12:1 1:10:1:h 2:7:1 3:10:1 4:7:1:h 5:5:1 6:3:2:h 8:7:6:v",
+      "role": ["lead-in", "build"],
+      "genres": ["rock", "pop", "funk", "hardrock", "metal", "grunge", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -79,6 +96,8 @@
       "speed": "slow",
       "q": "maj",
       "notes": "0:4:6:b2,v 6:2:2 8:0:8:v",
+      "genres": ["rock", "pop", "funk", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "dreamy", "dark"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -89,6 +108,7 @@
       "speed": "mid",
       "q": "maj",
       "notes": "0:4:4:d-9,s 4:2:2:d-9 6:0:6:d-8",
+      "moods": ["happy", "nostalgic", "triumphant"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -99,6 +119,8 @@
       "speed": "mid",
       "q": "maj",
       "notes": "0:11:2:d-4 2:12:2:d-3 4:14:2:d-3 6:16:6:d-4,v",
+      "role": ["phrase", "release"],
+      "moods": ["happy", "triumphant"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -109,6 +131,9 @@
       "speed": "mid",
       "q": "maj",
       "notes": "0:9:2:pb2 2:7:2 4:4:2 6:2:2 8:4:8:h,v",
+      "role": ["phrase", "lead-in", "fill"],
+      "genres": ["rock", "pop", "hardrock", "metal", "altmetal"],
+      "moods": ["happy", "nostalgic", "dreamy", "triumphant"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -119,6 +144,9 @@
       "speed": "mid",
       "q": "maj",
       "notes": "0:2:2:s 2:4:2 4:7:4:s 8:9:2 10:7:6:v",
+      "role": ["phrase", "fill", "ending"],
+      "genres": ["rock", "pop", "funk", "altmetal"],
+      "moods": ["happy", "nostalgic", "triumphant"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -129,6 +157,9 @@
       "speed": "fast",
       "q": "maj",
       "notes": "0:12:1 1:9:1:h 2:7:1 3:9:1 4:7:1:h 5:4:1 6:2:1:h 7:0:1 8:4:8:v",
+      "role": ["phrase", "tag", "build", "release"],
+      "genres": ["rock", "pop", "hardrock", "metal", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them"
     },
     {
@@ -139,6 +170,9 @@
       "speed": "fast",
       "q": "min",
       "notes": "0:15:1 1:12:1:h 2:10:1 3:12:1 4:10:1:h 5:7:1 6:10:1 7:7:1:h 8:5:1 9:7:1 10:5:1:h 11:3:1 12:0:4:v",
+      "role": ["build", "ramp", "release"],
+      "genres": ["rock", "pop", "funk", "hardrock", "metal", "grunge", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -149,6 +183,8 @@
       "speed": "fast",
       "q": "maj",
       "notes": "0:16:1 1:14:1:h 2:12:1 3:14:1 4:12:1:h 5:9:1 6:12:1 7:9:1:h 8:7:1 9:9:1 10:7:1:h 11:4:1 12:0:4:v",
+      "role": ["build", "release", "ending"],
+      "moods": ["happy", "nostalgic", "angry", "dreamy"],
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -159,6 +195,9 @@
       "speed": "fast",
       "q": "min",
       "notes": "0:15:1 1:12:1:h 2:10:1:h 3:12:1:h 4:15:1 5:12:1:h 6:10:1:h 7:12:1:h 8:15:1 9:12:1:h 10:10:1:h 11:12:1:h 12:12:4:b2,v",
+      "role": ["fill", "build", "release", "ending"],
+      "genres": ["rock", "hardrock", "metal", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -169,6 +208,9 @@
       "speed": "fast",
       "q": "min",
       "notes": "0:17:1 1:15:1:h 2:12:1:h 3:15:1:h 4:15:1 5:14:1:h 6:12:1:h 7:14:1:h 8:14:1 9:12:1:h 10:10:1:h 11:12:1:h 12:7:4:v",
+      "role": ["build", "release", "ending"],
+      "genres": ["rock", "hardrock", "metal", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -179,6 +221,8 @@
       "speed": "fast",
       "q": "min",
       "notes": "0:0:1 1:2:1:h 2:3:1:h 3:5:1:h 4:2:1 5:3:1:h 6:5:1:h 7:7:1:h 8:3:1 9:5:1:h 10:7:1:h 11:8:1:h 12:7:4:v",
+      "role": ["build", "ramp"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -189,6 +233,7 @@
       "speed": "fast",
       "q": "any",
       "notes": "0:3:1 1:7:1 2:5:1 3:10:1 4:7:1 5:12:1 6:10:1 7:15:1 8:12:4:v",
+      "role": ["phrase", "build", "ramp"],
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -199,6 +244,9 @@
       "speed": "fast",
       "q": "maj",
       "notes": "0:4:1 1:7:1 2:10:1 3:13:1 4:16:1 5:19:1 6:16:4:v",
+      "role": ["build", "ramp"],
+      "genres": ["rock", "pop", "hardrock", "metal", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -209,6 +257,9 @@
       "speed": "fast",
       "q": "min",
       "notes": "0:12:1 1:15:1 2:14:1:h,c 3:13:1:h,c 4:12:1:h 5:10:1 6:9:1:h,c 7:7:1:h 8:7:6:v",
+      "role": ["phrase", "build", "release", "ending"],
+      "genres": ["rock", "pop", "hardrock", "metal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -219,6 +270,9 @@
       "speed": "mid",
       "q": "any",
       "notes": "0:7:4:trem 4:10:4:trem,c 8:12:8:trem",
+      "role": ["phrase", "build"],
+      "genres": ["rock", "hardrock", "metal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -229,6 +283,8 @@
       "speed": "mid",
       "q": "min",
       "notes": "0:12:4:tr3 4:15:4:tr2 8:19:8:v",
+      "role": ["phrase", "build", "ramp", "peak", "ending"],
+      "moods": ["happy", "tense", "angry", "triumphant"],
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -239,6 +295,8 @@
       "speed": "fast",
       "q": "min",
       "notes": "0:8:1 1:7:1:h 2:8:1:h 3:11:1:c 4:12:1 5:11:1:h,c 6:8:1 7:7:1:h 8:12:8:v",
+      "role": ["release"],
+      "genres": ["rock", "hardrock", "metal", "grunge"],
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -249,6 +307,10 @@
       "speed": "slow",
       "q": "any",
       "notes": "0:12:6:b2,v 6:7:6:tr3 12:7:4",
+      "role": ["peak", "release"],
+      "genres": ["rock", "hardrock", "metal"],
+      "moods": ["tense", "angry", "triumphant"],
+      "energy": 4,
       "source": "the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo"
     },
     {
@@ -259,6 +321,8 @@
       "speed": "slow",
       "q": "min",
       "notes": "0:7:4:d-12 4:10:2:d-12 6:12:10:d-12",
+      "role": ["phrase", "ending"],
+      "genres": ["rock", "hardrock", "metal", "grunge"],
       "source": "the raw player (Cobain, McCready, Cantrell, Mascis, White): few notes, octaves, slides, a bend or a trill"
     },
     {
@@ -419,6 +483,9 @@
       "speed": "slow",
       "q": "any",
       "notes": "0:7:8:b4,rk,v",
+      "role": ["phrase", "peak", "ending"],
+      "genres": ["rock", "pop", "hardrock", "metal", "grunge"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "the blues player (on top of the blues licks): Albert King's overbends, a bend under a held note, B.B. King's box, Chuck Berry's double-stops"
     },
     {
@@ -429,6 +496,9 @@
       "speed": "mid",
       "q": "min",
       "notes": "0:15:4:d-3,b2 4:15:1 5:15:1 6:15:2",
+      "role": ["phrase", "fill", "release"],
+      "genres": ["rock", "hardrock", "metal", "altmetal"],
+      "moods": ["happy", "tense", "angry", "triumphant", "dark"],
       "source": "the blues player (on top of the blues licks): Albert King's overbends, a bend under a held note, B.B. King's box, Chuck Berry's double-stops"
     },
     {
@@ -439,6 +509,9 @@
       "speed": "mid",
       "q": "maj",
       "notes": "0:16:2:b2 2:12:4:v 6:9:2 8:12:8:v",
+      "role": ["phrase", "lead-in", "fill", "release"],
+      "genres": ["rock", "hardrock", "metal"],
+      "moods": ["happy", "nostalgic", "dreamy", "triumphant"],
       "source": "the blues player (on top of the blues licks): Albert King's overbends, a bend under a held note, B.B. King's box, Chuck Berry's double-stops"
     },
     {
@@ -449,6 +522,9 @@
       "speed": "mid",
       "q": "any",
       "notes": "0:12:1:d-5 3:12:1:d-5 6:12:2:d-5 8:12:1:d-5 11:12:1:d-5 14:12:2:d-5",
+      "role": ["phrase", "release", "ending"],
+      "genres": ["rock", "hardrock", "metal"],
+      "energy": 3,
       "source": "the blues player (on top of the blues licks): Albert King's overbends, a bend under a held note, B.B. King's box, Chuck Berry's double-stops"
     },
     {
@@ -459,6 +535,8 @@
       "speed": "mid",
       "q": "any",
       "notes": "0:12:4:d-5,b2 4:12:4:d-5",
+      "role": ["phrase", "fill", "peak"],
+      "moods": ["happy", "angry", "triumphant"],
       "source": "the blues player (on top of the blues licks): Albert King's overbends, a bend under a held note, B.B. King's box, Chuck Berry's double-stops"
     },
     {
@@ -469,6 +547,9 @@
       "speed": "mid",
       "q": "min",
       "notes": "0:17:4:b2,v 4:15:2 6:12:2:h 8:10:2 10:12:6:v",
+      "role": ["phrase", "lead-in", "release"],
+      "genres": ["rock", "pop", "hardrock", "metal", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "credit": "Clapton",
       "source": "more from lessons (2026-10-16, docs/LEAD.md section 5): blues and classic rock players"
     },
@@ -480,6 +561,8 @@
       "speed": "mid",
       "q": "min",
       "notes": "0:7:2:d-4,rk 2:7:2:d-4 4:5:2 6:3:2:h 8:0:8:v",
+      "genres": ["rock", "hardrock", "metal", "grunge", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "credit": "SRV",
       "source": "more from lessons (2026-10-16, docs/LEAD.md section 5): blues and classic rock players"
     },
@@ -491,6 +574,8 @@
       "speed": "mid",
       "q": "min",
       "notes": "0:7:2:b2 2:7:2:b2 4:7:4:b2,r2 8:3:2 10:0:6:v",
+      "genres": ["rock", "pop", "hardrock", "metal", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "credit": "Freddie King",
       "source": "more from lessons (2026-10-16, docs/LEAD.md section 5): blues and classic rock players"
     },
@@ -502,6 +587,7 @@
       "speed": "mid",
       "q": "maj",
       "notes": "0:3:2:c 2:4:2:h 4:7:2 6:9:2:h 8:12:8:v",
+      "role": ["phrase", "build", "ramp", "release", "ending"],
       "credit": "Page",
       "source": "more from lessons (2026-10-16, docs/LEAD.md section 5): blues and classic rock players"
     },
@@ -513,6 +599,8 @@
       "speed": "fast",
       "q": "min",
       "notes": "0:7:1:b2 1:10:1 2:7:1:b2 3:10:1 4:7:1:b2 5:10:1 6:7:1:b2 7:10:1 8:12:8:v",
+      "genres": ["rock", "pop", "hardrock", "metal"],
+      "moods": ["happy", "tense", "angry", "triumphant"],
       "credit": "Angus",
       "source": "more from lessons (2026-10-16, docs/LEAD.md section 5): blues and classic rock players"
     },
@@ -524,6 +612,10 @@
       "speed": "slow",
       "q": "min",
       "notes": "0:17:6:b2,r2,v 6:15:2 8:12:8:v",
+      "role": ["phrase", "peak", "release", "ending"],
+      "genres": ["rock", "pop", "hardrock", "metal", "grunge", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
+      "energy": 3,
       "credit": "Gary Moore",
       "source": "more from lessons (2026-10-16, docs/LEAD.md section 5): blues and classic rock players"
     },
@@ -535,6 +627,8 @@
       "speed": "mid",
       "q": "min",
       "notes": "0:19:2:b2 2:19:2:b2 4:19:2:b2 6:17:2 8:15:2 10:12:6:v",
+      "role": ["release"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "credit": "Slash",
       "source": "more from lessons (2026-10-16, docs/LEAD.md section 5): blues and classic rock players"
     },
@@ -546,6 +640,9 @@
       "speed": "mid",
       "q": "maj",
       "notes": "0:5:2 2:3:2:c 4:4:8:v",
+      "role": ["phrase", "tag", "fill", "release", "ending"],
+      "genres": ["rock", "pop", "hardrock", "metal", "grunge", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "melodic players: target notes and enclosures, a pedal-steel bend, Santana, Mayer, The Edge"
     },
     {
@@ -556,6 +653,9 @@
       "speed": "mid",
       "q": "min",
       "notes": "0:5:2 2:2:2 4:3:8:v",
+      "role": ["phrase", "release", "ending"],
+      "genres": ["rock", "pop", "hardrock", "metal", "grunge", "altmetal"],
+      "moods": ["melancholic", "tense", "dark"],
       "source": "melodic players: target notes and enclosures, a pedal-steel bend, Santana, Mayer, The Edge"
     },
     {
@@ -566,6 +666,9 @@
       "speed": "slow",
       "q": "maj",
       "notes": "0:7:8:d-3,b2,v 8:4:8:v",
+      "role": ["phrase", "lead-in", "release"],
+      "genres": ["rock", "pop", "hardrock", "metal", "altmetal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "source": "melodic players: target notes and enclosures, a pedal-steel bend, Santana, Mayer, The Edge"
     },
     {
@@ -576,6 +679,8 @@
       "speed": "mid",
       "q": "min",
       "notes": "0:7:2 2:9:2:h,c 4:10:4 8:12:2:s 10:14:2 12:15:8:v",
+      "role": ["phrase", "fill", "build", "ramp", "ending"],
+      "genres": ["rock", "pop", "funk", "hardrock", "metal", "altmetal"],
       "credit": "Santana",
       "source": "melodic players: target notes and enclosures, a pedal-steel bend, Santana, Mayer, The Edge"
     },
@@ -587,6 +692,8 @@
       "speed": "mid",
       "q": "min",
       "notes": "1:12:1 3:10:1 5:7:2:s 8:10:2:h 10:12:6:v",
+      "role": ["phrase", "fill", "release", "ending"],
+      "genres": ["rock", "pop", "funk", "hardrock", "metal", "altmetal"],
       "credit": "Mayer",
       "source": "melodic players: target notes and enclosures, a pedal-steel bend, Santana, Mayer, The Edge"
     },
@@ -598,6 +705,7 @@
       "speed": "mid",
       "q": "any",
       "notes": "0:7:2 2:12:2 4:7:2 6:12:2 8:7:2 10:12:6",
+      "energy": 2,
       "credit": "The Edge",
       "source": "melodic players: target notes and enclosures, a pedal-steel bend, Santana, Mayer, The Edge"
     },
@@ -609,6 +717,9 @@
       "speed": "fast",
       "q": "min",
       "notes": "0:19:1 1:12:1:h 2:15:1:h 3:19:1:h 4:12:1:h 5:15:1:h 6:22:1:h 7:15:1:h 8:19:1:h 9:22:1:h 10:15:1:h 11:19:1:h 12:24:4:v",
+      "role": ["phrase", "build", "ramp", "release", "ending"],
+      "genres": ["rock", "hardrock", "metal"],
+      "moods": ["happy", "tense", "angry", "triumphant"],
       "credit": "Van Halen",
       "source": "shredders: tapping, neoclassical, Phrygian, sixes"
     },
@@ -620,6 +731,8 @@
       "speed": "fast",
       "q": "min",
       "notes": "0:15:1 1:14:1 2:12:1 3:11:1:c 4:12:1 5:14:1 6:12:1 7:10:1 8:8:1 9:7:1 10:8:1 11:10:1 12:7:4:v",
+      "genres": ["rock", "hardrock", "metal"],
+      "energy": 3,
       "credit": "Malmsteen",
       "source": "shredders: tapping, neoclassical, Phrygian, sixes"
     },
@@ -642,6 +755,9 @@
       "speed": "fast",
       "q": "min",
       "notes": "0:15:1 1:12:1:h 2:10:1:h 3:12:1:h 4:15:1 5:12:1:h 6:12:1 7:10:1:h 8:7:1:h 9:10:1:h 10:12:1 11:10:1:h 12:7:4:b2,v",
+      "role": ["build", "release"],
+      "genres": ["rock", "hardrock", "metal"],
+      "moods": ["happy", "melancholic", "nostalgic", "tense", "angry", "dreamy", "triumphant", "dark"],
       "credit": "Wylde",
       "source": "shredders: tapping, neoclassical, Phrygian, sixes"
     },
@@ -686,6 +802,33 @@
       "notes": "0:7:1 1:9:1:c 2:10:2 4:12:1:x 5:12:3:s",
       "credit": "Frusciante",
       "source": "the funk player: octaves, a sparse Dorian line"
+    },
+    {
+      "id": "repeat-bends",
+      "name": "Repeat Bends",
+      "status": "draft",
+      "who": ["sung", "blues"],
+      "speed": "mid",
+      "q": "any",
+      "notes": "0:7:4:@3 0:2:8:b2,s,rk,@3 8:3:8:b3,v,@3",
+      "genres": ["rock", "pop", "hardrock", "metal", "altmetal"],
+      "moods": ["melancholic", "nostalgic", "tense", "angry", "triumphant", "dark"],
+      "energy": 3,
+      "source": "own idea"
+    },
+    {
+      "id": "bend-and-run",
+      "name": "Bend and Run",
+      "status": "draft",
+      "who": ["sung", "blues"],
+      "speed": "mid",
+      "q": "any",
+      "notes": "0:7:4:@3 0:3:8:b3,s,rk,@4 8:12:1:@1 9:4:1:@3 10:7:2:h,@3 11:4:1:h,@3 12:-2:4:b2,@5",
+      "role": ["phrase", "lead-in"],
+      "genres": ["rock", "pop", "hardrock", "metal", "grunge", "altmetal"],
+      "moods": ["melancholic", "nostalgic", "tense", "angry", "triumphant", "dark"],
+      "energy": 3,
+      "source": "own idea"
     }
   ]
 }
