@@ -1,7 +1,7 @@
 // Checks the story told in licks with the lick library (docs/SOLO-LIBRARY.md): "Chosen bars, story told in licks + the lick library".
 //  - The cores and the story are the same as in "story plan only".
 //  - No rest longer than a beat (4 16ths) from the start of the solo to the last core: the gaps are strung together.
-//  - Notes are in the key and do not overlap; none after the last core.
+//  - Notes are in the key and do not overlap; none after the last core. Strung parts start on the 8th grid.
 //  - Named licks from the library turn up as recipes, and gaps get strung (pieces laid end to end); both are named on the card.
 //  - The same seed plays the same. The step before ("recipes") is untouched by this switch (solo-recipes-check).
 //   npm run solo-library-check        (N=100 songs)
@@ -60,7 +60,12 @@ for (let i = 0; i < 2 * N; i++) {
       partsN++;
       const m = p.recipe.match(/the lick "([^"]+)"/g);
       if (m) { lickParts++; m.forEach((t) => named.add(t)); lickNotes += p.notes; }
-      if (/^strung/.test(p.recipe)) strungParts++;
+      if (/^strung/.test(p.recipe)) {
+        strungParts++;
+        // a strung part starts on the 8th grid (never between the 8ths)
+        const first = hits.find((h) => h.step >= p.from && h.step < p.to);
+        if (first && first.step % 2) fail(`${x.s}: a strung part starts off the 8th grid at step ${first.step}`);
+      }
     }
   });
   if (i % 5 === 0 && key(a[0].sec) !== key(play(i, 'library')[0].sec)) fail(`song ${i}: not the same twice`);
