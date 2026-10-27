@@ -113,7 +113,7 @@ Tags: [M] stated by a source; [P] what teachers agree on; [R] a rule of thumb tu
 - ✓ Rakes: the pick dragged across two or three muted strings into a bent note (blues, Gilmour,
   Prince) [M], by player 5-30% of bent licks [R].
 - ✓ Ghost notes: muted 16ths between the notes of a funk lick [M].
-- · Pinch harmonics, whammy dives, feedback (no samples for them yet).
+- ✓ Pinch and natural harmonics, whammy dives, feedback, pick scrape: made in code, heard in the labs only so far (`GUITAR-SOUNDS.md`).
 
 ### What each player plays (`src/parts/licks.ts`)
 Licks written over the chord (so they fit wherever they're put), moved to the chord under them and
@@ -160,6 +160,6 @@ players' style, not copied from songs. All checked to fit minor, Dorian, major a
   (the lick grid is 16ths), country chicken pickin' (no country genre).
 
 ## 6. Later
-- Pinch harmonics, whammy dives, feedback (need their own sounds).
+- Pinch harmonics, whammy dives, feedback: the sounds exist (`GUITAR-SOUNDS.md`); the writers don't use them yet.
 - A tab view; locking a solo.
 - Lead guitar vs real songs: `docs/STUDY-LEAD.md` (1,967 real lead guitar parts measured against Guitar 2: longer lines, more steps, picked figures, heavy leads out of the singer's way).

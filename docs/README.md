@@ -42,6 +42,8 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `SOLO-SHAPE.md`: step 2f, the story's dynamics (loudness follows the arc, a laid-back start in soft moods, the last note rings). Switch: Solo shape.
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.
+- `GUITAR-SOUNDS.md`: the lead's new sounds (pinch and natural harmonics, whammy dive, feedback, pick scrape), made in code.
+- `SOLO-SOUNDS.md`: solos and lead breaks use those sounds, by genre and player. Behind a switch (Lead guitar sounds).
 - `RECIPE-LAB.md`: the lick library as data (`src/recipes/licks.json`) and the recipe lab (PC only, `npm run recipe-lab`): write licks as tab, mark them, hear them, save.
 
 ## Vocal

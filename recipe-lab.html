@@ -142,6 +142,10 @@
           <label class="chk"><input id="nRake" type="checkbox" /> rake</label>
           <label class="chk"><input id="nTrem" type="checkbox" /> tremolo</label>
           <label class="chk"><input id="nOut" type="checkbox" /> outside the key (meant)</label>
+          <label class="f">Harmonic <select id="nHarm"><option value="">none</option><option value="pinch">pinch (squeal)</option><option value="natural">natural (chime)</option></select></label>
+          <label class="f">Whammy dive <select id="nDive"><option value="0">none</option><option value="2">a step</option><option value="5">a 4th</option><option value="12">an octave</option><option value="24">two octaves</option></select></label>
+          <label class="f">Feedback <select id="nFb"><option value="0">none</option><option value="12">octave up</option><option value="19">octave and a 5th up</option></select></label>
+          <label class="f">Pick scrape in <select id="nScrape"><option value="0">none</option><option value="4">a beat</option><option value="8">two beats</option><option value="16">a bar</option></select></label>
         </div>
         <label class="f" style="margin-top:10px">Notes as text (pos:note:length:techniques)
           <textarea id="text" rows="2" class="mono" spellcheck="false"></textarea>
