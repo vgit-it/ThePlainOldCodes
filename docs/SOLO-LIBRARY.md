@@ -28,3 +28,5 @@ Cores and story equal "story plan only"; no rest over a beat; strung parts start
 - 6/8 and other meters use a beat of 4 16ths too.
 - Busier than the step before: about every second part is now played or strung. A dial if too much.
 - Next: mark jobs in the lab; more licks (drafts live later); stacking rules.
+
+Next: the player dresses the story, `docs/SOLO-POLISH.md` (switch: Solo polish).
