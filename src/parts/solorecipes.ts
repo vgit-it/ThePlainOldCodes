@@ -277,7 +277,8 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[], library = f
   // ---- a short walk through the key, in 8ths (some 16ths and dotted 8ths), ending right by the core: the piece that always fits
   const walk = (p: Part, core: Pt, rng: Rng, prevMidi: number): Cand | null => {
     const durs: number[] = [];
-    for (let rem = p.to - p.from; rem > 0;) { const d = Math.min(rem, rng.weighted([[1, 3], [2, 6], [3, 1]] as [number, number][])); durs.push(d); rem -= d; }
+    // (8ths and quarters, so every note starts on the 8th grid; only a last note squeezed in by an odd end can be shorter)
+    for (let rem = p.to - p.from; rem > 0;) { const d = Math.min(rem, rng.weighted([[2, 7], [4, 2]] as [number, number][])); durs.push(d); rem -= d; }
     const [loI, hiI] = rangeIdx(core), n = durs.length, ci = nearest(full, core.midi);
     const a = clamp(nearest(full, prevMidi), loI, hiI), e = clamp(ci + rng.pick([-1, -1, 0, 1]), loI, hiI);
     let idx = a, s = p.from;
@@ -376,14 +377,16 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[], library = f
       const core = cores.find((k) => k.step >= gap.to) ?? cores[cores.length - 1], into = cores.indexOf(core);
       const rng = new Rng(`${seed}:rest${n}${walkOnly ? 'w' : ''}`);
       const a0 = nearest(full, gap.prev.midi), t0 = nearest(full, gap.next.midi);
-      let cur = gap.from + Math.min(rng.pick([0, 0, 1, 2]), gap.to - gap.from - 1), from = gap.prev.midi, k = 0;
+      // the first piece starts on the beat if that is a step or three on, else on the next 8th (so nothing starts between the 8ths); a rest is still never over a beat
+      const breath = gap.from + rng.pick([0, 0, 1, 2]), onBeat = breath + ((4 - (breath % 4)) % 4);
+      let cur = onBeat - gap.from <= 3 ? onBeat : breath + (breath % 2), from = gap.prev.midi, k = 0;
       const out: PlacedNote[] = [], bits: StoryPart['bits'] = [], names: string[] = [];
       while (cur < gap.to) {
         const R = gap.to - cur, opts = [8, 10, 12].filter((x) => R - x >= 4), L = R > 14 && opts.length ? rng.pick(opts) : R, end = cur + L, lastPiece = end >= gap.to;
         // (on the way, a waypoint between where the rest begins and where it leads)
         const way = lastPiece ? gap.next.midi : at(clamp(Math.round(a0 + ((t0 - a0) * (end - gap.from)) / (gap.to - gap.from)) + rng.pick([-1, 0, 0, 1]), 0, full.length - 1));
         const pc: Pt = { step: end, midi: way }, pp: Part = { into, from: cur, to: end, role: 'link', label: 'strung' };
-        const tight = (x: Cand) => x.notes.reduce((m, q) => Math.min(m, q.step), Infinity) - cur <= 2;
+        const tight = (x: Cand) => { const f = x.notes.reduce((m, q) => Math.min(m, q.step), Infinity); return f - cur <= 2 && f % 2 === 0; };
         const all: [string, number][] = [['sung', L >= PHRASE_MIN ? 3 : 0], ['rise', L >= 4 ? 2 : 0], ['lick', 4], ['walk', 2]];
         const kinds = walkOnly ? ([['walk', 1]] as [string, number][]) : all.filter(([, w]) => w > 0);
         let cand = choose(`rest${n}.${k}${walkOnly ? 'w' : ''}`, pp, pc, from, (r) => {
