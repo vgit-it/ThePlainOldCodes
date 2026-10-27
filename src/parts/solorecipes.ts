@@ -91,7 +91,7 @@ const SHAPES: Record<number, number[][]> = {
 
 /** A phrase as it was played, kept so the opening can be played again. */
 interface Phrase { cell: number[]; shape: number[]; tag: Tag; H: number; k: number; sgn: 1 | -1; bendAt: number }
-interface Cand { notes: PlacedNote[]; recipe: string; bits: StoryPart['bits']; memo?: Phrase; extra?: number }
+interface Cand { notes: PlacedNote[]; recipe: string; bits: StoryPart['bits']; memo?: Phrase; extra?: number; /** The named lick it is (library only). */ lick?: string }
 
 export interface StoryOut { notes: PlacedNote[]; parts: StoryPart[]; lines: string[] }
 
@@ -261,8 +261,14 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[], library = f
   };
 
   // ---- a named lick from the recipe lab (docs/SOLO-LIBRARY.md), placed to end where the part ends; cut down from its start if it is too long
-  const libOf = (p: Part, core: Pt, rng: Rng, jobs: Role[], prevMidi: number): Cand | null => {
-    const room = p.to - p.from, pool = poolFor(jobs, GENRE_ORDER[gi], c.mood, room);
+  // (the licks already played in this solo: a lick heard once counts for much less the next time, so a solo carries a spread of licks)
+  const used = new Map<string, number>();
+  const libOf = (p: Part, core: Pt, rng: Rng, jobs: Role[], prevMidi: number, slow = false): Cand | null => {
+    const room = p.to - p.from;
+    // (slow: a release or a slow stretch only takes licks that are not fast and hold their notes)
+    const pool = poolFor(jobs, GENRE_ORDER[gi], c.mood, room)
+      .filter(([x]) => !slow || (x.lick.speed !== 'fast' && x.lick.notes.reduce((a, n) => a + n.len, 0) / x.lick.notes.length >= 3))
+      .map(([x, w]) => [x, w * 0.15 ** (used.get(x.lick.name) ?? 0)] as [typeof x, number]);
     if (!pool.length) return null;
     const l = rng.weighted(pool).lick;
     let from = 0;
@@ -271,14 +277,14 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[], library = f
     const [lo, hi] = moveWindow(c, core);
     const ns = placeLibLick(rng, c.fit, c.song.key, l, p.to, lo, hi, prevMidi, 'any', l.who[0], clamp(c.vel(p.to), 0.3, 1), from);
     if (!ns) return null;
-    return { notes: ns, recipe: `the lick "${l.name}"${from ? ' (cut down)' : ''}`, bits: [{ from: ns[0].step, to: p.to, what: `lick: ${l.name}` }] };
+    return { notes: ns, recipe: `the lick "${l.name}"${from ? ' (cut down)' : ''}`, bits: [{ from: ns[0].step, to: p.to, what: `lick: ${l.name}` }], lick: l.name };
   };
 
   // ---- a short walk through the key, in 8ths (some 16ths and dotted 8ths), ending right by the core: the piece that always fits
-  const walk = (p: Part, core: Pt, rng: Rng, prevMidi: number): Cand | null => {
+  const walk = (p: Part, core: Pt, rng: Rng, prevMidi: number, slow = false): Cand | null => {
     const durs: number[] = [];
     // (8ths and quarters, so every note starts on the 8th grid; only a last note squeezed in by an odd end can be shorter)
-    for (let rem = p.to - p.from; rem > 0;) { const d = Math.min(rem, rng.weighted([[2, 7], [4, 2]] as [number, number][])); durs.push(d); rem -= d; }
+    for (let rem = p.to - p.from; rem > 0;) { const d = Math.min(rem, rng.weighted((slow ? [[4, 4], [6, 3], [8, 2]] : [[2, 7], [4, 2]]) as [number, number][])); durs.push(d); rem -= d; }
     const [loI, hiI] = rangeIdx(core), n = durs.length, ci = nearest(full, core.midi);
     const a = clamp(nearest(full, prevMidi), loI, hiI), e = clamp(ci + rng.pick([-1, -1, 0, 1]), loI, hiI);
     let idx = a, s = p.from;
@@ -291,6 +297,21 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[], library = f
       return x;
     });
     return { notes: ns, recipe: `a short walk, ${n} notes`, bits: [{ from: p.from, to: p.to, what: 'walk' }], extra: 1 };
+  };
+
+  // ---- a slow fall (library only): two or three held notes stepping down into the core, the last one left ringing with vibrato
+  const slowFall = (p: Part, core: Pt, rng: Rng): Cand | null => {
+    const room = p.to - p.from, n = room >= 26 ? 3 : room >= 12 ? 2 : 0;
+    if (!n) return null;
+    const s0 = p.from + rng.pick([0, 2]), lens: number[] = [];
+    for (let q = 0, t = s0; q < n - 1; q++) { const d = rng.pick([6, 8, 8]); lens.push(d); t += d; }
+    const lastAt = s0 + lens.reduce((a, b) => a + b, 0), lastLen = p.to - lastAt;
+    if (lastLen < 4) return null;
+    const down = rng.pick([1, 1, 2]), e = pickEnd(rng, core, [[-1, 4], [0, 3], [1, 2], [-2, 1], [2, 1]], (x) => x + down * (n - 1), lastAt);
+    if (e === null) return null;
+    let t = s0;
+    const ns = [...lens, lastLen].map((d, q) => { const x = note(t, d, at(e + down * (n - 1 - q)), q === n - 1 || rng.chance(0.5) ? { vib: 14, vel: loud(t) } : {}); t += d; return x; });
+    return { notes: ns, recipe: `${n} long notes stepping down, the last left ringing`, bits: [{ from: s0, to: p.to, what: 'fall' }] };
   };
 
   /** The best of a few tries at a recipe (by the mood's liking of the way in and out): the same dice for the same key. */
@@ -317,7 +338,7 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[], library = f
     if (i === 0 || parts[i - 1].into !== p.into) prev = p.into > 0 ? cores[p.into - 1].midi : env.start;
     const attempt = (make: (rng: Rng) => Cand | null, tries = 12): Cand | null => choose(String(i), p, core, prev, make, tries);
     /** With the library on, some of the tries are a named lick that does the part's job. */
-    const mixed = (q: Part, jobs: Role[], make: (rng: Rng) => Cand | null) => (r: Rng) => (library && r.chance(0.4) ? libOf(q, core, r, jobs, prev) : make(r));
+    const mixed = (q: Part, jobs: Role[], make: (rng: Rng) => Cand | null) => (r: Rng) => (library && r.chance(0.8) ? libOf(q, core, r, jobs, prev) : make(r));
     let cand: Cand | null = null, again = '';
     if (p.role === 'link' || room < 3) cand = null;
     else if (p.role === 'ramp') cand = attempt(mixed(p, JOBS.ramp, (r) => rising(p, core, r, true)));
@@ -334,7 +355,8 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[], library = f
         const one = [note(p.from + 2, 8, at(ix), { vib: 14, vel: loud(p.from + 2, 0.02) })];
         if (fits(one, { ...p, to: p.from + 12 }, cores[Math.max(0, p.into - 1)])) { early = one; q = { ...p, from: p.from + 12 }; }
       }
-      cand = attempt(mixed(q, JOBS.release, (r) => fall(q, core, r)));
+      // (with the library, half the falls are slow ones, and the named licks for a release are the slow ones)
+      cand = attempt(library ? (r) => (r.chance(0.4) ? libOf(q, core, r, JOBS.release, prev, true) : r.chance(0.5) ? slowFall(q, core, r) : fall(q, core, r)) : mixed(q, JOBS.release, (r) => fall(q, core, r)));
       if (cand && early.length) cand = { ...cand, notes: [...early, ...cand.notes], bits: [{ from: early[0].step, to: early[0].step + 8, what: 'fall' }, ...cand.bits], recipe: 'a long note falling from the core, then ' + cand.recipe };
     } else if (p.role === 'answer' || p.role === 'statement' || p.role === 'return' || p.role === 'build') {
       const memo = p.repeatOf !== undefined ? memos.get(p.repeatOf) : undefined;
@@ -348,6 +370,7 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[], library = f
     }
     if (cand) {
       notes.push(...cand.notes);
+      if (cand.lick) used.set(cand.lick, (used.get(cand.lick) ?? 0) + 1);
       const sorted = cand.notes.slice().sort((a, b) => a.step - b.step);
       prev = sorted[sorted.length - 1].midi;
       if (cand.memo) { last = cand.memo.tag; if (p.role === 'statement') memos.set(p.into, cand.memo); }
@@ -376,6 +399,8 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[], library = f
     const stringRest = (gap: ReturnType<typeof restsOf>[number], n: number, walkOnly: boolean) => {
       const core = cores.find((k) => k.step >= gap.to) ?? cores[cores.length - 1], into = cores.indexOf(core);
       const rng = new Rng(`${seed}:rest${n}${walkOnly ? 'w' : ''}`);
+      // (a rest inside a release is strung slowly: long notes, no climbs)
+      const slow = parts.some((q) => q.role === 'release' && q.from <= gap.from && gap.from < q.to);
       const a0 = nearest(full, gap.prev.midi), t0 = nearest(full, gap.next.midi);
       // the first piece starts on the beat if that is a step or three on, else on the next 8th (so nothing starts between the 8ths); a rest is still never over a beat
       const breath = gap.from + rng.pick([0, 0, 1, 2]), onBeat = breath + ((4 - (breath % 4)) % 4);
@@ -387,15 +412,16 @@ export function writeStory(c: MoveCtx, parts: Part[], cores: Core[], library = f
         const way = lastPiece ? gap.next.midi : at(clamp(Math.round(a0 + ((t0 - a0) * (end - gap.from)) / (gap.to - gap.from)) + rng.pick([-1, 0, 0, 1]), 0, full.length - 1));
         const pc: Pt = { step: end, midi: way }, pp: Part = { into, from: cur, to: end, role: 'link', label: 'strung' };
         const tight = (x: Cand) => { const f = x.notes.reduce((m, q) => Math.min(m, q.step), Infinity); return f - cur <= 2 && f % 2 === 0; };
-        const all: [string, number][] = [['sung', L >= PHRASE_MIN ? 3 : 0], ['rise', L >= 4 ? 2 : 0], ['lick', 4], ['walk', 2]];
+        const all: [string, number][] = slow ? [['lick', 3], ['walk', 4]] : [['sung', L >= PHRASE_MIN ? 3 : 0], ['rise', L >= 4 ? 2 : 0], ['lick', 12], ['walk', 2]];
         const kinds = walkOnly ? ([['walk', 1]] as [string, number][]) : all.filter(([, w]) => w > 0);
         let cand = choose(`rest${n}.${k}${walkOnly ? 'w' : ''}`, pp, pc, from, (r) => {
           const kind = r.weighted(kinds);
-          return kind === 'sung' ? sung(pp, pc, r, last) : kind === 'rise' ? rising(pp, pc, r, false) : kind === 'lick' ? libOf(pp, pc, r, JOBS.fill, from) : walk(pp, pc, r, from);
+          return kind === 'sung' ? sung(pp, pc, r, last) : kind === 'rise' ? rising(pp, pc, r, false) : kind === 'lick' ? libOf(pp, pc, r, JOBS.fill, from, slow) : walk(pp, pc, r, from, slow);
         }, 12, tight);
-        cand ??= choose(`rest${n}.${k}.walk`, pp, pc, from, (r) => walk(pp, pc, r, from), 12, tight);
+        cand ??= choose(`rest${n}.${k}.walk`, pp, pc, from, (r) => walk(pp, pc, r, from, slow), 12, tight);
         if (!cand) break;
         out.push(...cand.notes);
+        if (cand.lick) used.set(cand.lick, (used.get(cand.lick) ?? 0) + 1);
         names.push(cand.recipe);
         bits.push(...cand.bits);
         from = cand.notes.slice().sort((x, y) => x.step - y.step)[cand.notes.length - 1].midi;
