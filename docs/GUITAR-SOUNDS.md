@@ -1,6 +1,6 @@
 # Lead guitar: the new sounds
 
-Status: built (2026-10-27). Heard only in the labs: the lick lab ("Try a sound") and the recipe lab (a note's marks). No writer uses them yet, so the songs are as before.
+Status: built (2026-10-27). Heard in the labs (the lick lab's "Try a sound", the recipe lab's note marks), and in solos behind the "Lead guitar sounds" switch (`SOLO-SOUNDS.md`).
 
 ## What's there
 Five sounds the docs listed as "no sound yet" (`LEAD.md`, `SOLO-CORE.md`, `SOLO-PLAYER.md`):
@@ -11,7 +11,7 @@ Five sounds the docs listed as "no sound yet" (`LEAD.md`, `SOLO-CORE.md`, `SOLO-
 | Natural harmonic | A clear chime at the written note that rings a long time. No vibrato, but the whammy bar can still move it. | `harm: 'natural'` (`nh`) |
 | Whammy dive | The pitch drops over the last 0.8 s of the note: slowly at first, then fast. | `dive: N` semitones (`dvN`) |
 | Feedback | After the note has spoken, a tone above it swells in and takes over while the note fades. | `feedback: N` semitones up, 12 or 19 (`fbN`) |
-| Pick scrape | The pick dragged down the strings: a rough, growly rasp that falls in pitch and ends as the note is picked. | `scrape: N` 16ths before the note (`scN`) |
+| Pick scrape | The pick dragged down the strings: a rough, growly rasp that falls in pitch and ends as the note is picked. The engine starts it ahead of the note (`SOLO-SOUNDS.md`). | `scrape: N` 16ths before the note, up to 16 (`scN`) |
 
 They work together. A pinch with a dive is the metal classic.
 
@@ -42,6 +42,6 @@ No downloads. They're made in code, like the finger squeaks (`src/audio/guitarfx
 - No live lick uses them (so the songs are unchanged).
 
 ## Not yet
-- The writers using them (step 3 of the solo player, weights by genre in `SOLO-CORE.md`), behind a switch, once Paul has listened.
+- Writers other than the solo pass (`SOLO-SOUNDS.md`) using them.
 - Palm mute on the lead. The guitar can already play a palm-muted note; nothing writes one for the lead yet.
 - Tapping (plays as hammer-ons and pull-offs), sweeps, quarter-tone curls.

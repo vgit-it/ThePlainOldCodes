@@ -61,11 +61,10 @@ export interface StrumArgs {
   tremolo?: boolean;
   rake?: number;
   /** The lead's extra sounds (docs/GUITAR-SOUNDS.md): a harmonic, a whammy dive (semitones), feedback (the
-   * tone's semitones above), a pick scrape into the note (seconds before it). */
+   * tone's semitones above). A pick scrape is played on its own (`scrape`): it starts before the note. */
   harm?: 'pinch' | 'natural';
   dive?: number;
   feedback?: number;
-  scrape?: number;
 }
 
 export interface ChordInstrument {
@@ -75,6 +74,8 @@ export interface ChordInstrument {
   strum(a: StrumArgs): void;
   /** A finger squeak along the wound strings as the hand shifts (`up` the neck, or down). Guitars only. */
   squeak?(time: number, vel: number, up: boolean): void;
+  /** A pick scrape from `time`, `dur` seconds long, ending as the next note is picked (docs/GUITAR-SOUNDS.md). Guitars only. */
+  scrape?(time: number, dur: number, vel: number, clean?: boolean): void;
   /** Stop everything ringing (at `time`, or now). */
   releaseAll(time?: number): void;
 }
@@ -501,6 +502,17 @@ export class Guitar implements ChordInstrument {
     });
   }
 
+  scrape(time: number, dur: number, vel: number, clean?: boolean) {
+    if (!this.takes.length) return;
+    const quiet = clean && this.type === 'electric' && this.tone !== 'clean';
+    const driven = this.type === 'electric' && this.tone !== 'clean' && !quiet;
+    const takes = quiet ? [this.takes[this.cleanIdx]] : this.takes.slice(0, this.doubled ? 2 : 1);
+    // squeezed or stretched to the time it has (within reason), and always ending on the note
+    const rate = Math.min(3, Math.max(0.6, SCRAPE_LEN / Math.max(0.05, dur)));
+    const len = SCRAPE_LEN / rate;
+    takes.forEach((take) => take.ring.shot(fxSets(this.ctx.sampleRate).scrape, Math.max(0, time + dur - len), Math.min(1, vel) * (driven ? FX.scrapeDriven : FX.scrape), rate));
+  }
+
   private squeakTake(take: Take, time: number, vel: number, up: boolean, driven: boolean) {
     const set = squeaks(this.ctx.sampleRate).filter((_, i) => (i % 2 === 0) === up);
     // the amp's drive and compression bring a squeak right up: much less goes in
@@ -508,7 +520,7 @@ export class Guitar implements ChordInstrument {
   }
 
   private strumTake(take: Take, a: StrumArgs, driven: boolean) {
-    const { stroke, notes, strings, time, dur, vel, sixteenth, letRing, slide, swell, touch: hands, unbend, lateBend, bendAt, trill, tremolo, rake, harm, dive, feedback, scrape } = a;
+    const { stroke, notes, strings, time, dur, vel, sixteenth, letRing, slide, swell, touch: hands, unbend, lateBend, bendAt, trill, tremolo, rake, harm, dive, feedback } = a;
     const fadeIn = swell ? Math.min(0.6, dur * 0.4) : 0;
     const str = strings ?? notes.map((_, i) => 6 - notes.length + i);
     // time between strings: faster at quicker tempos, ~25-45 ms across six strings; a hand never
@@ -542,8 +554,8 @@ export class Guitar implements ChordInstrument {
     if (hands?.squeak) this.squeakTake(take, time - 0.05 - Math.random() * 0.04, vel, Math.random() < 0.5, driven);
 
     // the hand moves on along the same string(s) without a new pick: hammer-on, pull-off, slide
-    // (a harmonic, feedback or a scrape is always picked)
-    if (stroke === 'D' && hands && hands.move !== 'pick' && !letRing && !swell && !harm && !feedback && !scrape) {
+    // (a harmonic or feedback is always picked)
+    if (stroke === 'D' && hands && hands.move !== 'pick' && !letRing && !swell && !harm && !feedback) {
       const t = time + jitter(1);
       const vs = str.map((s) => take.strings[s]);
       if (vs.every((v, i) => take.ring.canLegato(v, notes[i], t, dur))) {
@@ -555,11 +567,6 @@ export class Guitar implements ChordInstrument {
     const dyad = notes.length === 2 && !octave;
     const bendAll = hands?.bend ?? (dyad ? 0 : a.bend);
     const hand = { tied: hands?.tied, fall: hands?.fall, bend: lateBend ? undefined : bendAll, unbend, lateBend, bendAt, trill, dive };
-    // a pick scrape: the pick's edge dragged down the wound strings, ending as the note is picked
-    if (scrape && stroke === 'D') {
-      const rate = Math.min(3, Math.max(0.6, SCRAPE_LEN / scrape));
-      take.ring.shot(fxSets(this.ctx.sampleRate).scrape, Math.max(0, time - SCRAPE_LEN / rate), Math.min(1, vel) * (driven ? FX.scrapeDriven : FX.scrape), rate);
-    }
     // a rake: the pick drags across a few muted strings on its way to the note
     if (rake && stroke === 'D') {
       for (let k = rake; k >= 1; k--) take.muted.play(notes[0] - 5 * k, time - k * 0.022 + jitter(1), 0.03, Math.min(1, vel * (0.35 + 0.08 * (rake - k))), { detune });

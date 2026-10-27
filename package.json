@@ -7,6 +7,7 @@
     "dev": "vite",
     "recipe-lab": "vite --open /recipe-lab.html",
     "guitar-sounds-check": "rolldown scripts/guitar-sounds-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/guitar-sounds-check.mjs && node node_modules/.cache/guitar-sounds-check.mjs",
+    "solo-sounds-check": "rolldown scripts/solo-sounds-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/solo-sounds-check.mjs && node node_modules/.cache/solo-sounds-check.mjs",
     "recipe-lab-check": "rolldown scripts/recipe-lab-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/recipe-lab-check.mjs && node node_modules/.cache/recipe-lab-check.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
