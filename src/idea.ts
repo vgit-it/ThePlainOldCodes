@@ -404,6 +404,10 @@ export interface GuitarHit {
   lateBend?: number;
   /** A bend let down or pushed up at this many 16ths into the note, not at the usual time (a note that carries into the next section bends on the bar line). */
   bendAt?: number;
+  /** How long the bend takes, in ms (a snap is about 40, a crawl 600); otherwise the engine's own speed. */
+  bendRise?: number;
+  /** The bend's shape: 1 is even, over 1 starts slow and finishes quick, under 1 jumps then creeps up. */
+  bendEase?: number;
   /** Trilled: hammered on and pulled off this many semitones above, fast, for the whole note. */
   trill?: number;
   /** Tremolo picked: the note picked again and again, as fast as the hand goes (32nds). */

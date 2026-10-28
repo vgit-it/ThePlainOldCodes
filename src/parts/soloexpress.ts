@@ -81,7 +81,7 @@ const KINDS: Record<Pattern, ('hold' | 'run')[]> = {
 /** What one try came to, for the score and the card. */
 export interface Try { wins: Win[]; events: PEvent[][]; score: number; keep: number }
 
-export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number } = {}): Guitar2Part {
+export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number; dials?: boolean } = {}): Guitar2Part {
   const { events: ev0, notes } = readBase(base.hits, base.curve);
   if (notes.length < 4) return base;
   const { song } = c;
@@ -498,8 +498,52 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     for (const q of qs) revert(q);
   }
 
+  // ---------------------------------------------------- the bend dials (docs/SOLO-BENDS.md)
+  // How fast each bent note bends, the shape of the bend, and when in the note it happens: from the note's place (the climax and the
+  // last note sing, slowly; a goal note leans) and its neighbours (a quick note right after is a snap). Its own seed: the tune,
+  // the windows and the bends themselves are as they were, only the way they are played changes.
+  let dialed = 0;
+  const dialBends = (hs: GuitarHit[]): GuitarHit[] => {
+    const live = hs.filter((h) => sounding(h));
+    const startOf = (h: GuitarHit) => h.step + (h.shift ?? 0);
+    return hs.map((h) => {
+      if (!sounding(h) || !(h.bend || h.lateBend || h.unbend)) return h;
+      const t = startOf(h), sec = (h.len * s16) / 1000;
+      const nx = live[live.indexOf(h) + 1];
+      const role = notes.find((n) => Math.abs(n.t - t) <= TOL)?.role ?? '';
+      const big = role === 'climax' || role === 'end';
+      const goal = big || role === 'call' || role === 'answer';
+      // (a quick note straight after: no time for a slow bend)
+      const hurry = !!nx && startOf(nx) - (t + h.len) < 1 && nx.len * s16 <= 160;
+      const r = new Rng(`${c.seed}-express-dials-${Math.round(t * 8)}`);
+      const u = (lo: number, hi: number) => lo + (hi - lo) * r.next();
+      const out: GuitarHit = { ...h };
+      const late = !!h.lateBend, release = !!h.unbend;
+      // when in the note the bend happens (a pre-bend does it at the pick)
+      if (late || release) {
+        const frac = release ? (big ? u(0.5, 0.75) : u(0.4, 0.65)) : big ? u(0.4, 0.65) : u(0.2, 0.5);
+        out.bendAt = Math.max(0.5, Math.round(frac * h.len * 4) / 4);
+      }
+      const left = sec - (out.bendAt !== undefined ? (out.bendAt * s16) / 1000 : 0);
+      let ms: number, ease: number;
+      const kind = r.weighted<string>([['snap', hurry || left < 0.3 ? 4 : 1], ['mid', 1.6], ['crawl', left >= 0.55 ? (big ? 3 : goal ? 1.2 : 0.5) : 0]]);
+      if (kind === 'snap') { ms = u(35, 85); ease = 0.7; }
+      else if (kind === 'mid') { ms = u(120, 250); ease = r.pick([1, 1, 1.25]); }
+      else { ms = u(300, 900); ease = r.pick([0.8, 1.4, 1.8]); }
+      // a bend can't take longer than what's left of the note
+      ms = Math.min(ms, left * 700);
+      // (a bend up and let down again: the let-down comes after the bend up)
+      if (release && h.bend && out.bendAt !== undefined) ms = Math.min(ms, out.bendAt * s16 * 0.9);
+      out.bendRise = Math.max(30, Math.round(ms));
+      out.bendEase = ease;
+      dialed++;
+      return out;
+    });
+  };
+
   const events = assemble();
-  const hits = eventsToHits(events);
+  let hits = eventsToHits(events);
+  if (o.dials) hits = dialBends(hits);
   const changed = chosen.wins.filter((w) => w.pattern !== 'plain');
   const tally = new Map<string, number>();
   for (const w of changed) tally.set(w.pattern, (tally.get(w.pattern) ?? 0) + 1);
@@ -508,7 +552,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   const fine = hits.some((h) => h.shift || h.exact);
   return {
     hits,
-    notes: [...base.notes, `Solo expression (${words}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were`],
+    notes: [...base.notes, `Solo expression (${words}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were${o.dials ? `; ${dialed} bends with their own speed and shape` : ''}`],
     curve: base.curve ? { ...base.curve, express: chosen.wins.map((w) => ({ t0: w.t0, t1: w.t1, pattern: w.pattern, heat: Math.round(w.heat * 100) / 100 })), ...(fine ? { fine: true } : {}) } : undefined,
   };
 }
