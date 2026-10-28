@@ -408,6 +408,7 @@ $('sections').onclick = async (e) => {
 const optSel = {
   mood: $<HTMLSelectElement>('t-mood'),
   moodSong: $<HTMLSelectElement>('t-moodsong'),
+  moodRiff: $<HTMLSelectElement>('t-moodriff'),
   intro: $<HTMLSelectElement>('t-intro'),
   pre: $<HTMLSelectElement>('t-pre'),
   interlude: $<HTMLSelectElement>('t-interlude'),
@@ -431,6 +432,7 @@ const optSel = {
 function syncTrackOptions() {
   if (!track) return;
   optSel.mood.value = track.opts.mood ?? 'auto';
+  optSel.moodRiff.value = track.opts.moodRiff === 'on' ? 'on' : 'off';
   optSel.moodSong.value = ['both', 'mode', 'tempo'].includes(track.opts.moodSong ?? '') ? track.opts.moodSong! : 'off';
   // Auto says which mood it chose
   optSel.mood.options[0].textContent = `Auto (${MOOD_LABEL[track.mood]})`;
@@ -465,6 +467,7 @@ for (const [k, sel] of Object.entries(optSel)) {
     if (k === 'soloPlan') return rebuildTrack({ ...track.opts, soloPlan: sel.value as 'on' | 'off' | 'perform' | 'tune' }, shown, true);
     if (k === 'soloCores') return rebuildTrack({ ...track.opts, soloCores: isCoreMode(sel.value) ? sel.value : 'off' }, shown, true);
     // (the same song written again for the mood: stay where you are)
+    if (k === 'moodRiff') return rebuildTrack({ ...track.opts, moodRiff: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'moodSong') return rebuildTrack({ ...track.opts, moodSong: sel.value as TrackOptions['moodSong'] }, shown, true);
     if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax' || k === 'soloPolish' || k === 'soloShape' || k === 'soloMood' || k === 'soloMoodScale' || k === 'soloSounds') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
     const opts: TrackOptions = { ...track.opts, order: undefined };

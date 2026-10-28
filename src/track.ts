@@ -10,7 +10,7 @@ import { autoVoice, singTrack } from './parts/vocal';
 import type { EnergyStyle } from './parts/energy';
 import { type Mood, type MoodChoice, PROFILES, arcNote, autoMood, planTension } from './tension';
 import { type BuildOptions, buildIdea, generate, withSheet } from './generator';
-import type { MoodSong } from './moodsong';
+import { type MoodSong, riffLike } from './moodsong';
 import { GENRES, type Genre, QUIET_STYLES, type RiffStyle } from './genres';
 import type { ChordSheet, GuitarHit, Idea, SectionKind, Song } from './idea';
 import { type G2Options, type Guitar2Part, type Guitar2Style, chordTones, generateHook, leadFret } from './parts/guitar2';
@@ -77,6 +77,8 @@ export interface TrackOptions {
   soloMoodScale?: 'on' | 'off';
   /** Mood song (docs/MOOD-SONG.md): the song's mode and/or its tempo and drum feel follow the mood chosen (not on Auto). Missing in older links: off. */
   moodSong?: 'off' | 'tempo' | 'mode' | 'both';
+  /** Mood riff (docs/MOOD-RIFF.md): the mood picks the riff styles (sad: single notes, arpeggios, low pedal; bold: gallops, big chords) and a major key's riff takes the major 3rd. Missing in older links: off. */
+  moodRiff?: 'on' | 'off';
   /** Melody + player only (docs/SOLO-MELODY.md, step 0f): a phrase repeats its first beat or two of rhythm (missing in older links: off). */
   soloMotif?: 'on' | 'off';
   /** Melody + player only (step 0f): after a busy stretch of quick notes the player lets the next note be (missing in older links: off). */
@@ -204,9 +206,10 @@ const LONG_SOLO: Record<Genre, number> = { metal: 0.7, hardrock: 0.65, rock: 0.5
 
 /** What Mood song asks of the idea: nothing on Auto (the Auto mood comes from the song), or on a mood no longer in the list. */
 export function moodSongOf(opts: TrackOptions): MoodSong | undefined {
-  const v = opts.moodSong;
-  if ((v !== 'tempo' && v !== 'mode' && v !== 'both') || !opts.mood || opts.mood === 'auto' || !PROFILES[opts.mood as Mood]) return undefined;
-  return { mood: opts.mood as Mood, tempo: v !== 'mode', mode: v !== 'tempo' };
+  const v = opts.moodSong, riff = opts.moodRiff === 'on';
+  const song = v === 'tempo' || v === 'mode' || v === 'both';
+  if ((!song && !riff) || !opts.mood || opts.mood === 'auto' || !PROFILES[opts.mood as Mood]) return undefined;
+  return { mood: opts.mood as Mood, ...(song ? { tempo: v !== 'mode', mode: v !== 'tempo' } : {}), ...(riff ? { riff: true } : {}) };
 }
 
 export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOptions(srcIn)): Track {
@@ -232,6 +235,8 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     const extra = genre === 'funk' && part === 'verse' ? undefined : MOOD_PLANS[mood]?.[isMinor(src.song.mode) ? 'minor' : 'major']?.[part];
     return extra?.length && mr.chance(0.55) ? mr.pick(extra) : plan;
   };
+  // (Mood riff: the riff styles of a verse or a bridge, weighted by what the mood likes)
+  const likeRiffs = (list: [RiffStyle, number][]): [RiffStyle, number][] => (opts.moodRiff === 'on' ? list.map(([x, wt]) => [x, wt * riffLike(mood, x)]) : list);
   const vr = new Rng(S.verse), pr = new Rng(S.pre), br = new Rng(S.bridge);
   const { genre, mode } = src.song;
   const riff = !!src.song.sections;
@@ -282,7 +287,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
       // a new verse riff (also when the verse is rerolled): it sits on the home chord and moves in its last bar
       chorus = va !== vb ? [seg(base, 4, 4), seg(base, 4, 4)] : [seg(base)];
       const chorusStyle = vb;
-      const options = R.verse.filter(([x]) => x !== chorusStyle);
+      const options = likeRiffs(R.verse).filter(([x]) => x !== chorusStyle);
       verseStyle = options.length ? vr.weighted(options) : 'arp';
       const move = vr.pick(RIFF_VERSE_MOVE[isMinor(mode) ? 'minor' : 'major']);
       verse = [seg(block(base, vTag, ['chords', 'strum'], { sections: fill8(verseStyle) },
@@ -317,7 +322,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     } else {
       br.chance(0.4);
       const quiet = !quietVerse && mr.chance(MP.quiet * 0.6);
-      const options = R.bridge.filter(([x]) => x !== vb && x !== verseStyle);
+      const options = likeRiffs(R.bridge).filter(([x]) => x !== vb && x !== verseStyle);
       const style: RiffStyle = quiet ? 'arp' : options.length ? br.weighted(options) : 'single';
       bridgeE = quiet ? 2 : 4;
       bridge = [seg(block(base, bTag, ['chords', 'strum'], { sections: fill8(style), forceHalf: quiet ? undefined : true },

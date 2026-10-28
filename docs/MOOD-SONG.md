@@ -38,7 +38,7 @@ The mood chooses the song's mode, tempo and drum feel. Before, the mood only sha
 - A tempo or mode set by hand wins in every case. Switch off is the song as it was. 0 FAIL.
 
 ## Not done
-- The riff keeps its own notes (it picks them by key position, not the mode), so a metal riff can still play the flat 3rd in a "happy" song.
+- The riff keeps its own styles and notes: Mood riff (`MOOD-RIFF.md`) does that.
 - Mood scale (SOLO-MOOD.md) only changes the solo; with Mood song on it often has nothing left to turn.
 - Auto mood still comes from the song's mode and tempo.
 - Whether the moods now sound right is for Paul's ears.

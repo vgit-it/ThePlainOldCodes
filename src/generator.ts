@@ -8,7 +8,7 @@ import type { MoveId } from './parts/moves';
 import { autoVoice, singIdea } from './parts/vocal';
 import type { EnergyStyle } from './parts/energy';
 import { autoMood } from './tension';
-import { moodHalf, moodMode, moodTempo } from './moodsong';
+import { moodHalf, moodMode, moodTempo, riffLike } from './moodsong';
 import { GENRES, GENRE_LIST, type Genre, type RiffStyle } from './genres';
 import type { ChordPart, Cycle, GenOptions, Idea, Seeds, Song, Stroke } from './idea';
 import { BASS_LINE_DESC, bassLengths, generateBass, generateRiffBass, pickBassLine, writeBassLine } from './parts/bass';
@@ -57,7 +57,9 @@ export function planSong(rng: Rng, opts: GenOptions): Song {
     tuning = TUNINGS[rng.weighted(G.riff.tunings)];
     const r = rng.next(), s = tuning.strings;
     key = (r < 0.65 ? s[0] : r < 0.85 ? s[1] : s[0] + 2) % 12;
-    const [a, b] = rng.weighted(G.riff.arrangements.map(([x, y, wt]) => [[x, y] as const, wt] as const));
+    // (Mood riff: the mood's liking of each riff style times the genre's weight; the same one draw)
+    const like = (x: RiffStyle) => (opts.moodSong?.riff ? riffLike(opts.moodSong.mood, x) : 1);
+    const [a, b] = rng.weighted(G.riff.arrangements.map(([x, y, wt]) => [[x, y] as const, wt * like(x) * like(y)] as const));
     sections = [a, a, a, a, b, b, b, b];
   }
   const rolledMode = w > 0.6 && rng.chance(0.5) ? rng.pick(['phrygian', 'lydian'] as const) : rng.pick(G.modes);
@@ -96,7 +98,7 @@ export function planSong(rng: Rng, opts: GenOptions): Song {
   }
 
   return {
-    genreSel, genre, partGenres, key, mode, bpm, swing: G.swing, w, ...(forceHalf ? { forceHalf } : {}),
+    genreSel, genre, partGenres, key, mode, bpm, swing: G.swing, w, ...(forceHalf ? { forceHalf } : {}), ...(ms?.riff ? { moodRiff: true } : {}),
     meters, meterLabel: meters.length > 1 ? meters.join(' + ') : meters[0],
     groupsFor, bars, total: pos, plan, cycles, tuning, sections,
   };

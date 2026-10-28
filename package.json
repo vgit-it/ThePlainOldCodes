@@ -64,6 +64,7 @@
     "solo-polish-check": "rolldown scripts/solo-polish-check.ts --platform node --format esm -o node_modules/.cache/solo-polish-check.mjs && node node_modules/.cache/solo-polish-check.mjs",
     "solo-scale-check": "rolldown scripts/solo-scale-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/solo-scale-check.mjs && node node_modules/.cache/solo-scale-check.mjs",
     "mood-song-check": "rolldown scripts/mood-song-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/mood-song-check.mjs && node node_modules/.cache/mood-song-check.mjs",
+    "mood-riff-check": "rolldown scripts/mood-riff-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/mood-riff-check.mjs && node node_modules/.cache/mood-riff-check.mjs",
     "solo-mood-check": "rolldown scripts/solo-mood-check.ts --platform node --format esm -o node_modules/.cache/solo-mood-check.mjs && node node_modules/.cache/solo-mood-check.mjs",
     "solo-tunefirst-check": "rolldown scripts/solo-tunefirst-check.ts --platform node --format esm -o node_modules/.cache/solo-tunefirst-check.mjs && node node_modules/.cache/solo-tunefirst-check.mjs",
     "solo-tune-check": "rolldown scripts/solo-tune-check.ts --platform node --format esm -o node_modules/.cache/solo-tune-check.mjs && node node_modules/.cache/solo-tune-check.mjs",
