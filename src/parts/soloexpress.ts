@@ -16,6 +16,8 @@ import { Rng } from '../rng';
 import { TUNINGS } from '../theory/fretboard';
 import { chordTones } from './guitar2';
 import { scaleOf } from './solofigure';
+import { type LibLick, licksFor, lickFit, placeLibLick } from './licks';
+import { POOL } from './sololibrary';
 import { type PEvent, TOL, eventsToHits, readBase, snap, sounding } from './soloevents';
 import type { PlayerCtx } from './soloplayer';
 import { type VCtx, type Violation, MIN_LEGATO_MS, MIN_PICK_MS, unplayable, verify } from './soloverify';
@@ -81,7 +83,7 @@ const KINDS: Record<Pattern, ('hold' | 'run')[]> = {
 /** What one try came to, for the score and the card. */
 export interface Try { wins: Win[]; events: PEvent[][]; score: number; keep: number }
 
-export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number; dials?: boolean } = {}): Guitar2Part {
+export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number; dials?: boolean; recast?: boolean } = {}): Guitar2Part {
   const { events: ev0, notes } = readBase(base.hits, base.curve);
   if (notes.length < 4) return base;
   const { song } = c;
@@ -476,12 +478,206 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   const vkey = (v: Violation) => `${v.code}@${v.at.toFixed(2)}`;
   const baseline = new Set(verify(ev0, notes, vctx).map(vkey));
   const baseBad = new Set(unplayable(ev0, vctx));
+  /** The windows that were recast, with what they were before (a miss gives the window its plain run back first, then the tune's notes). */
+  const precast = new Map<number, PEvent[]>();
+  const fresh = () => ({ lick: 0, roll: 0, pedal: 0, trill: 0, slideIn: 0, heldTrill: 0 });
+  /** What each recast window holds (for the card: counted after the checker has had its say). */
+  const castOf = new Map<number, ReturnType<typeof fresh>>();
   const revert = (q: number) => {
+    const pre = precast.get(q);
+    if (pre) { chosen.events[q] = pre; precast.delete(q); castOf.delete(q); return; }
     const w = chosen.wins[q];
     w.pattern = 'plain'; w.parts = [];
     chosen.events[q] = Array.from({ length: w.j - w.i + 1 }, (_, z) => ev0[notes[w.i + z].ev]);
   };
   const winAt = (t: number) => { let b = -1; chosen.wins.forEach((w, q) => { if (t >= w.t0 - 1 - 1e-6 && t <= w.t1 + 1e-6 && w.pattern !== 'plain') b = q; }); return b; };
+
+  // ------------------------------------------------ the recast (docs/SOLO-RECAST.md)
+  // After the plan is chosen (so the tune and the windows stay as they were), some runs become something with a name: a lick from the
+  // library, a legato roll (picked once per group, the rest hammered and pulled), a pedal figure (a high note again and again between
+  // climbing notes), a trill climb; and some held notes slide in or trill. Its own seed per window.
+  let cast = fresh();
+  const inRange = (x: number) => x >= 0 && x < ladder.length && ladder[x] >= lo && ladder[x] <= hi;
+  const dressHold = (r: Rng, e: PEvent): PEvent => {
+    const h = e.hit;
+    if (!sounding(h) || h.bend || h.lateBend || h.unbend || h.slide || h.trill || e.len < 3) return e;
+    const n = notes.find((x) => Math.abs(x.t - e.t) <= TOL);
+    const big = n?.role === 'climax' || n?.role === 'end';
+    const pitch = h.notes[0];
+    const up = (ladder[ixOf(pitch) + 1] ?? 0) - pitch;
+    const kind = r.weighted<string>([['none', 2.2], ['slide', 0.25 + 1.5 * c.hands.slide], ['trill', e.len >= 4 && !big && up >= 1 && up <= 2 ? 0.15 + 0.9 * c.hands.legato : 0]]);
+    if (kind === 'none') return e;
+    const out: GuitarHit = { ...h };
+    if (kind === 'slide') { out.slide = r.chance(0.7) ? -r.int(2, 5) : r.int(2, 3); cast.slideIn++; }
+    else { out.trill = up; delete out.vib; cast.heldTrill++; }
+    return { ...e, hit: out };
+  };
+  const recast = () => {
+    const fit = c.chords ? lickFit(song, c.chords, null) : null;
+    const line = assemble().filter((e) => sounding(e.hit)).sort((a, b) => a.t - b.t);
+    const used = new Map<string, number>();
+    /** Library licks (a fast or mid one, plain enough for the hands) that fit `L` steps over a chord, cut down from the start where they are longer. */
+    const lickChoices = (L: number, chord: ReturnType<typeof chordAt>): [{ l: LibLick; from: number }, number][] => {
+      if (!chord) return [];
+      const ok = new Set<LibLick>();
+      for (const who of ['run', 'simple', 'sung', 'blues'] as const) for (const l of licksFor(who, null, chord)) ok.add(l);
+      const out: [{ l: LibLick; from: number }, number][] = [];
+      for (const l of ok) {
+        if (l.speed === 'slow' || l.notes.some((n) => n.dyad !== undefined || n.dead || n.rake || n.harm || n.dive || n.feedback || n.scrape || n.tremolo)) continue;
+        const pool = POOL.find((x) => x.lick === l);
+        for (let f = 0; f <= l.notes.length - 3; f++) {
+          const rem = l.span - l.notes[f].pos;
+          if (rem > L + 1e-6) continue;
+          if (rem < L - 1.01) break;
+          // (the quickest gap between two of its notes must be one the hand can play)
+          const tail = l.notes.slice(f);
+          if (tail.some((n, k) => k > 0 && (n.pos - tail[k - 1].pos) * s16 < (n.art === 'legato' || n.art === 'slide' ? MIN_LEGATO_MS : MIN_PICK_MS) + 2)) break;
+          const w = (pool?.genres.includes(genre) ? 2 : 1) * (pool?.moods.includes(c.mood) ? 1.5 : 1) * (l.speed === 'fast' ? 1.3 : 1) / (1 + 2 * (used.get(l.name) ?? 0));
+          out.push([{ l, from: f }, w]);
+          break;
+        }
+      }
+      return out;
+    };
+    const recastRun = (r: Rng, w: Win, p: Part, slice: PEvent[], out: PEvent[]): PEvent[] | null => {
+      const n = slice.length, L = p.b - p.a;
+      if (n < 3) return null;
+      const gi = (t: number) => guide(w, t).i;
+      const gaps = slice.map((e, s) => ((slice[s + 1]?.t ?? p.b) - e.t) * s16);
+      const minGap = Math.min(...gaps);
+      const canLegato = minGap >= MIN_LEGATO_MS + 2, canPick = minGap >= MIN_PICK_MS + 2;
+      const after = line.find((e) => e.t >= p.b - TOL);
+      const target = after?.hit.notes[0];
+      let before: PEvent | undefined;
+      for (const e of line) if (e.t < p.a - TOL) before = e;
+      const first = slice[0].hit.notes[0];
+      const prev = before?.hit.notes[0] ?? first;
+      const ia = ixOf(first);
+      const rebuild = (pitches: number[], arts: ('pick' | 'legato')[], vels: number[]) => slice.map((e, s) => mkEv(e.t, e.len, pitches[s], vels[s], e.base ?? gi(e.t), { art: arts[s] }));
+      const sameAs = (evs: PEvent[]) => evs.every((e, s) => e.hit.notes[0] === slice[s].hit.notes[0] && e.hit.art === slice[s].hit.art);
+
+      const lick = (): PEvent[] | null => {
+        const chord = chordAt(p.a);
+        if (!fit || L < 4) return null;
+        const cand = lickChoices(L, chord);
+        for (let tryN = 0; tryN < 3 && cand.length; tryN++) {
+          const k = cand.indexOf(r.weighted(cand.map((x) => [x, x[1]] as [typeof x, number])));
+          const { l, from } = cand.splice(k, 1)[0][0];
+          const placed = placeLibLick(r, fit, song.key, l, p.b, lo, hi, prev, 'any', l.who[0], slice[0].hit.vel * 0.9, from);
+          if (!placed || placed.length < 3) continue;
+          const gap = placed[0].step - p.a;
+          const last = placed[placed.length - 1].midi;
+          if (gap < -TOL || gap > 1 + TOL || (gap > TOL && !out.length)) continue;
+          if (Math.abs(placed[0].midi - prev) > 7 || placed.some((x) => x.step + x.len > p.b + TOL)) continue;
+          if (target !== undefined && (Math.abs(last - target) < 1 || Math.abs(last - target) > 5)) continue;
+          // (a one-step gap before it: the note before is held a step longer)
+          if (gap > TOL) { const e = out[out.length - 1]; out[out.length - 1] = { ...e, len: snap(e.len + gap), hit: { ...e.hit, len: snap(e.len + gap) } }; }
+          used.set(l.name, (used.get(l.name) ?? 0) + 1);
+          cast.lick++;
+          return placed.map((x, s) => {
+            const ex: Partial<GuitarHit> = { art: x.art === 'legato' || x.art === 'slide' ? x.art : 'pick' };
+            if (x.bend) ex.bend = x.bend;
+            if (x.unbend) ex.unbend = x.unbend;
+            if (x.trill) ex.trill = x.trill;
+            if (x.vib) ex.vib = x.vib;
+            return mkEv(x.step, x.len, x.midi, x.vel, gi(x.step), s === 0 ? { ...ex, art: 'pick' } : ex);
+          });
+        }
+        return null;
+      };
+
+      /** A legato roll: the scale in groups (2, 3 or 4), a group picked once and the rest hammered and pulled, each group one step on from the last. */
+      const roll = (): PEvent[] | null => {
+        if (n < 5 || !canLegato) return null;
+        const g = r.pick([2, 3, 3, 4]);
+        if (g > 1 && minGap * g < MIN_PICK_MS + 2) return null;
+        const ib = target === undefined ? ia : ixOf(target);
+        const dir = ib !== ia ? Math.sign(ib - ia) : r.chance(0.5) ? 1 : -1;
+        const ix = slice.map((_, s) => ia + dir * (Math.floor(s / g) + (s % g)));
+        if (target !== undefined) {
+          const d = Math.abs(ix[n - 1] - ib);
+          if (d < 1 || d > 2) { const x = ib - (Math.sign(ib - ix[n - 2]) || 1); if (x === ix[n - 2] || Math.abs(x - ix[n - 2]) > 3) return null; ix[n - 1] = x; }
+        }
+        if (ix.some((x, s) => !inRange(x) || (s > 0 && x === ix[s - 1]))) return null;
+        const evs = rebuild(ix.map((x) => ladder[x]), slice.map((_, s) => (s % g === 0 ? 'pick' : 'legato')), slice.map((e) => e.hit.vel));
+        if (sameAs(evs)) return null;
+        cast.roll++;
+        return evs;
+      };
+
+      /** A pedal figure: climbing (or falling) notes with a high note struck between them again and again, the last note a step or a third from the target. */
+      const pedal = (): PEvent[] | null => {
+        if (n < 5 || target === undefined || !canLegato) return null;
+        const ib = ixOf(target), P = ib + (Math.sign(ib - ia) || 1) * r.int(1, 2);
+        if (!inRange(P)) return null;
+        const mv = Math.ceil(n / 2);
+        const walk = mv > 1 ? fillPath(r, first, target, mv - 1, 'stair', true) : [];
+        if (!walk) return null;
+        const movers = [first, ...walk];
+        const pitches = slice.map((_, s) => (s % 2 === 0 ? movers[s / 2] : ladder[P]));
+        if (pitches.some((m, s) => s > 0 && m === pitches[s - 1])) return null;
+        const arts = slice.map((_, s) => (s === 0 || canPick ? 'pick' : 'legato') as 'pick' | 'legato');
+        const v0 = slice[0].hit.vel;
+        cast.pedal++;
+        return rebuild(pitches, arts, slice.map((_, s) => v0 * (s % 2 === 1 ? 1 : 0.88)));
+      };
+
+      /** A trill climb: two neighbouring notes traded hammered and pulled, then two quick steps onto the target. */
+      const trill = (): PEvent[] | null => {
+        if (n < 5 || target === undefined || !canLegato) return null;
+        const dir = inRange(ia + 1) && (r.chance(0.5) || !inRange(ia - 1)) ? 1 : -1;
+        if (!inRange(ia + dir)) return null;
+        const A = first, B = ladder[ia + dir];
+        const alt = slice.slice(0, n - 2).map((_, s) => (s % 2 === 0 ? A : B));
+        const tail = fillPath(r, alt[alt.length - 1], target, 2, 'stair', true);
+        if (!tail) return null;
+        const arts = slice.map((_, s) => (s === 0 || (s >= n - 2 && canPick) ? 'pick' : 'legato') as 'pick' | 'legato');
+        cast.trill++;
+        return rebuild([...alt, ...tail], arts, slice.map((e) => e.hit.vel));
+      };
+
+      const how = r.weighted<string>([
+        ['none', 1.3],
+        ['lick', fit && L >= 4 ? 1.2 : 0],
+        ['roll', n >= 5 && canLegato ? 0.5 + 1.2 * c.hands.legato : 0],
+        ['pedal', n >= 5 && canLegato ? 0.15 + 1.6 * T.pedal : 0],
+        ['trill', n >= 5 && canLegato ? 0.1 + 0.9 * c.hands.legato : 0],
+      ]);
+      if (how === 'lick') return lick();
+      if (how === 'roll') return roll();
+      if (how === 'pedal') return pedal();
+      if (how === 'trill') return trill();
+      return null;
+    };
+    chosen.wins.forEach((w, q) => {
+      if (w.pattern === 'plain') return;
+      const r = new Rng(`${c.seed}-express-recast-${q}`);
+      const was = chosen.events[q];
+      cast = fresh();
+      if (w.pattern === 'decor') {
+        const e = dressHold(r, was[0]);
+        if (e !== was[0]) { precast.set(q, was); castOf.set(q, cast); chosen.events[q] = [e]; }
+        return;
+      }
+      if (was.some((e) => !w.parts.some((p) => e.t >= p.a - TOL && e.t < p.b - TOL))) return;
+      const out: PEvent[] = [];
+      let changed = false;
+      for (const p of w.parts) {
+        const slice = was.filter((e) => e.t >= p.a - TOL && e.t < p.b - TOL);
+        if (!slice.length) continue;
+        if (p.kind === 'hold') {
+          const e = dressHold(r, slice[0]);
+          if (e !== slice[0]) changed = true;
+          out.push(e, ...slice.slice(1));
+          continue;
+        }
+        const got = recastRun(r, w, p, slice, out);
+        if (got) { changed = true; out.push(...got); } else out.push(...slice);
+      }
+      if (changed) { precast.set(q, was); castOf.set(q, cast); chosen.events[q] = out; }
+    });
+  };
+  if (o.recast) recast();
   for (let guard = 0; guard < 8; guard++) {
     const fresh = verify(assemble(), notes, vctx).filter((v) => !baseline.has(vkey(v)));
     if (!fresh.length) break;
@@ -541,6 +737,13 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     });
   };
 
+  // (counted after the checker has had its say: a recast window it sent back is not in the tally)
+  const recastWords = () => {
+    const sum = fresh();
+    for (const x of castOf.values()) for (const k of Object.keys(sum) as (keyof typeof sum)[]) sum[k] += x[k];
+    return `${sum.lick} licks, ${sum.roll} legato rolls, ${sum.pedal} pedal figures, ${sum.trill} trill climbs, ${sum.slideIn} slide-ins, ${sum.heldTrill} held-note trills`;
+  };
+
   const events = assemble();
   let hits = eventsToHits(events);
   if (o.dials) hits = dialBends(hits);
@@ -552,7 +755,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   const fine = hits.some((h) => h.shift || h.exact);
   return {
     hits,
-    notes: [...base.notes, `Solo expression (${words}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were${o.dials ? `; ${dialed} bends with their own speed and shape` : ''}`],
+    notes: [...base.notes, `Solo expression (${words}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were${o.dials ? `; ${dialed} bends with their own speed and shape` : ''}${o.recast ? `; recast: ${recastWords()}` : ''}`],
     curve: base.curve ? { ...base.curve, express: chosen.wins.map((w) => ({ t0: w.t0, t1: w.t1, pattern: w.pattern, heat: Math.round(w.heat * 100) / 100 })), ...(fine ? { fine: true } : {}) } : undefined,
   };
 }
