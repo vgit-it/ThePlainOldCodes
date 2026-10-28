@@ -18,7 +18,7 @@ export const WRITERS: [string, Record<string, unknown>][] = [
   ['Planned', { soloPlan: 'on' }],
   ['Melody + player', { soloPlan: 'perform', soloCores: 'off' }],
   ['Library story', { soloPlan: 'perform', soloCores: 'library', soloPolish: 'on', soloShape: 'on' }],
-  ...(process.env.TUNE === '1' ? [['Tune first', { soloPlan: 'tune' }] as [string, Record<string, unknown>]] : []),
+  ...(process.env.TUNE === '1' ? [['Tune first (1 try)', { soloPlan: 'tune', soloTuneTries: 1 }] as [string, Record<string, unknown>], ['Tune first', { soloPlan: 'tune' }] as [string, Record<string, unknown>]] : []),
 ];
 
 const solosOf = (j: number, extra: Record<string, unknown>) => {

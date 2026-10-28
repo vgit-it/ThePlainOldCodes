@@ -47,7 +47,8 @@ export function tuneScore(hitsIn: GuitarHit[], ctx: TuneCtx): Tune {
   const empty = (): Tune => ({ notes: n, phrases: 0, score: 0, steps: 0, leapBack: 0, turns: 0, repeat: 0, echo: 0, phraseBars: 0, phraseOk: 0, tight: 0, endsChord: 0, endsLong: 0, beatChord: 0, sameNote: 0, topCount: 0, parts: {} });
   if (n < 6) return empty();
   const barLen = ctx.bars.length ? ctx.bars.reduce((s, b) => s + b.len, 0) / ctx.bars.length : 16;
-  const beat = barLen >= 16 ? 4 : Math.max(2, Math.round(barLen / 4));
+  // (the beat is the smallest group of the bar: 4 in 4/4, 6 in 6/8)
+  const beat = ctx.bars.length && ctx.bars[0].groups?.length ? Math.min(...ctx.bars[0].groups) : barLen >= 16 ? 4 : Math.max(2, Math.round(barLen / 4));
 
   // moves
   const d: number[] = [];
@@ -63,11 +64,11 @@ export function tuneScore(hitsIn: GuitarHit[], ctx: TuneCtx): Tune {
   const top = Math.max(...midi);
   const topCount = midi.filter((m) => m === top).length;
 
-  // phrases: a gap of 2+ steps, or a held note (a beat and a half or more) ends one
+  // phrases: a gap of 2+ steps, or a held note (two beats or more) ends one
   const cuts: number[] = [];
   for (let i = 0; i < n - 1; i++) {
     const gap = line[i + 1].step - (line[i].step + line[i].len);
-    if (gap >= 2 || line[i].len >= beat * 1.5) cuts.push(i);
+    if (gap >= 2 || line[i].len >= beat * 2) cuts.push(i);
   }
   const phrases: [number, number][] = [];
   let from = 0;
