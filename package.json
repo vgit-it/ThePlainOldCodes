@@ -60,6 +60,7 @@
     "solo-recipes-check": "rolldown scripts/solo-recipes-check.ts --platform node --format esm -o node_modules/.cache/solo-recipes-check.mjs && node node_modules/.cache/solo-recipes-check.mjs",
     "solo-library-check": "rolldown scripts/solo-library-check.ts --platform node --format esm -o node_modules/.cache/solo-library-check.mjs && node node_modules/.cache/solo-library-check.mjs",
     "solo-polish-check": "rolldown scripts/solo-polish-check.ts --platform node --format esm -o node_modules/.cache/solo-polish-check.mjs && node node_modules/.cache/solo-polish-check.mjs",
+    "solo-tune-check": "rolldown scripts/solo-tune-check.ts --platform node --format esm -o node_modules/.cache/solo-tune-check.mjs && node node_modules/.cache/solo-tune-check.mjs",
     "solo-shape-check": "rolldown scripts/solo-shape-check.ts --platform node --format esm -o node_modules/.cache/solo-shape-check.mjs && node node_modules/.cache/solo-shape-check.mjs",
     "solo-moves-check": "rolldown scripts/solo-moves-check.ts --platform node --format esm -o node_modules/.cache/solo-moves-check.mjs && node node_modules/.cache/solo-moves-check.mjs",
     "lead-roll-check": "rolldown scripts/lead-roll-check.ts --platform node --format esm -o node_modules/.cache/lead-roll-check.mjs && node node_modules/.cache/lead-roll-check.mjs",
