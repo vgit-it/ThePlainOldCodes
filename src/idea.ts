@@ -1,3 +1,4 @@
+import type { MoodSong } from './moodsong';
 import type { GuideSungLine } from './guide/words';
 import type { EnergyStyle } from './parts/energy';
 import type { VocalNote, VoiceType } from './parts/vocal';
@@ -41,6 +42,8 @@ export interface GenOptions {
   /** Fixed key (0-11) and mode; leave out for the song's own (the lick lab sets them). */
   key?: number;
   mode?: Mode;
+  /** Mood song (docs/MOOD-SONG.md): the song written for a mood, its mode, tempo and drum feel following it. Left out: the genre's own. */
+  moodSong?: MoodSong;
   /** Chords you set (strummed genres); the generator writes the rest around them. */
   chords?: ChordSheet;
   /** Semitones higher the vocal tunes are written (the Chester voice: a tenor; in key, the tune itself rewritten). */

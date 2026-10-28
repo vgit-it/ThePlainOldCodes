@@ -42,6 +42,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `SOLO-SHAPE.md`: step 2f, the story's dynamics (loudness follows the arc, a laid-back start in soft moods, the last note rings). Switch: Solo shape.
 - `SOLO-TUNE.md`: "Tune first", a melody-first solo writer (phrases of 2 to 4 bars, a strong note per phrase, answers, best of 12 by a tune score). Switch: Solo writer. Checks: `npm run solo-tune-check`, `solo-tunefirst-check`.
 - `SOLO-MOOD.md`: Solo mood (each mood's own jumps, pace, height, colour notes in Tune first) and Mood scale (over power chords the mood picks the 3rd and 6th). Switches: Solo mood, Mood scale. Checks: `npm run solo-mood-check`, `solo-scale-check`.
+- `MOOD-SONG.md`: Mood song, the mood chooses the song's mode, tempo and drum feel (a sad mood: minor, slower, half-time). Switch: Mood song. Check: `npm run mood-song-check`.
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.
 - `GUITAR-SOUNDS.md`: the lead's new sounds (pinch and natural harmonics, whammy dive, feedback, pick scrape), made in code.
