@@ -538,8 +538,8 @@ export interface SectionInfo {
   riser?: boolean;
   /** The previous section pushed this one's first chord early: its downbeat isn't struck again. */
   pushedIn?: boolean;
-  /** A solo with held chords under it (src/sections/soloback.ts): bars each chord is held up to, and the steps it is struck. */
-  soloBack?: { span: number; strikes: number[] };
+  /** A solo with held chords under it (src/sections/soloback.ts): the steps where a chord is struck. */
+  soloBack?: { strikes: number[] };
   /** Tension per bar (0-1) from the song's arc, and the mix level per bar (dB, 0 at the climax). */
   tension?: number[];
   db?: number[];

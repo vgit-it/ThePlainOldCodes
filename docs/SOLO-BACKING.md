@@ -1,28 +1,27 @@
-Status: built (2026-10-28), behind a switch. Paul has not heard it.
+Status: built (2026-10-28), behind a switch. Round 2 after Paul's first listen: the first version merged the chords into long holds and the solo sat on one chord; now the progression stays.
 
 # Solo backing: held chords under a solo
 
-Paul: in hard rock, metal and grunge the band often holds long chords (or chord shapes) under the solo, and the lead sings over them. Would that break the solo system? No: the solo writers read the chords from the song's chord timeline by position, not as "one chord a bar".
+Paul: in hard rock, metal and grunge the band often plays chords, not a riff, under the solo, and the lead sings over them. Keep the song's own progression; the rhythm guitar plays chords (power chords or full chords) instead of the riff.
 
 Switch: Track options → **Solo backing** → Held chords (`soloBacking: 'held'`). Default: as written. An old link plays as before. Check: `npm run solo-back-check`. Code: `src/sections/soloback.ts`.
 
 ## What it does (solo sections only, including a solo outro)
-- The section's chords are merged into spans of 4 bars (or 2; a 4-bar span needs 8+ bars). A span keeps the chord that sounds longest in it; the first span keeps the section's own first chord (the bar before was written to lead into it). The same chord twice in a row is one longer hold.
-- The rhythm guitar strikes the chord on each change and again every second bar it carries on. Riff songs: a power chord rung until the next strike. Strummed songs: one down-stroke.
+- The chord changes stay exactly as written.
+- The rhythm guitar strikes each chord when it changes, and again at the top of every second bar it carries on for. Riff songs: a power chord rung until the next strike. Strummed songs: one down-stroke of the full chord.
 - The bass holds the root (riff songs: the guitar's tonic), struck at the same places, legato.
-- The drums are not touched (their crashes follow the chord changes, so there are fewer).
-- The solo writers (Tune first, and the others) and the expression pass read the new chords as they are. Fewer chord changes means fewer chord-note targets and more room for held bent notes.
+- The drums are not touched.
+- The solo writers (Tune first and the others) and the expression pass read the chords as they are.
 - Hand-overs stay: the last bar into the next section (push, band hits, ring-out) and a stop before the solo are the seams' own.
 
 ## For the rhythm guitar later
-- The plan is on the section: `section.soloBack = { span, strikes }` (the steps where the chord is struck).
-- The band feel (`players/guitarists.ts` touches, `players/bassist.ts` embellishments) leaves these sections alone. A rhythm-guitar step can read `soloBack` to play its own way (sus and add9 colour, slow arpeggios, swells, a different voicing on each strike) without changing the chords again.
+- The plan is on the section: `section.soloBack = { strikes }` (the steps where a chord is struck).
+- The band feel (`players/guitarists.ts` touches, `players/bassist.ts` embellishments) leaves these sections alone. A rhythm-guitar step can read `soloBack` to play its own way: full chords in riff songs, sus and add9 colour, slow arpeggios, swells, a different voicing on each strike.
 
-## Numbers (60 songs, 73 solos)
-- Chords per solo: 8.1 → 2.8.
-- Only solo sections change (and the bars next to them for the hand-over); "As written" is identical to before.
+## Tried and dropped
+- Merging the chords into 2–4 bar holds (the first version): the solo ended up on one chord from start to end. Not what Paul wants.
 
 ## Next
 1. Paul listens (hard rock, metal, grunge first).
-2. Rhythm guitar reads `soloBack`: its own colour and voicing on each strike.
-3. Maybe: the Tune first melody gets a longer-phrase option over held chords.
+2. Riff songs: full chords as well as power chords, by the song or the section.
+3. Rhythm guitar reads `soloBack`.

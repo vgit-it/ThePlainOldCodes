@@ -1,7 +1,7 @@
 // Checks Solo backing (docs/SOLO-BACKING.md, src/sections/soloback.ts) on tracks of all genres and meters:
 //  - As written (and a link without the option): nothing changes;
 //  - Held: only the solo sections change (the bars next to them may, for the hand-over: a push, a build); every other section is note for note the same;
-//  - in a solo, chords change on bar lines only, each lasts two bars or more (but the last, if the bars run out), fewer chords than before;
+//  - in a solo the chord changes are the song's own (the same progression as without the switch, before the last bar's hand-over);
 //  - the rhythm guitar and the bass play only where the chord is struck (riff songs: a power chord there), every strike is on a chord;
 //  - (built with Solo expression on, the way it is meant to be used)
 //  - the solo is still a solo (notes, in range, no overlaps), and the same seed gives the same track.
@@ -22,7 +22,7 @@ const build = (j: number, extra: Record<string, unknown>) => {
 };
 const J = JSON.stringify;
 
-const T = { songs: 0, solos: 0, chordsBefore: 0, chordsAfter: 0, riff: 0, strikes: 0, mutedWrong: 0 };
+const T = { songs: 0, solos: 0, chords: 0, riff: 0, strikes: 0, mutedWrong: 0 };
 for (let j = 0; j < N; j++) {
   const base = build(j, {}), written = build(j, { soloBacking: 'written' }), held = build(j, { soloBacking: 'held' }), again = build(j, { soloBacking: 'held' });
   T.songs++;
@@ -37,19 +37,11 @@ for (let j = 0; j < N; j++) {
     }
     T.solos++;
     const { song, chords } = sec, tl = chords.timeline, back = sec.section.soloBack;
-    T.chordsBefore += was.chords.timeline.length; T.chordsAfter += tl.length;
+    T.chords += tl.length;
     // (the last bar is the hand-over to the next section: a push, band hits, a ring-out; the checks stop before it)
     const lastBar = song.bars[song.bars.length - 1], upto = lastBar.start;
-    const starts = new Set<number>(song.bars.map((b: any) => b.start));
-    tl.forEach((ev: any, i: number) => {
-      if (ev.step >= upto) return;
-      if (!starts.has(ev.step)) fail(`${base.s}: chord change off the bar line at ${ev.step}`);
-      const end = tl[i + 1]?.step ?? song.total;
-      const bars = song.bars.filter((b: any) => b.start >= ev.step && b.start < end).length;
-      if (bars < 2 && i < tl.length - 1) fail(`${base.s}: a chord lasts ${bars} bar(s)`);
-      if (bars < 1) fail(`${base.s}: empty chord`);
-      if (i && tl[i - 1].step >= ev.step) fail(`${base.s}: timeline not in order`);
-    });
+    const ch = (t: any[], upto2: number) => J(t.filter((e: any) => e.step < upto2).map((e: any) => [e.step, e.chord]));
+    if (ch(tl, upto) !== ch(was.chords.timeline, upto)) fail(`${base.s}: the progression changed`);
     for (let g = 0; g < upto; g++) if (tl[chords.chordIdx[g]].step > g || (tl[chords.chordIdx[g] + 1]?.step ?? song.total) <= g) { fail(`${base.s}: chordIdx wrong at ${g}`); break; }
     const strikes = new Set<number>(back.strikes);
     if (!strikes.has(0)) fail(`${base.s}: no strike on the first beat`);
@@ -79,9 +71,7 @@ for (let j = 0; j < N; j++) {
     });
   });
 }
-const fewer = T.chordsBefore ? T.chordsAfter / T.chordsBefore : 1;
-console.log(`${T.songs} songs, ${T.solos} held solos (${T.riff} riff); chords per solo ${(T.chordsBefore / Math.max(1, T.solos)).toFixed(1)} → ${(T.chordsAfter / Math.max(1, T.solos)).toFixed(1)}; ${T.strikes} strikes`);
+console.log(`${T.songs} songs, ${T.solos} held solos (${T.riff} riff); ${(T.chords / Math.max(1, T.solos)).toFixed(1)} chords per solo; ${T.strikes} strikes`);
 if (T.solos < N / 2) fail(`only ${T.solos} held solos in ${N} songs`);
-if (fewer > 0.6) fail(`chords only fell to ${(fewer * 100).toFixed(0)}% of before`);
 console.log(bad ? `${bad} FAIL` : 'solo backing ok');
 process.exit(bad ? 1 : 0);
