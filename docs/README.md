@@ -47,6 +47,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `MOOD-ALL.md`: Mood: all the way, one switch for Tune first solos, Solo mood, Mood scale, Mood song and Mood riff (works on Auto mood too). Check: `npm run mood-all-check`.
 - `SOLO-EXPRESSION.md`: Solo expression, the Tune first melody played like a guitarist (held bent notes, quick runs, flurries and breaths in windows of any length, tempo-honest speed, a temper per solo). Switch: Solo expression. Check: `npm run solo-express-check`.
 - `SOLO-BENDS.md`: Solo bends, the bend dials (each bent note gets its own speed, shape and timing; the engine reads them). Switch: Solo bends. Check: `npm run solo-bend-check`.
+- `SOLO-RECAST.md`: Solo recast (some runs become a library lick, a legato roll, a pedal figure or a trill climb; held notes slide in or trill). Switch: Solo recast. Check: `npm run solo-recast-check`.
 - `SOLO-BACKING.md`: Solo backing, held chords under a solo (chords merged into 2–4 bar holds, the rhythm guitar rings them, the bass holds the root). Switch: Solo backing. Check: `npm run solo-back-check`.
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.

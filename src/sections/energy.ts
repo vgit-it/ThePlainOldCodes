@@ -214,6 +214,8 @@ export function carrySolo(idea: Idea, next: Idea | undefined, dials = false) {
   const rise = dials ? Math.min(d > 0 ? 0.2 + 0.13 * d : 0.18 + 0.04 * -d, 0.7 * (total - h.step) * six) : d > 0 ? 0.14 + d * 0.04 : 0.12;
   const at = Math.max(0.5, total - h.step - rise / six - 0.25);
   h.bend = 0;
+  // (a slide in and a bend don't go together: the carried bend wins)
+  delete h.slide;
   if (d > 0) { h.notes = [cur + d]; h.unbend = undefined; h.lateBend = d; h.bendAt = at; }
   else { h.notes = [cur]; h.lateBend = undefined; h.unbend = -d; h.bendAt = at; }
   if (dials) { h.bendRise = Math.round(rise * 1000); h.bendEase = d > 0 ? 1.5 : 1; }
