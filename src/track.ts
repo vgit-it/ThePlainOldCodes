@@ -101,7 +101,7 @@ export interface TrackOptions {
   soloShape?: 'on' | 'off';
   /** Tune first only (docs/SOLO-EXPRESSION.md): the melody played the way a guitarist would: held bent notes, quick runs, flurries and breaths in windows of any length; replaces Solo polish (missing in older links: off). */
   soloExpress?: 'on' | 'off';
-  /** What the band plays under a solo (docs/SOLO-BACKING.md): 'held' = the chords held for two or four bars, the rhythm guitar ringing them; otherwise as written (missing in older links: as written). */
+  /** What the band plays under a solo (docs/SOLO-BACKING.md): 'held' = the song's chords kept, the rhythm guitar ringing each one held (power chords or full chords) instead of its riff; otherwise as written (missing in older links: as written). */
   soloBacking?: 'held' | 'written';
   /** Checks only (scripts/solo-*-check.ts), never set by the page: a step of the melody + player writer on its own (the melody, with gap marks, with joins, or read and left as written). */
   soloCheck?: 'melody' | 'marks' | 'joins' | 'player';
@@ -643,9 +643,9 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     if (s.kind === 'outro' && (jam || s.g2 === 'solo')) idea.section!.lead = true;
     const notes: string[] = [];
 
-    // Solo backing: held chords under a solo (own seed, so nothing else shifts)
+    // Solo backing: held chords under a solo
     const held = opts.soloBacking === 'held' && s.g2 === 'solo' && !s.intro;
-    if (held) notes.push(heldBacking(idea, new Rng(`${S.structure}-${si}-held`)));
+    if (held) notes.push(heldBacking(idea));
 
     // energy
     if (s.intro === 'alone') {
