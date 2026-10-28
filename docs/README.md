@@ -46,6 +46,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `MOOD-RIFF.md`: Mood riff, the mood picks the riff styles (sad: arpeggios, single notes, pedal; bold: gallops, big chords) and a major key's riff takes the major 3rd. Switch: Mood riff. Check: `npm run mood-riff-check`.
 - `MOOD-ALL.md`: Mood: all the way, one switch for Tune first solos, Solo mood, Mood scale, Mood song and Mood riff (works on Auto mood too). Check: `npm run mood-all-check`.
 - `SOLO-EXPRESSION.md`: Solo expression, the Tune first melody played like a guitarist (held bent notes, quick runs, flurries and breaths in windows of any length, tempo-honest speed, a temper per solo). Switch: Solo expression. Check: `npm run solo-express-check`.
+- `SOLO-BACKING.md`: Solo backing, held chords under a solo (chords merged into 2–4 bar holds, the rhythm guitar rings them, the bass holds the root). Switch: Solo backing. Check: `npm run solo-back-check`.
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.
 - `GUITAR-SOUNDS.md`: the lead's new sounds (pinch and natural harmonics, whammy dive, feedback, pick scrape), made in code.

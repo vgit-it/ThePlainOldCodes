@@ -23,6 +23,7 @@ import { performSolo } from './parts/soloplayer';
 import { addLeadSounds } from './parts/solosounds';
 import { shapeStory } from './parts/solodynamics';
 import { expressSolo } from './parts/soloexpress';
+import { heldBacking } from './sections/soloback';
 import { LIVE_RULES, NO_RULES } from './parts/solorules-live';
 import { singLead } from './parts/leadvocal';
 import { emoOn, setsOf } from './verse/emotion';
@@ -100,6 +101,8 @@ export interface TrackOptions {
   soloShape?: 'on' | 'off';
   /** Tune first only (docs/SOLO-EXPRESSION.md): the melody played the way a guitarist would: held bent notes, quick runs, flurries and breaths in windows of any length; replaces Solo polish (missing in older links: off). */
   soloExpress?: 'on' | 'off';
+  /** What the band plays under a solo (docs/SOLO-BACKING.md): 'held' = the chords held for two or four bars, the rhythm guitar ringing them; otherwise as written (missing in older links: as written). */
+  soloBacking?: 'held' | 'written';
   /** Checks only (scripts/solo-*-check.ts), never set by the page: a step of the melody + player writer on its own (the melody, with gap marks, with joins, or read and left as written). */
   soloCheck?: 'melody' | 'marks' | 'joins' | 'player';
   /** When the rhythm guitar plays (src/players/presence.ts): it sits out intros, verses and bridges, comes in late, drops out, as in real songs (missing in older links: off). */
@@ -640,6 +643,10 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     if (s.kind === 'outro' && (jam || s.g2 === 'solo')) idea.section!.lead = true;
     const notes: string[] = [];
 
+    // Solo backing: held chords under a solo (own seed, so nothing else shifts)
+    const held = opts.soloBacking === 'held' && s.g2 === 'solo' && !s.intro;
+    if (held) notes.push(heldBacking(idea, new Rng(`${S.structure}-${si}-held`)));
+
     // energy
     if (s.intro === 'alone') {
       pickup(idea, r);
@@ -649,7 +656,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
       notes.push(`${riff ? 'Riff' : 'Guitar'} alone, the drums come in with a fill`);
     } else {
       shapeDrums(idea, s.energy, r);
-      if (!riff) shapeBass(idea, s.energy);
+      if (!riff && !held) shapeBass(idea, s.energy);
       // room to breathe: half-time sections, and (for some drummers) every verse, on quarter notes
       const drumGenre = idea.song.partGenres.drums;
       const half = idea.song.forceHalf ?? idea.drums.halfTime;
@@ -660,7 +667,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
       }
     }
     // (under a solo the rhythm guitar backs off a little)
-    if (!riff) shapeStrum(idea, s.g2 === 'solo' ? Math.min(3, s.energy) : s.energy);
+    if (!riff && !held) shapeStrum(idea, s.g2 === 'solo' ? Math.min(3, s.energy) : s.energy);
 
     // guitar 2
     const runs = runCount(idea);

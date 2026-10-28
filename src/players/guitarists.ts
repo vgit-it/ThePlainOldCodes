@@ -73,7 +73,8 @@ export function playGuitars(sections: Idea[], seed: string, drummer: Feel = 'on'
     }
 
     // the rhythm guitar's touches (strummed genres, once the band's in)
-    if (!idea.guitar && e >= 3 && strum.some((s) => s !== '.')) {
+    // (held chords under a solo are left as planned: src/sections/soloback.ts)
+    if (!idea.guitar && !info.soloBack && e >= 3 && strum.some((s) => s !== '.')) {
       const inFill = fillSteps(idea);
       const from = info.bandFrom ?? 0;
       const lastBar = song.bars[song.bars.length - 1];
