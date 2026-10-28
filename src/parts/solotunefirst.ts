@@ -17,10 +17,12 @@ import { TUNINGS } from '../theory/fretboard';
 import type { Mood } from '../tension';
 import { intervalCost, profileFor } from '../verse/intervals';
 import type { Guitar2Part } from './guitar2';
+import { chordTones } from './guitar2';
 import { lickFit, placedHit } from './licks';
 import { BUSY, DENSITY, ENERGY_WORDS, energyAt, pickEnergy } from './solo2';
 import { type GapNote, findGaps, pickGaps } from './solomelody-gaps';
 import { BREATH_GENRE, BREATH_MOOD, type PlanOpts } from './soloplan';
+import { SOLO_MOOD, aimFor } from './solomood';
 import { tuneScore } from './solotune';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
@@ -78,13 +80,16 @@ const TEMPLATES: Record<number, [Cell[], number][]> = {
   ],
 };
 
-export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, tries = TUNE_TRIES): Guitar2Part {
+export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean } = {}): Guitar2Part {
+  // (`moody`, Solo mood: the mood's own character in the intervals, jumps, pace, colour notes and the score; docs/SOLO-MOOD.md)
+  const tries = x.tries ?? TUNE_TRIES, moody = !!x.moody;
   const { key, bars, total } = song;
   const genre = song.partGenres.strum;
   const t = song.tuning ?? TUNINGS.standard;
   const fit = lickFit(song, chords, riff);
   const mood: Mood = o.mood ?? 'nostalgic';
   const scale = SCALES[song.mode] as readonly number[];
+  const PM = SOLO_MOOD[mood];
   const barIx = (g: number) => { for (let i = bars.length - 1; i >= 0; i--) if (g >= bars[i].start) return i; return 0; };
   const profs = bars.map((_, i) => profileFor(mood, 'solo', o.tension?.length ? o.tension[Math.min(o.tension.length - 1, i)] : undefined));
   const prof = (g: number) => profs[barIx(g)];
@@ -116,7 +121,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   en.pitch = 7 + 3 * intensity;
   const E = (g: number) => energyAt(en, clamp(g / total, 0, 1));
   const base = 66 + Math.round(3 * intensity);
-  const centerAt = (g: number) => base + Math.round(en.pitchC * en.pitch * E(g));
+  const centerAt = (g: number) => base + Math.round(en.pitchC * en.pitch * E(g)) + (moody ? PM.height : 0);
   const rawWindow = (g: number): [number, number] => [Math.max(50, centerAt(g) - 6), Math.min(83, centerAt(g) + 6)];
   const paceAt = (g: number) => 1 + en.paceC * en.pace * E(g);
   const busy = (DENSITY[genre] * BUSY[lick]) / 5.4;
@@ -124,8 +129,11 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const breath = BREATH_MOOD[mood] * BREATH_GENRE[genre];
 
   // the scale as a ladder: a step on it is one scale step
+  // (Solo mood: a chord note outside the key is on the ladder too, so a borrowed chord keeps its own notes)
+  const outKey = new Set<number>();
+  if (moody) for (const e of chords.timeline) for (const pc of chordTones(key, e.chord)) if (!scale.includes(mod(pc - key, 12))) outKey.add(pc);
   const ladder: number[] = [];
-  for (let m = 40; m <= 96; m++) if (scale.includes(mod(m - key, 12))) ladder.push(m);
+  for (let m = 40; m <= 96; m++) if (scale.includes(mod(m - key, 12)) || outKey.has(mod(m, 12))) ladder.push(m);
   const ixOf = (m: number) => { let best = 0; for (let i = 1; i < ladder.length; i++) if (Math.abs(ladder[i] - m) < Math.abs(ladder[best] - m)) best = i; return best; };
   const L = (i: number) => ladder[clamp(i, 0, ladder.length - 1)];
 
@@ -140,16 +148,39 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     else if (n.len >= 4 && !coreOver(n.m, n.step, n.len)) c += 1;
     if (fit.clash(n.m, n.step)) c += 1;
     if (prev !== null) {
-      c += MOOD_W * intervalCost(prof(n.step), prev, n.m, lastMove, false);
+      c += (moody ? PM.weight : MOOD_W) * intervalCost(prof(n.step), prev, n.m, lastMove, false);
       const a = Math.abs(n.m - prev);
-      if (a === 0 && mood !== 'angry' && mood !== 'tense') c += 1.2;
-      if (a > 9) c += 2;
+      if (a === 0) { if (moody) c += 2.6 - 1.2 * PM.repeatNote; else if (mood !== 'angry' && mood !== 'tense') c += 1.2; }
+      if (a > (moody ? 12 : 9)) c += 2;
+    }
+    if (moody) {
+      // the mode and the chord: a note off the key that is not the chord's own is out; a colour note is liked on a held note and a rub is not
+      const dd = mod(n.m - chordPc(key, fit.chordAt(n.step)), 12), held = n.len >= beatOf(n.step);
+      if (!scale.includes(mod(n.m - key, 12)) && !fit.isTone(n.m, n.step)) c += 14;
+      if (!isCore(n.m, n.step)) {
+        c -= (PM.colour[dd] ?? 0) * (held ? 1.1 : 0.5);
+        if (fit.rubs(n.m, n.step) && !PM.colour[dd]) c += (held ? 1.6 : 0.5) * (1 - PM.rough);
+      }
     }
     return c;
   };
-  const lineCost = (ns: N0[], prevM: number | null, lastMove0 = 0) => {
+  const lineCost = (ns: N0[], prevM: number | null, lastMove0 = 0, prevN: N0 | null = null) => {
     let c = 0, prev = prevM, lm = lastMove0;
-    for (const n of ns) { c += noteCost(n, prev, lm); lm = prev === null ? 0 : n.m - prev; prev = n.m; }
+    // (Solo mood: the note before, if it was a passing note, moves on by a step)
+    if (moody && prevN && ns.length && !isCore(prevN.m, prevN.step)) c += Math.abs(ns[0].m - prevN.m) > 4 ? 2.2 : Math.abs(ns[0].m - prevN.m) > 2 ? 0.6 : 0;
+    ns.forEach((n, i) => {
+      c += noteCost(n, prev, lm);
+      if (moody) {
+        // a note that is not a chord note is passing: it moves on by a step, and is not jumped into; the leading tone goes up to the root
+        const nx = ns[i + 1];
+        if (!isCore(n.m, n.step)) {
+          if (nx) c += Math.abs(nx.m - n.m) > 4 ? 2.2 : Math.abs(nx.m - n.m) > 2 ? 0.6 : 0;
+          if (prev !== null && Math.abs(n.m - prev) >= 5) c += 1.4;
+          if (mod(n.m - key, 12) === 11 && nx && nx.m - n.m !== 1) c += 1 - 0.5 * PM.rough;
+        }
+      }
+      lm = prev === null ? 0 : n.m - prev; prev = n.m;
+    });
     return c;
   };
   const pickCost = <T>(r: Rng, items: { v: T; cost: number }[]): T | null => {
@@ -159,8 +190,10 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   };
 
   // ---- a rhythm: note lengths that fill `budget` steps from `from`, ending on beats, never three alike in a row
-  const rhythm = (r: Rng, from: number, budget: number): number[] => {
-    const W: Record<number, number> = { 2: 1.1 * busy * paceAt(from), 4: 2.4, 6: 1.1, 8: 0.45, 12: 0.05 };
+  const rhythm = (r: Rng, from: number, budget: number, feel?: { q: number; shift?: 'qs' | 'sq' }): number[] => {
+    // (Solo mood: `q` is the feel, -1 slow to 1 quick; `shift` is a change inside the cell: quick then slow, or slow then quick)
+    const q = feel?.q ?? 0;
+    const W: Record<number, number> = { 2: 1.1 * busy * paceAt(from) * Math.exp(2 * q), 4: 2.4 * Math.exp(-0.4 * q), 6: 1.1 * Math.exp(-1.2 * q), 8: 0.45 * Math.exp(-1.4 * q), 12: 0.05 * Math.exp(-1.4 * q) };
     for (let tries2 = 0; tries2 < 8; tries2++) {
       const out: number[] = [];
       let pos = from, rem = budget, ok = true;
@@ -170,6 +203,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
           if (l > rem || (rem - l === 1)) continue;
           let w = W[l] * (isBeat(pos + l) || pos + l === from + budget ? 3 : 0.7);
           if (l >= 6 && !isBeat(pos)) w *= 0.25;
+          if (feel?.shift) { const f = (pos - from) / budget, early = feel.shift === 'qs' ? f < 0.5 : f >= 0.5; if (l === 2) w *= early ? 2.2 : 0.3; else if (l >= 6) w *= early ? 0.4 : 2; }
           if (out.length >= 2 && out[out.length - 1] === l && out[out.length - 2] === l) w = 0;
           if (pointsOver(pos, l).length > 1) { let k = 0; for (let pc = 0; pc < 12; pc++) if (pointsOver(pos, l).every((x) => isCore(pc, x))) k++; w *= k >= 2 ? 0.6 : k === 1 ? 0.2 : 0; }
           if (rem - l === 0 || rem - l >= 2) items.push([l, w]);
@@ -204,11 +238,46 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     return Array.from({ length: n }, (_, i) => (i % 2 ? 1 : 0));
   };
 
+  /**
+   * Solo mood: a cell walked note by note from its anchor, each step picked by what the note costs (the mood's intervals, the chord,
+   * the key, the height), pulled the way the contour goes and toward the jumps the mood likes. The shape is the steps from the anchor.
+   */
+  const walkCell = (r: Rng, from: number, lens: number[], anchor: number, contour: Contour, prevM: number | null): number[] => {
+    const n = lens.length;
+    const pUp = (i: number) => (contour === 'rise' ? 0.68 : contour === 'fall' ? 0.32 : contour === 'level' ? 0.5 : contour === 'arch' ? (i < n / 2 ? 0.72 : 0.28) : i < n / 2 ? 0.28 : 0.72);
+    const shape = [0];
+    let idx = anchor, pm = L(anchor), lm = prevM === null ? 0 : pm - prevM, pos = from + lens[0];
+    for (let i = 1; i < n; i++) {
+      const items: { v: number; cost: number }[] = [];
+      for (let d = -5; d <= 5; d++) {
+        const m = L(idx + d);
+        let c = noteCost({ step: pos, len: lens[i], m }, pm, lm);
+        c -= 0.8 * Math.log(d === 0 ? 0.5 : d > 0 ? pUp(i) : 1 - pUp(i));
+        if (Math.abs(m - pm) >= 5) c -= 0.8 * Math.log(clamp(PM.leap / 0.25, 0.25, 3));
+        items.push({ v: d, cost: c });
+      }
+      const d = pickCost(r, items) ?? 1;
+      idx += d; lm = L(idx) - pm; pm = L(idx); pos += lens[i];
+      shape.push(idx - anchor);
+    }
+    return shape;
+  };
   /** The cell's notes if its first note is on ladder step `anchor`. */
   const place = (from: number, lens: number[], shape: number[], anchor: number, vel = 0): N0[] => {
     let pos = from;
     return lens.map((len, i) => { const n = { step: pos, len, m: L(anchor + shape[i]) }; pos += len; return n; }).map((n) => (vel ? n : n));
   };
+  /** Solo mood: a note off the key that is not a note of the chord sounding moves to the nearest note that is. */
+  const offKey = (n: N0) => !scale.includes(mod(n.m - key, 12)) && !fit.isTone(n.m, n.step);
+  const tidy = (ns: N0[]): N0[] => (!moody ? ns : ns.map((n) => {
+    let out = n;
+    // (and back inside the range: down or up the ladder from a note that went over or under)
+    for (let k = 0; k < 6 && (out.m > 86 || out.m < 50); k++) out = { ...out, m: L(ixOf(out.m) + (out.m > 86 ? -1 : 1)) };
+    if (!offKey(out)) return out;
+    const ix = ixOf(out.m);
+    for (const d of [1, -1, 2, -2, 3, -3]) { const m = L(ix + d); if (!offKey({ ...out, m }) && m >= 50 && m <= 86) return { ...out, m }; }
+    return out;
+  }));
   /** A strong place (a beat, or a held note) that landed on a note that is not a chord note moves to the nearest chord note on the ladder. */
   const repair = (ns: N0[], prevM: number | null): N0[] => {
     let prev = prevM;
@@ -244,18 +313,36 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
    * One cell: its rhythm and shape (made, or the memo's), on the best anchor. `ref` is the ladder step of the note before, `bias`
    * the ladder step the first note is pulled to.
    */
-  const cellAt = (r: Rng, from: number, lens: number[], memoShape: number[] | null, contour: Contour, prevM: number | null, ref: number | null, bias: number | null) => {
+  const cellAt = (r: Rng, from: number, lens: number[], memoShape: number[] | null, contour: Contour, prevM: number | null, ref: number | null, bias: number | null, jump = 0, prevN: N0 | null = null) => {
     const items: { v: { shape: number[]; anchor: number }; cost: number }[] = [];
-    const shapes = memoShape ? [memoShape] : Array.from({ length: 22 }, () => shapeOf(r, lens.length, contour));
-    const anchors = anchorsFor(from, lens[0], bias ?? ref, 6);
-    for (const shape of shapes) for (const a of anchors) {
-      let c = lineCost(place(from, lens, shape, a), prevM);
-      if (ref !== null) c += 0.5 * Math.abs(a - ref) + (a === ref ? 1.5 : 0);
-      if (bias !== null) c += 0.9 * Math.abs(a - bias);
-      items.push({ v: { shape, anchor: a }, cost: c });
+    let anchors = anchorsFor(from, lens[0], bias ?? ref, 6);
+    // (Solo mood: a jump to the cell's first note, up or down, 5 to 12 semitones from the note before)
+    if (jump && prevM !== null) {
+      const far = anchorsFor(from, lens[0], null, 99).filter((a) => (L(a) - prevM) * jump >= 5 && (L(a) - prevM) * jump <= 12);
+      if (far.length) anchors = far;
+      else jump = 0;
     }
+    if (moody && !memoShape && anchors.length > 6) {
+      const at = bias ?? ref ?? ixOf(centerAt(from));
+      anchors = anchors.slice().sort((a, b) => Math.abs(a - at) - Math.abs(b - at)).slice(0, 6);
+    }
+    const shapesFor = (a: number): number[][] => [walkCell(r, from, lens, a, contour, prevM), walkCell(r, from, lens, a, contour, prevM)];
+    const shared = memoShape || moody ? null : Array.from({ length: 22 }, () => shapeOf(r, lens.length, contour));
+    const add = (shape: number[], a: number) => {
+      let c = lineCost(place(from, lens, shape, a), prevM, 0, prevN);
+      if (jump && prevM !== null) c += 0.3 * Math.abs(Math.abs(L(a) - prevM) - 7);
+      else if (ref !== null) c += 0.5 * Math.abs(a - ref) + (a === ref ? 1.5 : 0);
+      if (bias !== null) c += 0.9 * Math.abs(a - bias);
+      // (Solo mood: a cell ends on a chord note, or leaves its last note for the next cell to answer)
+      if (moody) { const ln = place(from, lens, shape, a).pop()!; if (!isCore(ln.m, ln.step)) c += 1.5; }
+      items.push({ v: { shape, anchor: a }, cost: c });
+    };
+    // (the same order as before for the plain writer: the shapes, then the anchors)
+    if (moody && !memoShape) for (const a of anchors) for (const shape of shapesFor(a)) add(shape, a);
+    else for (const shape of shared ?? [memoShape!]) for (const a of anchors) add(shape, a);
+    const shapes = shared ?? [memoShape ?? [0]];
     const pick = pickCost(r, items) ?? { shape: shapes[0], anchor: anchors[0] };
-    return { ...pick, notes: repair(place(from, lens, pick.shape, pick.anchor), prevM) };
+    return { ...pick, notes: tidy(repair(place(from, lens, pick.shape, pick.anchor), prevM)) };
   };
 
   /** Steps of bar position `p` (bars, in halves) from the phrase's first bar. */
@@ -294,8 +381,9 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     ph.forEach((p, i) => {
       if (i === 0) return;
       const q = ph[i - 1], same = p.b1 - p.b0 === q.b1 - q.b0;
-      if (same && p.role !== 'climax' && r.chance(i % 2 ? 0.8 : 0.5)) p.src = q.src >= 0 ? q.src : i - 1;
-      else if (same && p.role !== 'climax' && i >= 2 && r.chance(0.45)) p.src = 0;
+      const ak = moody ? PM.answers : 1;
+      if (same && p.role !== 'climax' && r.chance(clamp((i % 2 ? 0.8 : 0.5) * ak, 0, 0.95))) p.src = q.src >= 0 ? q.src : i - 1;
+      else if (same && p.role !== 'climax' && i >= 2 && r.chance(clamp(0.45 * ak, 0, 0.9))) p.src = 0;
       if (p.src >= 0 && ph[p.src].b1 - ph[p.src].b0 !== p.b1 - p.b0) p.src = -1;
     });
     // cells
@@ -313,13 +401,15 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
       if (last) { p.goalStep = bars[nB - 1].start; p.hold = bars[nB - 1].len; p.rest = 0; return; }
       const B = p.E - cs, bs = beatOf(cs);
       const holds = [bs * 2, bs * 3, barAt(cs).len].filter((h) => h <= B - (B >= bs * 2 ? bs : 0) && h >= bs * 1.5);
-      const hold = holds.length ? r.pick(holds) : Math.max(2, B);
+      const hold = holds.length ? (moody ? r.weighted(holds.map((h, q) => [h, PM.hold ** q] as [number, number])) : r.pick(holds)) : Math.max(2, B);
       p.hold = hold; p.goalStep = p.E - hold;
       p.rest = hold - 2 >= bs * 1.5 && r.chance(clamp(0.28 * breath, 0, 0.7)) ? Math.min(beatOf(p.goalStep), r.pick([2, 4])) : 0;
       if (p.goalStep < cs) { p.goalStep = cs; p.hold = p.E - cs; }
     });
 
     // ---- the skeleton: the strong notes, one path through the chords' notes
+    // (Solo mood: an open ending may land on a colour note, the 9th or the 6th, where one chord sounds under the whole hold)
+    const wantColour = ph.map((p) => moody && p.role === 'call' && r.chance(PM.colourGoal));
     const target = (p: Phrase) => centerAt(p.goalStep) + (p.role === 'climax' ? 5 : p.role === 'call' ? 1.5 : p.role === 'answer' ? -1.5 : -2);
     const cands = (p: Phrase, cap: number): number[] => {
       const near = (m: number, w: number) => m >= 50 && m <= Math.min(86, cap) && m >= target(p) - w && m <= target(p) + w;
@@ -328,6 +418,11 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
         if (root.length) return root;
       }
       const whole = ladder.filter((m) => near(m, 9) && coreOver(m, p.goalStep, p.hold));
+      if (moody && wantColour[ph.indexOf(p)] && pointsOver(p.goalStep, p.hold).length === 1) {
+        const rootPc = chordPc(key, fit.chordAt(p.goalStep));
+        const col = ladder.filter((m) => near(m, 9) && scale.includes(mod(m - key, 12)) && (PM.colour[mod(m - rootPc, 12)] ?? 0) >= 0.5 && !(fit.rubs(m, p.goalStep) && PM.rough < 0.5));
+        if (col.length) return [...new Set([...whole, ...col])];
+      }
       if (whole.length) return whole;
       const first = ladder.filter((m) => near(m, 9) && isCore(m, p.goalStep));
       if (first.length) return first;
@@ -343,6 +438,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     const local = (p: Phrase, m: number) => {
       let c = 0.45 * Math.abs(m - target(p));
       const rootPc = chordPc(key, fit.chordAt(p.goalStep));
+      if (moody && !isCore(m, p.goalStep)) c -= 2.5 * (PM.colour[mod(m - rootPc, 12)] ?? 0);
       if (p.role === 'answer' || p.role === 'end') c += mod(m - rootPc, 12) === 0 ? 0 : 2.5; else if (p.role === 'call') c += mod(m - rootPc, 12) === 0 ? 1.8 : 0;
       return c;
     };
@@ -354,7 +450,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
         let lo = Infinity, at = 0;
         sets[i - 1].forEach((pm, k) => {
           const d = m - pm;
-          let tc = best[i - 1][k].c + MOOD_W * 1.4 * intervalCost(prof(ph[i].goalStep), pm, m, 0, true) + (d === 0 ? 3 : 0) + (Math.abs(d) > 7 ? 1.5 : 0);
+          let tc = best[i - 1][k].c + (moody ? PM.weight : MOOD_W) * 1.4 * intervalCost(prof(ph[i].goalStep), pm, m, 0, true) + (d === 0 ? (moody ? 3 * (1 - 0.8 * PM.repeatNote) : 3) : 0) + (Math.abs(d) > 7 ? (moody ? Math.max(0, 1.5 * (1 - 1.5 * PM.leap)) : 1.5) : 0);
           if (ph[i].role === 'answer' && d > 0) tc += 2; else if (ph[i].role === 'call' && d < 0 && i > 1) tc += 1;
           if (tc < lo) { lo = tc; at = k; }
         });
@@ -368,9 +464,12 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     // ---- the cells, in order, each on a chord note
     let prevM: number | null = null;
     let lastIx: number | null = null;
+    let lastN: N0 | null = null;
     ph.forEach((p, pi) => {
       const src = p.src >= 0 ? ph[p.src] : null;
-      const contour: Contour = p.role === 'call' ? r.pick(['rise', 'arch', 'arch']) : p.role === 'climax' ? 'rise' : p.role === 'answer' ? r.pick(['fall', 'arch', 'fall']) : r.pick(['fall', 'dip']);
+      const contour: Contour = moody ? (p.role === 'climax' ? 'rise' : r.weighted(p.role === 'call' ? PM.call : PM.answer)) : p.role === 'call' ? r.pick(['rise', 'arch', 'arch']) : p.role === 'climax' ? 'rise' : p.role === 'answer' ? r.pick(['fall', 'arch', 'fall']) : r.pick(['fall', 'dip']);
+      // (Solo mood: the feel of this phrase's rhythm, now and then turned the other way: a busy phrase, then a sparse one)
+      const qBase = moody ? (r.chance(PM.contrast * 0.6) ? -PM.quick * 0.8 : PM.quick) : 0;
       let cellStart = p.S;
       let prevCell: { lens: number[]; shape: number[]; anchor: number } | null = null;
       let aLens: number[] | null = null;
@@ -394,18 +493,23 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
             let dir = p.role === 'call' || p.role === 'climax' ? (r.chance(0.65) ? -1 : 1) : (r.chance(0.8) ? 1 : -1);
             // (near the edge of the range the line comes in from the inside)
             if (p.goal <= 56) dir = 1; else if (p.goal >= 80) dir = -1;
+            // (Solo mood: now and then a jump into the held note, from below or above, instead of a run of steps)
+            const leapIn = moody && r.chance(PM.cadLeap);
+            if (leapIn) dir = r.chance(PM.jumpUp) ? -1 : 1;
+            if (p.goal <= 56) dir = 1; else if (p.goal >= 80) dir = -1;
             const pool = Array.from({ length: 24 }, () => {
               const off: number[] = [];
-              let o = dir * (r.chance(0.7) ? 1 : 2);
+              let o = dir * (leapIn ? r.int(3, 5) : r.chance(0.7) ? 1 : 2);
               for (let q = lensR.length - 1; q >= 0; q--) { off[q] = o; o += (r.chance(0.65) ? dir : -dir) * r.weighted([[1, 65], [2, 30], [3, 5]] as [number, number][]); }
               return off;
             });
             const items = pool.map((off) => {
               const ns = place(from, lensR, off.map((x) => x), gi);
-              return { v: off, cost: lineCost(ns, prevM) + lineCost([{ step: p.goalStep, len: p.hold, m: p.goal }], ns[ns.length - 1]?.m ?? prevM, 0) };
+              const goalN = { step: p.goalStep, len: p.hold, m: p.goal };
+              return { v: off, cost: moody ? lineCost([...ns, goalN], prevM, 0, lastN) + (leapIn && ns.length && !isCore(ns[ns.length - 1].m, ns[ns.length - 1].step) ? 2.5 : 0) : lineCost(ns, prevM) + lineCost([goalN], ns[ns.length - 1]?.m ?? prevM, 0) };
             });
             const off = pickCost(r, items) ?? pool[0];
-            place(from, lensR, off, gi).forEach((n) => p.notes.push({ step: n.step, len: n.len, midi: n.m, vel: 0 }));
+            tidy(place(from, lensR, off, gi)).forEach((n) => p.notes.push({ step: n.step, len: n.len, midi: n.m, vel: 0 }));
             p.memo[ci] = { lens: lensR, shape: off, anchor: gi };
           }
           p.notes.push({ step: p.goalStep, len: p.hold - p.rest, midi: p.goal, vel: 0 });
@@ -417,25 +521,27 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
           // (an answer: the same rhythm and shape, started elsewhere)
           lens2 = memo.lens;
           const nearGoal = src ? ixOf(p.goal) - ixOf(ph[p.src].goal) : 0;
-          const c = cellAt(r, from, lens2, memo.shape, contour, prevM, lastIx, memo.anchor + clamp(nearGoal, -3, 3));
+          const c = cellAt(r, from, lens2, memo.shape, contour, prevM, lastIx, memo.anchor + clamp(nearGoal, -3, 3), 0, lastN);
           shape = c.shape; anchor = c.anchor; placed = c.notes;
         } else if (cell.kind === 'seq' && prevCell && prevCell.lens.reduce((s, x) => s + x, 0) === budget) {
           lens2 = prevCell.lens;
           const d = (r.chance(0.75) ? dirPref : -dirPref) * r.pick([1, 1, 2]);
-          const c = cellAt(r, from, lens2, prevCell.shape, contour, prevM, lastIx, prevCell.anchor + d);
+          const c = cellAt(r, from, lens2, prevCell.shape, contour, prevM, lastIx, prevCell.anchor + d, 0, lastN);
           shape = c.shape; anchor = c.anchor; placed = c.notes;
         } else if (cell.kind === 'var' && prevCell && prevCell.lens.reduce((s, x) => s + x, 0) === budget) {
           lens2 = prevCell.lens;
           const sh = prevCell.shape.slice();
           const n = sh.length;
           if (n >= 3) { const lastMv = sh[n - 1] - sh[n - 2]; sh[n - 1] = sh[n - 2] + (lastMv > 0 ? -1 : 1) * (r.chance(0.6) ? 1 : 2); }
-          const c = cellAt(r, from, lens2, sh, contour, prevM, lastIx, prevCell.anchor + r.pick([0, 0, 1, -1]));
+          const c = cellAt(r, from, lens2, sh, contour, prevM, lastIx, prevCell.anchor + r.pick([0, 0, 1, -1]), 0, lastN);
           shape = c.shape; anchor = c.anchor; placed = c.notes;
         } else {
-          lens2 = rhythm(r, from, budget);
-          if (cell.kind === 'b' && aLens && lens2.join() === aLens.join()) lens2 = rhythm(r, from, budget);
+          const feel = moody ? { q: cell.kind === 'b' && r.chance(PM.contrast) ? -sign(qBase || PM.quick) * 0.7 : qBase, shift: r.chance(PM.shift) ? (r.chance(0.6) ? 'qs' as const : 'sq' as const) : undefined } : undefined;
+          lens2 = rhythm(r, from, budget, feel);
+          if (cell.kind === 'b' && aLens && lens2.join() === aLens.join()) lens2 = rhythm(r, from, budget, feel);
           const opp: Contour = contour === 'rise' ? 'fall' : contour === 'fall' ? 'rise' : contour === 'arch' ? 'dip' : contour === 'dip' ? 'arch' : 'level';
-          const c = cellAt(r, from, lens2, null, cell.kind === 'b' ? opp : contour, prevM, lastIx, cell.kind === 'b' && prevCell ? prevCell.anchor + 2 * dirPref * -1 : null);
+          const jump = moody && prevM !== null && r.chance(PM.leap * (ci === 0 ? 1.1 : 0.7)) ? (r.chance(PM.jumpUp) ? 1 : -1) : 0;
+          const c = cellAt(r, from, lens2, null, cell.kind === 'b' ? opp : contour, prevM, lastIx, cell.kind === 'b' && prevCell ? prevCell.anchor + 2 * dirPref * -1 : null, jump, lastN);
           shape = c.shape; anchor = c.anchor; placed = c.notes;
         }
         const ns = placed;
@@ -445,10 +551,11 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
         if (cell.kind === 'a') aLens = lens2;
         prevCell = { lens: lens2, shape, anchor };
         prevM = ns[ns.length - 1].m;
+        lastN = ns[ns.length - 1];
         lastIx = ixOf(prevM);
       });
       void cellStart;
-      prevM = p.goal; lastIx = ixOf(p.goal);
+      prevM = p.goal; lastIx = ixOf(p.goal); lastN = { step: p.goalStep, len: p.hold, m: p.goal };
       void pi;
     });
     return ph;
@@ -457,10 +564,11 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   // ---- many versions; the best as a tune is played
   const seedBase = rng.next();
   const asHits = (ph: Phrase[]) => ph.flatMap((p) => p.notes).map((n) => ({ step: n.step, len: n.len, notes: [n.midi], strings: [0], vel: 0.8 }) as GuitarHit);
+  const aim = moody ? aimFor(mood, profs[0].w) : undefined;
   let bestPh: Phrase[] | null = null, bestScore = -1;
   for (let k = 0; k < Math.max(1, tries); k++) {
     const ph = compose(new Rng(`tune-${seedBase}-${k}`));
-    const s = tuneScore(asHits(ph), { bars, key, chordAt: fit.chordAt }).score;
+    const s = tuneScore(asHits(ph), { bars, key, chordAt: fit.chordAt }, aim).score;
     if (s > bestScore + 1e-9) { bestScore = s; bestPh = ph; }
   }
   const phrases = bestPh!;
@@ -493,6 +601,6 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const echoes = phrases.filter((p) => p.src >= 0).length;
   return {
     hits, curve,
-    notes: [`Guitar 2: a solo (tune first): ${ENERGY_WORDS[en.shape](en)}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune (${bestScore.toFixed(2)})`],
+    notes: [`Guitar 2: a solo (tune first${moody ? `, ${mood} character` : ''}): ${ENERGY_WORDS[en.shape](en)}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune (${bestScore.toFixed(2)})`],
   };
 }

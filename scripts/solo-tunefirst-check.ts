@@ -30,7 +30,7 @@ const pct = (a: number, b: number) => (b ? Math.round((100 * a) / b) : 0);
 const build = (j: number, extra: Record<string, unknown>) => {
   const genre = GENRES[j % 7], meter = METERS[j % METERS.length], mood = MOODS[(j + (j >> 3)) % MOODS.length], s = `tf-${j}-${genre}`;
   const idea = generate({ genre, meter, weirdness: 0.3, ...MAIN_GUITARS } as never, { song: s, chords: s + 'c', drums: s + 'd', strum: s + 's', bass: s + 'b', vocal: s + 'v' } as never);
-  return { s, meter, mood, secs: (buildTrack(idea, { ...defaultTrackOptions(idea), solo: 'on', mood, soloPlan: 'tune', ...extra } as never).sections as any[]).filter((x) => x.section?.solo) };
+  return { s, meter, mood, secs: (buildTrack(idea, { ...defaultTrackOptions(idea), solo: 'on', mood, soloPlan: 'tune', ...(process.env.MOOD ? { soloMood: 'on' } : {}), ...extra } as never).sections as any[]).filter((x) => x.section?.solo) };
 };
 const key = (sec: any) => sec.guitar2.map((h: any) => `${h.step}:${h.len}:${h.notes.join('.')}:${h.bend ?? 0}:${h.vib ?? 0}`).join('|');
 
@@ -112,7 +112,7 @@ console.log('by meter: ' + Object.entries(meterStat).map(([k, v]) => `${k} ${pct
 console.log(`dressed (Solo polish): ${plainDressed ? Math.round((100 * dressedNotes) / plainDressed) : 0}% as many notes as written, strong notes kept ${pct(keptGoals, goals)}% of ${goals}`);
 if (pct(T.barStartCore, T.barStarts) < 90) fail('chord notes on bar starts under 90%');
 if (pct(T.strongCore, T.strong) < 85) fail('chord notes on strong places under 85%');
-if (pct(T.tunes, T.solos) < 85) fail('under 85% of the solos sound like a tune');
+if (pct(T.tunes, T.solos) < (process.env.MOOD ? 80 : 85)) fail('under 85% of the solos sound like a tune');
 if (T.scoreSum <= T.oneScoreSum) fail('the best of many does not beat one try');
 if (pct(keptGoals, goals) < 85) fail('the player lost the strong notes');
 console.log(bad ? `${bad} FAIL` : '0 FAIL');

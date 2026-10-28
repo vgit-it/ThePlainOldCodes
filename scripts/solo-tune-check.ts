@@ -18,12 +18,12 @@ export const WRITERS: [string, Record<string, unknown>][] = [
   ['Planned', { soloPlan: 'on' }],
   ['Melody + player', { soloPlan: 'perform', soloCores: 'off' }],
   ['Library story', { soloPlan: 'perform', soloCores: 'library', soloPolish: 'on', soloShape: 'on' }],
-  ...(process.env.TUNE === '1' ? [['Tune first (1 try)', { soloPlan: 'tune', soloTuneTries: 1 }] as [string, Record<string, unknown>], ['Tune first', { soloPlan: 'tune' }] as [string, Record<string, unknown>]] : []),
+  ...(process.env.TUNE === '1' ? [['Tune first (1 try)', { soloPlan: 'tune', soloTuneTries: 1 }] as [string, Record<string, unknown>], ['Tune first', { soloPlan: 'tune' }] as [string, Record<string, unknown>], ['Tune first + mood', { soloPlan: 'tune', soloMood: 'on' }] as [string, Record<string, unknown>]] : []),
 ];
 
 const solosOf = (j: number, extra: Record<string, unknown>) => {
   const genre = GENRES[j % 7], mood = MOODS[(j + (j >> 3)) % MOODS.length], s = `tu-${j}-${genre}`;
-  const idea = generate({ genre, meter: '4/4', weirdness: 0.3, ...MAIN_GUITARS } as never, { song: s, chords: s + 'c', drums: s + 'd', strum: s + 's', bass: s + 'b', vocal: s + 'v' } as never);
+  const idea = generate({ genre, meter: process.env.METER ?? '4/4', weirdness: 0.3, ...MAIN_GUITARS } as never, { song: s, chords: s + 'c', drums: s + 'd', strum: s + 's', bass: s + 'b', vocal: s + 'v' } as never);
   return (buildTrack(idea, { ...defaultTrackOptions(idea), solo: 'on', mood, ...extra } as never).sections as any[]).filter((x) => x.section?.solo);
 };
 const tune = (sec: any): Tune => tuneScore(sec.guitar2, { bars: sec.song.bars, key: sec.song.key, chordAt: (g: number) => sec.chords.timeline[sec.chords.chordIdx[Math.min(sec.song.total - 1, g)]].chord });
