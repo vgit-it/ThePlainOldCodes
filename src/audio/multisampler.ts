@@ -37,6 +37,9 @@ export interface PlayOptions {
   lateBend?: number;
   /** When the let-down or late bend happens: seconds into the note (otherwise from the note's length). */
   bendAt?: number;
+  /** How long a bend takes, in seconds (otherwise by its size), and its shape: 1 even, over 1 slow then quick, under 1 quick then creeping. */
+  bendRise?: number;
+  bendEase?: number;
   /** Trill: hammer on and pull off this many semitones above, fast, through the note. */
   trill?: number;
   /** The next note comes legato out of this one (keep its pitch free for it). */
@@ -99,7 +102,7 @@ export class MultiSampler {
     const pr = v.src.playbackRate;
     const bend = opts.bend ?? 0;
     // (a bend gets up to pitch quickly: a slow one sounds out of tune)
-    const settle = opts.slide ? time + 0.07 + Math.abs(opts.slide) * 0.03 : bend ? time + 0.05 + bend * 0.025 : time;
+    const settle = opts.slide ? time + 0.07 + Math.abs(opts.slide) * 0.03 : bend ? time + (opts.bendRise ?? 0.05 + bend * 0.025) : time;
     // vibrato fades in after the note has spoken, like a player's wrist
     const vibStart = Math.max(settle, time + 0.28);
     const until = this.pitchEnd(time + dur, settle, opts);
@@ -112,20 +115,22 @@ export class MultiSampler {
       const low = rate * 2 ** (-bend / 12);
       pr.setValueAtTime(low, time);
       pr.setValueAtTime(low, time + 0.02);
-      pr.linearRampToValueAtTime(rate, settle);
+      this.sweep(pr, low, rate, time + 0.02, settle, opts.bendEase);
     } else if (tuning?.curve.length && !offset && !opts.unbend && !opts.trill && !opts.lateBend) this.untwang(pr, tuning.curve, time, rate, Math.min(vibrato ? vibStart : Infinity, until));
     const end = Math.min(until, time + dur) - 0.003;
     if (opts.unbend) {
       // the bend let down again: held at pitch a while, then eased back down (a pre-bend held a little
       // less, so the release is heard); vibrato only once it's down
-      const at = opts.bendAt !== undefined ? time + opts.bendAt : Math.max(settle + 0.04, time + Math.min(dur * (bend ? 0.5 : 0.35), 0.6));
+      // (a bend set by the writer: the let-down waits until the bend up has finished)
+      const at = opts.bendAt !== undefined ? (opts.bendRise !== undefined ? Math.max(time + opts.bendAt, settle + 0.04) : time + opts.bendAt) : Math.max(settle + 0.04, time + Math.min(dur * (bend ? 0.5 : 0.35), 0.6));
       const down = rate * 2 ** (-opts.unbend / 12);
       if (!bend && !opts.slide) pr.setValueAtTime(rate, time);
       if (at + 0.13 < end) {
+        const fall = Math.max(0.03, Math.min(opts.bendRise ?? 0.12, end - at - 0.04));
         pr.setValueAtTime(rate, at);
-        pr.linearRampToValueAtTime(down, at + 0.12);
+        this.sweep(pr, rate, down, at, at + fall, opts.bendEase);
         v.rate = down;
-        this.tail(v, down, Math.max(at + 0.3, time + 0.28), time + dur, opts);
+        this.tail(v, down, Math.max(at + fall + 0.18, time + 0.28), time + dur, opts);
       }
       return v;
     }
@@ -133,11 +138,12 @@ export class MultiSampler {
       // held at the lower note a while (a beat or so), then pushed up to the note; vibrato once it's up
       const low = rate * 2 ** (-opts.lateBend / 12);
       const at = opts.bendAt !== undefined ? time + opts.bendAt : Math.max(time + 0.12, time + Math.min(dur * 0.45, 0.9));
-      const rise = 0.14 + opts.lateBend * 0.04;
+      // (a bend set by the writer is shortened to fit, not dropped)
+      const rise = opts.bendRise !== undefined ? Math.max(0.03, Math.min(opts.bendRise, end - at - 0.06)) : 0.14 + opts.lateBend * 0.04;
       pr.setValueAtTime(low, time);
       if (at + rise + 0.05 < end) {
         pr.setValueAtTime(low, at);
-        pr.linearRampToValueAtTime(rate, at + rise);
+        this.sweep(pr, low, rate, at, at + rise, opts.bendEase);
         this.tail(v, rate, at + rise + 0.18, time + dur, opts);
       }
       return v;
@@ -152,6 +158,15 @@ export class MultiSampler {
     }
     this.tail(v, rate, vibStart, time + dur, opts);
     return v;
+  }
+
+  /** The pitch moves from `a` to `b` between `t0` and `t1`: a straight ramp, or (with `ease`) a curve that starts slow (over 1) or quick (under 1). */
+  private sweep(pr: AudioParam, a: number, b: number, t0: number, t1: number, ease?: number) {
+    if (!ease || ease === 1 || t1 - t0 < 0.02) { pr.linearRampToValueAtTime(b, t1); return; }
+    const n = Math.max(8, Math.ceil((t1 - t0) * 120));
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) curve[i] = a * (b / a) ** ((i / (n - 1)) ** ease);
+    pr.setValueCurveAtTime(curve, t0, t1 - t0);
   }
 
   /** Until when the note's own pitch moves may run (a tie or a fall-off takes over after). */

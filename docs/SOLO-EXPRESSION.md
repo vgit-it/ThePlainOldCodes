@@ -29,7 +29,7 @@ Switch: Track options → **Solo expression** → On (`soloExpress: 'on'`). Need
 
 ## Held notes
 - Vibrato, and by the player's bendiness and the note's place (the climax and the end more): a bend into the note, a late bend (picked a step or two under, pushed up later), a bend let down. A thin window ending a step or two higher is played as one note bent up to it.
-- Not done yet: slow versus fast bends (the engine's bend speed is fixed), step 2.
+- Slow versus fast bends: done as an extra switch, Solo bends (`SOLO-BENDS.md`).
 
 ## Kept safe
 - Goal notes, the last note, the key, the range, no overlaps, no silence over a beat, speeds the hands can play, a fingering for every note: the checker (`soloverify.ts`, `loose` on: melody notes may be dissolved, everything else is judged) and the hands have the last word; a window that fails goes back to the tune's own notes.
@@ -45,7 +45,7 @@ Switch: Track options → **Solo expression** → On (`soloExpress: 'on'`). Need
 
 ## Next
 1. Paul listens.
-2. Bend dials: the engine gets bend speed, shape and timing (a snap to a slow crawl); held notes use them, by place and neighbours, not by mood.
+2. Bend dials: built, behind the Solo bends switch (`SOLO-BENDS.md`). Paul listens.
 3. Recast: pedal, legato and library licks as run parts; slide-ins.
 4. Expression as a motif: an answer plays its call's gesture again, changed; one signature gesture per solo. This wants the melody step to hand over its structure (which cell, which echo).
 5. Fold into Mood: all the way.

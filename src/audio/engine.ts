@@ -893,7 +893,7 @@ export class Engine {
       slide: h.slide,
       swell: h.swell,
       touch: h.touch,
-      bend: h.bend, unbend: h.unbend, lateBend: h.lateBend, bendAt: h.bendAt !== undefined ? h.bendAt * six : undefined, trill: h.trill, tremolo: h.tremolo, rake: h.rake,
+      bend: h.bend, unbend: h.unbend, lateBend: h.lateBend, bendAt: h.bendAt !== undefined ? h.bendAt * six : undefined, bendRise: h.bendRise !== undefined ? h.bendRise / 1000 : undefined, bendEase: h.bendEase, trill: h.trill, tremolo: h.tremolo, rake: h.rake,
       harm: h.harm, dive: h.dive, feedback: h.feedback,
     });
   }

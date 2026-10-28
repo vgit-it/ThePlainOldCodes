@@ -101,6 +101,8 @@ export interface TrackOptions {
   soloShape?: 'on' | 'off';
   /** Tune first only (docs/SOLO-EXPRESSION.md): the melody played the way a guitarist would: held bent notes, quick runs, flurries and breaths in windows of any length; replaces Solo polish (missing in older links: off). */
   soloExpress?: 'on' | 'off';
+  /** Bend dials (docs/SOLO-BENDS.md): on Solo expression, each bent note gets its own speed, shape and timing, by its place. 'plain' (default): the engine's one fixed bend. */
+  soloBends?: 'dials' | 'plain';
   /** What the band plays under a solo (docs/SOLO-BACKING.md): 'held' = the song's chords kept, the rhythm guitar ringing each one held (power chords or full chords) instead of its riff; otherwise as written (missing in older links: as written). */
   soloBacking?: 'held' | 'written';
   /** Checks only (scripts/solo-*-check.ts), never set by the page: a step of the melody + player writer on its own (the melody, with gap marks, with joins, or read and left as written). */
@@ -524,7 +526,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     performSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind, breath: opts.soloBreath === 'on' || coreOn || tuneFirst, grid: opts.soloGrid === 'on' || coreOn || tuneFirst, light: coreOn || tuneFirst }, play ? LIVE_RULES : NO_RULES);
   // Solo expression (docs/SOLO-EXPRESSION.md): the Tune first melody played again in windows, bent and held, run and breathed
   const expressTune = (sol: Guitar2Part, seed: string, idea: Idea, mood: Mood, tension: number[]): Guitar2Part =>
-    expressSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind });
+    expressSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind }, { dials: opts.soloBends === 'dials' });
   // Lead guitar sounds (docs/SOLO-SOUNDS.md): harmonics, dives, feedback and a pick scrape put on the finished solo (its own seed: nothing else changes)
   // (the amp is the section's own Guitar 2 sound, as on Auto; `before` and `after` are the sections either side)
   const withSounds = (sol: Guitar2Part, seed: string, idea: Idea, lick: LickKind, intensity: number, solo: boolean, said: string[], si: number): Guitar2Part => {
@@ -885,7 +887,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     idea.notes.push('The band lands on the first chord and lets it ring for a bar, then the drummer picks up into the half-time feel');
   });
   // a planned solo's last note carries on into the next section, bending to its first chord
-  sections.forEach((idea, i) => carrySolo(idea, sections[i + 1]));
+  sections.forEach((idea, i) => carrySolo(idea, sections[i + 1], opts.soloBends === 'dials' && opts.soloExpress === 'on'));
   // a long outro's tag repeats the chorus's last bars: its bars don't line up with the chorus's
   if (outroLong || jam) delete edit.outro;
   // (a jam ends in its own key)
