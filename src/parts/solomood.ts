@@ -84,3 +84,25 @@ const AIMS: Record<Mood, { steps: Band; leaps: Band; quick: Band; fill: number; 
 
 /** The aims of a mood for the tune score; `w` is the mood's interval table. */
 export const aimFor = (mood: Mood, w: readonly number[]): TuneAim => ({ ...AIMS[mood], w });
+
+/**
+ * Which way a mood leans the scale (docs/SOLO-MOOD.md, "Mood scale"): bright moods take the major 3rd and 6th, dark ones the minor, the rest keep the song's own.
+ * It is for songs whose chords have no third (power chords): the mode says nothing about the mood there, so the solo's notes can.
+ */
+export const SCALE_LEAN: Record<Mood, 'major' | 'minor' | 'keep'> = {
+  happy: 'major', triumphant: 'major', melancholic: 'minor', dark: 'minor', tense: 'minor', angry: 'minor', nostalgic: 'keep', dreamy: 'keep',
+};
+
+/** The scale a mood plays: the song's scale with its 3rd, 6th (and for major, a flat 2nd) turned the mood's way. */
+export function moodScale(base: readonly number[], mood: Mood): number[] {
+  const lean = SCALE_LEAN[mood];
+  if (lean === 'keep') return [...base];
+  const turn: Record<number, number> = lean === 'minor' ? { 4: 3, 9: 8, 11: 10 } : { 3: 4, 8: 9, 1: 2 };
+  const out = new Set<number>();
+  for (const pc of base) {
+    const to = turn[pc];
+    // (a note is turned only when its twin is not already there: a scale never gets both)
+    out.add(to !== undefined && !base.includes(to) ? to : pc);
+  }
+  return [...out].sort((a, b) => a - b);
+}
