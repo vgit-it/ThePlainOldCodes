@@ -49,6 +49,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `SOLO-BENDS.md`: Solo bends, the bend dials (each bent note gets its own speed, shape and timing; the engine reads them). Switch: Solo bends. Check: `npm run solo-bend-check`.
 - `SOLO-RECAST.md`: Solo recast (some runs become a library lick, a legato roll, a pedal figure or a trill climb; held notes slide in or trill). Switch: Solo recast. Check: `npm run solo-recast-check`.
 - `SOLO-ECHO.md`: Solo echo (an answer plays its call's figure again on its own notes; one signature figure comes back near the climax and the end). Switch: Solo echo. Check: `npm run solo-echo-check`.
+- `SOLO-AMOUNT.md`: Solo amount (Light / Normal / Full: how much Solo expression changes the tune). Switch: Solo amount. Check: `npm run solo-amount-check`.
 - `SOLO-BACKING.md`: Solo backing, held chords under a solo (chords merged into 2–4 bar holds, the rhythm guitar rings them, the bass holds the root). Switch: Solo backing. Check: `npm run solo-back-check`.
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.
