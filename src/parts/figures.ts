@@ -7,6 +7,7 @@
 // Each style writes one motif and develops it over the four bars (repeat, move it onto the
 // chord, vary, end), instead of picking fresh notes every bar.
 
+import { riffPent } from '../moodsong';
 import type { RiffGenre, RiffStyle } from '../genres';
 import type { ChordPart, GuitarHit, Song } from '../idea';
 import type { Rng } from '../rng';
@@ -149,7 +150,8 @@ function lickRun(c: Ctx, bars: Bar[], cache: Record<string, unknown>): GuitarHit
   const chordAt = chordAtFn(chords, song.total);
   // open-position chord shapes for the stabs (the hard rock sound), else power chords
   const shapes = cell.open ? voicingsInTuning(song.key, chords.timeline.map((e) => e.chord), t, { preferOpen: true }) : null;
-  const pent = cell.blue ? [0, 3, 5, 6, 7, 10] : [0, 3, 5, 7, 10];
+  // (Mood riff: a major key's lick takes the major 3rd)
+  const pent = song.moodRiff ? riffPent(song.mode, cell.blue) : cell.blue ? [0, 3, 5, 6, 7, 10] : [0, 3, 5, 7, 10];
   const tonic = lowestOf(song.key, t);
   const hits: GuitarHit[] = [];
   const barPlans = plans(rng, cell.form, bars.length);
