@@ -18,6 +18,7 @@ import { chordTones } from './guitar2';
 import { scaleOf } from './solofigure';
 import { type LibLick, licksFor, lickFit, placeLibLick } from './licks';
 import { POOL } from './sololibrary';
+import { echoPlan } from './soloecho';
 import { type PEvent, TOL, eventsToHits, readBase, snap, sounding } from './soloevents';
 import type { PlayerCtx } from './soloplayer';
 import { type VCtx, type Violation, MIN_LEGATO_MS, MIN_PICK_MS, unplayable, verify } from './soloverify';
@@ -73,7 +74,14 @@ interface Part {
   shape?: RunShape;
   legato?: boolean;
 }
-export interface Win { i: number; j: number; t0: number; t1: number; pattern: string; parts: Part[]; heat: number }
+export interface Win {
+  i: number; j: number; t0: number; t1: number; pattern: string; parts: Part[]; heat: number;
+  /** The seed it was played with (the echo plays a window again with the same one). */
+  seed?: string;
+  /** A held note's dress: how it was bent (the echo gives an answer's last note the same kind), or asked to be. */
+  dress?: Dress;
+}
+export type Dress = 'pre' | 'late' | 'release' | 'vib' | 'none';
 type Pattern = 'plain' | 'decor' | 'hold+run' | 'run+hold' | 'run' | 'hold' | 'hold+run+hold' | 'run+hold+run';
 const KINDS: Record<Pattern, ('hold' | 'run')[]> = {
   plain: [], decor: [], hold: ['hold'], run: ['run'],
@@ -83,7 +91,7 @@ const KINDS: Record<Pattern, ('hold' | 'run')[]> = {
 /** What one try came to, for the score and the card. */
 export interface Try { wins: Win[]; events: PEvent[][]; score: number; keep: number }
 
-export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number; dials?: boolean; recast?: boolean } = {}): Guitar2Part {
+export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number; dials?: boolean; recast?: boolean; echo?: boolean } = {}): Guitar2Part {
   const { events: ev0, notes } = readBase(base.hits, base.curve);
   if (notes.length < 4) return base;
   const { song } = c;
@@ -314,7 +322,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   };
 
   /** A held note: bends and vibrato by the player's bendiness and the note's place; the pitch it sounds ends on is `pitch`. */
-  const decorOf = (r: Rng, pitch: number, len: number, T: Temper, strong: number, thinTo?: number): Partial<GuitarHit> => {
+  const decorOf = (r: Rng, pitch: number, len: number, T: Temper, strong: number, thinTo?: number, force?: Dress): Partial<GuitarHit> => {
     const out: Partial<GuitarHit> = {};
     if (len >= 3 && r.chance(0.8)) out.vib = r.int(22, 48);
     if (thinTo !== undefined) { out.lateBend = thinTo; delete out.vib; return out; }
@@ -322,7 +330,9 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     const d = pitch - below;
     if (!(d >= 1 && d <= 2) || len < 2) return out;
     const b = T.bendy * strong;
-    const kind = r.weighted<string>([['none', 1.1], ['pre', len >= 2 ? 0.5 * b : 0], ['late', len >= 6 ? 0.9 * b : 0], ['release', len >= 6 ? 0.5 * b : 0]]);
+    let kind = r.weighted<string>([['none', 1.1], ['pre', len >= 2 ? 0.5 * b : 0], ['late', len >= 6 ? 0.9 * b : 0], ['release', len >= 6 ? 0.5 * b : 0]]);
+    // (the echo asks for a kind of dress; a note too short for it keeps what it drew)
+    if (force) kind = force === 'pre' || ((force === 'late' || force === 'release') && len >= 6) ? force : force === 'vib' ? 'none' : kind;
     if (kind === 'pre') out.bend = d;
     else if (kind === 'late') { out.lateBend = d; delete out.vib; if (r.chance(0.5)) out.vib = r.int(22, 48); }
     else if (kind === 'release') { out.bend = d; out.unbend = d; }
@@ -337,9 +347,11 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       return [ev];
     }
     if (w.pattern === 'decor') {
-      const dec = decorOf(r, n0.midi, n0.len, T, strong);
+      const dec = decorOf(r, n0.midi, n0.len, T, strong, undefined, w.dress);
+      w.dress = 'none';
       if (!Object.keys(dec).length) return [ev0[n0.ev]];
       if (n0.len < 4 && !dec.bend) return [ev0[n0.ev]];
+      w.dress = dec.unbend ? 'release' : dec.lateBend ? 'late' : dec.bend ? 'pre' : 'vib';
       return [{ ...ev0[n0.ev], hit: { ...ev0[n0.ev].hit, ...dec } }];
     }
     const out: PEvent[] = [];
@@ -451,7 +463,8 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     const r = new Rng(`${c.seed}-express-${k}`);
     const wins = planOne(r, T);
     const events = wins.map((w, q) => {
-      const ev = realize(w, new Rng(`${c.seed}-express-${k}-w${q}`), T);
+      w.seed = `${c.seed}-express-${k}-w${q}`;
+      const ev = realize(w, new Rng(w.seed), T);
       if (ev) return ev;
       w.pattern = 'plain'; w.parts = []; w.j = w.i; w.t1 = notes[w.i].t + notes[w.i].len;
       return [ev0[notes[w.i].ev]];
@@ -483,9 +496,15 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   const fresh = () => ({ lick: 0, roll: 0, pedal: 0, trill: 0, slideIn: 0, heldTrill: 0 });
   /** What each recast window holds (for the card: counted after the checker has had its say). */
   const castOf = new Map<number, ReturnType<typeof fresh>>();
+  /** The windows that play another window's figure (docs/SOLO-ECHO.md), with what they were before. */
+  const echoed = new Map<number, { win: Win; events: PEvent[]; via: 'answer' | 'signature'; from: number }>();
+  /** The window whose recast seed a window uses: an echo plays its source's recast again. */
+  const castSeed = new Map<number, number>();
   const revert = (q: number) => {
     const pre = precast.get(q);
     if (pre) { chosen.events[q] = pre; precast.delete(q); castOf.delete(q); return; }
+    const was = echoed.get(q);
+    if (was) { chosen.wins[q] = was.win; chosen.events[q] = was.events; echoed.delete(q); return; }
     const w = chosen.wins[q];
     w.pattern = 'plain'; w.parts = [];
     chosen.events[q] = Array.from({ length: w.j - w.i + 1 }, (_, z) => ev0[notes[w.i + z].ev]);
@@ -651,7 +670,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     };
     chosen.wins.forEach((w, q) => {
       if (w.pattern === 'plain') return;
-      const r = new Rng(`${c.seed}-express-recast-${q}`);
+      const r = new Rng(`${c.seed}-express-recast-${castSeed.get(q) ?? q}`);
       const was = chosen.events[q];
       cast = fresh();
       if (w.pattern === 'decor') {
@@ -677,6 +696,25 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       if (changed) { precast.set(q, was); castOf.set(q, cast); chosen.events[q] = out; }
     });
   };
+  // ---------------------------------------------------- the echo (docs/SOLO-ECHO.md)
+  // After the plan is chosen: an answer plays its call's windows again (same cuts, kinds, speed and seed, on its own notes, so the
+  // figure comes back at the answer's pitches); one signature figure comes back near the end of the climax and of the last phrase.
+  // Before the recast, which then plays a copy the way it played its source. A window that cannot be played again stays as it was.
+  const echo = () => {
+    const plan = echoPlan(notes, chosen.wins, new Rng(`${c.seed}-express-echo`));
+    for (const [qa, cp] of plan.copies) {
+      const src = chosen.wins[cp.from];
+      const w = cp.win;
+      w.seed = cp.own || !src.seed ? `${c.seed}-express-echo-own-${qa}` : src.seed;
+      const ev = realize(w, new Rng(w.seed), T);
+      if (!ev) continue;
+      echoed.set(qa, { win: chosen.wins[qa], events: chosen.events[qa], via: cp.via, from: cp.from });
+      chosen.wins[qa] = w;
+      chosen.events[qa] = ev;
+      if (!cp.own) castSeed.set(qa, castSeed.get(cp.from) ?? cp.from);
+    }
+  };
+  if (o.echo) echo();
   if (o.recast) recast();
   for (let guard = 0; guard < 8; guard++) {
     const fresh = verify(assemble(), notes, vctx).filter((v) => !baseline.has(vkey(v)));
@@ -744,6 +782,13 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     return `${sum.lick} licks, ${sum.roll} legato rolls, ${sum.pedal} pedal figures, ${sum.trill} trill climbs, ${sum.slideIn} slide-ins, ${sum.heldTrill} held-note trills`;
   };
 
+  // (counted after the checker: a window it sent back is not in the tally)
+  const echoWords = () => {
+    const xs = [...echoed.values()];
+    const a = xs.filter((x) => x.via === 'answer').length, g = xs.length - a;
+    return `${a} answer windows play their call again${g ? `, the signature figure comes back ${g} time${g > 1 ? 's' : ''}` : ''}`;
+  };
+
   const events = assemble();
   let hits = eventsToHits(events);
   if (o.dials) hits = dialBends(hits);
@@ -755,7 +800,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   const fine = hits.some((h) => h.shift || h.exact);
   return {
     hits,
-    notes: [...base.notes, `Solo expression (${words}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were${o.dials ? `; ${dialed} bends with their own speed and shape` : ''}${o.recast ? `; recast: ${recastWords()}` : ''}`],
-    curve: base.curve ? { ...base.curve, express: chosen.wins.map((w) => ({ t0: w.t0, t1: w.t1, pattern: w.pattern, heat: Math.round(w.heat * 100) / 100 })), ...(fine ? { fine: true } : {}) } : undefined,
+    notes: [...base.notes, `Solo expression (${words}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were${o.dials ? `; ${dialed} bends with their own speed and shape` : ''}${o.recast ? `; recast: ${recastWords()}` : ''}${o.echo ? `; echo: ${echoWords()}` : ''}`],
+    curve: base.curve ? { ...base.curve, express: chosen.wins.map((w) => ({ t0: w.t0, t1: w.t1, pattern: w.pattern, heat: Math.round(w.heat * 100) / 100 })), ...(echoed.size ? { echo: [...echoed].map(([q, x]) => ({ from: chosen.wins[x.from].t0, fromEnd: chosen.wins[x.from].t1, t0: chosen.wins[q].t0, t1: chosen.wins[q].t1, via: x.via })) } : {}), ...(fine ? { fine: true } : {}) } : undefined,
   };
 }

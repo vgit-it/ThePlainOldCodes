@@ -105,6 +105,8 @@ export interface TrackOptions {
   soloBends?: 'dials' | 'plain';
   /** Recast (docs/SOLO-RECAST.md): on Solo expression, some runs become a named lick, a legato roll, a pedal figure or a trill climb, and some held notes slide in or trill. 'off' (default): the runs as they were. */
   soloRecast?: 'on' | 'off';
+  /** Echo (docs/SOLO-ECHO.md): on Solo expression, an answer plays its call's figure again on its own notes, and one signature figure comes back near the climax and the end. 'off' (default): every window on its own. */
+  soloEcho?: 'on' | 'off';
   /** What the band plays under a solo (docs/SOLO-BACKING.md): 'held' = the song's chords kept, the rhythm guitar ringing each one held (power chords or full chords) instead of its riff; otherwise as written (missing in older links: as written). */
   soloBacking?: 'held' | 'written';
   /** Checks only (scripts/solo-*-check.ts), never set by the page: a step of the melody + player writer on its own (the melody, with gap marks, with joins, or read and left as written). */
@@ -528,7 +530,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     performSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind, breath: opts.soloBreath === 'on' || coreOn || tuneFirst, grid: opts.soloGrid === 'on' || coreOn || tuneFirst, light: coreOn || tuneFirst }, play ? LIVE_RULES : NO_RULES);
   // Solo expression (docs/SOLO-EXPRESSION.md): the Tune first melody played again in windows, bent and held, run and breathed
   const expressTune = (sol: Guitar2Part, seed: string, idea: Idea, mood: Mood, tension: number[]): Guitar2Part =>
-    expressSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind }, { dials: opts.soloBends === 'dials', recast: opts.soloRecast === 'on' });
+    expressSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind }, { dials: opts.soloBends === 'dials', recast: opts.soloRecast === 'on', echo: opts.soloEcho === 'on' });
   // Lead guitar sounds (docs/SOLO-SOUNDS.md): harmonics, dives, feedback and a pick scrape put on the finished solo (its own seed: nothing else changes)
   // (the amp is the section's own Guitar 2 sound, as on Auto; `before` and `after` are the sections either side)
   const withSounds = (sol: Guitar2Part, seed: string, idea: Idea, lick: LickKind, intensity: number, solo: boolean, said: string[], si: number): Guitar2Part => {
