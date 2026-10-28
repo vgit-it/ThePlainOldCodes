@@ -197,6 +197,8 @@ export interface SoloCurve {
   fine?: boolean;
   /** The solo player's report (docs/SOLO-PLAYER.md): what it did with each note of the melody. */
   moves?: SoloMove[];
+  /** The expression pass (docs/SOLO-EXPRESSION.md): the windows it played again, each with its start and end step, its pattern and the heat it was played at. */
+  express?: { t0: number; t1: number; pattern: string; heat: number }[];
   /** How the solo player read the melody (docs/SOLO-PLAYER.md, step 2): the situation of every note, joint, cell and phrase. */
   read?: SoloRead;
   /** Core notes with moves between (docs/SOLO-CORE.md, step 2): what was written in each gap between the cores. */
@@ -423,6 +425,8 @@ export interface GuitarHit {
   out?: boolean;
   /** Played as written: not held on through a short rest into the next note (a pulse or a gallop on one note, docs/SOLO-PLAYER.md). */
   exact?: boolean;
+  /** A note shorter than a step on purpose (a 32nd in a run from the solo expression pass): a section's cap leaves it short. */
+  quick?: boolean;
   /** A second lead guitar plays this with it (Twin, docs/LEAD-TWIN.md): a harmony, an octave or the same notes, panned the other way. */
   twin?: number[];
   /** Fade the note in (volume swell). */

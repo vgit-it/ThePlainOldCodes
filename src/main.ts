@@ -425,6 +425,7 @@ const optSel = {
   soloClimax: $<HTMLSelectElement>('t-soloclimax'),
   soloPolish: $<HTMLSelectElement>('t-solopolish'),
   soloShape: $<HTMLSelectElement>('t-soloshape'),
+  soloExpress: $<HTMLSelectElement>('t-soloexpress'),
   soloMood: $<HTMLSelectElement>('t-solomood'),
   soloMoodScale: $<HTMLSelectElement>('t-solomoodscale'),
   soloSounds: $<HTMLSelectElement>('t-solosounds'),
@@ -458,6 +459,7 @@ function syncTrackOptions() {
   optSel.soloClimax.value = track.opts.soloClimax === 'on' ? 'on' : 'off';
   optSel.soloPolish.value = track.opts.soloPolish === 'on' ? 'on' : 'off';
   optSel.soloShape.value = track.opts.soloShape === 'on' ? 'on' : 'off';
+  optSel.soloExpress.value = track.opts.soloExpress === 'on' ? 'on' : 'off';
   optSel.soloMood.value = track.opts.soloMood === 'on' ? 'on' : 'off';
   optSel.soloMoodScale.value = track.opts.soloMoodScale === 'on' ? 'on' : 'off';
   optSel.soloSounds.value = track.opts.soloSounds === 'on' ? 'on' : 'off';
@@ -477,7 +479,7 @@ for (const [k, sel] of Object.entries(optSel)) {
     if (k === 'moodAll') return rebuildTrack({ ...track.opts, moodAll: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'moodRiff') return rebuildTrack({ ...track.opts, moodRiff: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'moodSong') return rebuildTrack({ ...track.opts, moodSong: sel.value as TrackOptions['moodSong'] }, shown, true);
-    if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax' || k === 'soloPolish' || k === 'soloShape' || k === 'soloMood' || k === 'soloMoodScale' || k === 'soloSounds') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
+    if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax' || k === 'soloPolish' || k === 'soloShape' || k === 'soloExpress' || k === 'soloMood' || k === 'soloMoodScale' || k === 'soloSounds') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
     const opts: TrackOptions = { ...track.opts, order: undefined };
     if (k === 'mood') opts.mood = sel.value as MoodChoice;
     else if (k === 'intro') opts.intro = sel.value as IntroChoice;
