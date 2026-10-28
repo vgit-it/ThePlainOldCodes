@@ -407,6 +407,7 @@ $('sections').onclick = async (e) => {
 // structure options (changing one goes back to the automatic order)
 const optSel = {
   mood: $<HTMLSelectElement>('t-mood'),
+  moodAll: $<HTMLSelectElement>('t-moodall'),
   moodSong: $<HTMLSelectElement>('t-moodsong'),
   moodRiff: $<HTMLSelectElement>('t-moodriff'),
   intro: $<HTMLSelectElement>('t-intro'),
@@ -432,6 +433,12 @@ const optSel = {
 function syncTrackOptions() {
   if (!track) return;
   optSel.mood.value = track.opts.mood ?? 'auto';
+  optSel.moodAll.value = track.opts.moodAll === 'on' ? 'on' : 'off';
+  // (Mood: all the way sets these five itself)
+  for (const k of ['soloPlan', 'soloMood', 'soloMoodScale', 'moodSong', 'moodRiff'] as const) {
+    optSel[k].disabled = track.opts.moodAll === 'on';
+    optSel[k].title = track.opts.moodAll === 'on' ? 'Set by Mood: all the way' : '';
+  }
   optSel.moodRiff.value = track.opts.moodRiff === 'on' ? 'on' : 'off';
   optSel.moodSong.value = ['both', 'mode', 'tempo'].includes(track.opts.moodSong ?? '') ? track.opts.moodSong! : 'off';
   // Auto says which mood it chose
@@ -467,6 +474,7 @@ for (const [k, sel] of Object.entries(optSel)) {
     if (k === 'soloPlan') return rebuildTrack({ ...track.opts, soloPlan: sel.value as 'on' | 'off' | 'perform' | 'tune' }, shown, true);
     if (k === 'soloCores') return rebuildTrack({ ...track.opts, soloCores: isCoreMode(sel.value) ? sel.value : 'off' }, shown, true);
     // (the same song written again for the mood: stay where you are)
+    if (k === 'moodAll') return rebuildTrack({ ...track.opts, moodAll: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'moodRiff') return rebuildTrack({ ...track.opts, moodRiff: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'moodSong') return rebuildTrack({ ...track.opts, moodSong: sel.value as TrackOptions['moodSong'] }, shown, true);
     if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax' || k === 'soloPolish' || k === 'soloShape' || k === 'soloMood' || k === 'soloMoodScale' || k === 'soloSounds') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);

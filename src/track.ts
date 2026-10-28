@@ -79,6 +79,8 @@ export interface TrackOptions {
   moodSong?: 'off' | 'tempo' | 'mode' | 'both';
   /** Mood riff (docs/MOOD-RIFF.md): the mood picks the riff styles (sad: single notes, arpeggios, low pedal; bold: gallops, big chords) and a major key's riff takes the major 3rd. Missing in older links: off. */
   moodRiff?: 'on' | 'off';
+  /** Mood: all the way (docs/MOOD-ALL.md): Tune first solos with Solo mood and Mood scale, Mood song and Mood riff, in one switch. On Auto it uses the mood Auto picks for the song. Missing in older links: off. */
+  moodAll?: 'on' | 'off';
   /** Melody + player only (docs/SOLO-MELODY.md, step 0f): a phrase repeats its first beat or two of rhythm (missing in older links: off). */
   soloMotif?: 'on' | 'off';
   /** Melody + player only (step 0f): after a busy stretch of quick notes the player lets the next note be (missing in older links: off). */
@@ -212,9 +214,18 @@ export function moodSongOf(opts: TrackOptions): MoodSong | undefined {
   return { mood: opts.mood as Mood, ...(song ? { tempo: v !== 'mode', mode: v !== 'tempo' } : {}), ...(riff ? { riff: true } : {}) };
 }
 
+/** The options Mood: all the way turns on (the mood on Auto is the one Auto picks for the song as the genre wrote it). */
+export function moodAllOpts(given: TrackOptions, srcIn: Idea): TrackOptions {
+  if (given.moodAll !== 'on') return given;
+  const auto = !given.mood || given.mood === 'auto' || !PROFILES[given.mood as Mood];
+  return { ...given, ...(auto ? { mood: autoMood(srcIn.song, srcIn.seeds.song) } : {}), soloPlan: 'tune', soloMood: 'on', soloMoodScale: 'on', moodSong: 'both', moodRiff: 'on' };
+}
+
 export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOptions(srcIn)): Track {
+  // (Mood: all the way: the five mood switches, whatever they were set to)
+  const moodAll = moodAllOpts(given, srcIn);
   // (an old link may carry a Solo writer that is gone: it plays as "As before")
-  const opts: TrackOptions = given.soloPlan === 'on' || given.soloPlan === 'perform' || given.soloPlan === 'tune' || given.soloPlan === undefined ? given : { ...given, soloPlan: 'off' };
+  const opts: TrackOptions = moodAll.soloPlan === 'on' || moodAll.soloPlan === 'perform' || moodAll.soloPlan === 'tune' || moodAll.soloPlan === undefined ? moodAll : { ...moodAll, soloPlan: 'off' };
   // (Mood song: the same seeds, the song written again for the mood; switched off, back as it was)
   const want = moodSongOf(opts);
   const src = JSON.stringify(srcIn.opts.moodSong ?? null) === JSON.stringify(want ?? null) ? srcIn : generate({ ...srcIn.opts, moodSong: want }, srcIn.seeds);
@@ -226,8 +237,8 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
   const rng = new Rng(S.structure);
   // the mood: how the song builds and lets go (tension.ts); it leans the quiet sections, the key
   // change and the stops its way
-  const moodAuto = !opts.mood || opts.mood === 'auto';
-  const mood: Mood = moodAuto ? autoMood(src.song, src.seeds.song) : opts.mood as Mood;
+  const moodAuto = !given.mood || given.mood === 'auto';
+  const mood: Mood = !opts.mood || opts.mood === 'auto' ? autoMood(src.song, src.seeds.song) : opts.mood as Mood;
   const MP = PROFILES[mood];
   const mr = new Rng(`${S.structure}-${mood}`);
   // (a block's chords: the mood's own about half the time)
@@ -924,7 +935,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
   const steps = sections.reduce((a, s) => a + s.song.total, 0);
   // the lead vocal as it's sung, worked out over the whole song
   if (!verseVocal) singLead(sections, mood);
-  return { source: src, opts, order: slots.map((s) => s.kind), sections, bars, steps, edit, riffVerse, newChorus, mood, climax: arc.climax };
+  return { source: src, opts: given.moodAll === 'on' ? given : opts, order: slots.map((s) => s.kind), sections, bars, steps, edit, riffVerse, newChorus, mood, climax: arc.climax };
 }
 
 /** Which of the track's seeds a section's reroll changes (null: the section is the idea itself). */
