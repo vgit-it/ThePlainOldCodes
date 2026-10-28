@@ -22,7 +22,7 @@ import { lickFit, placedHit } from './licks';
 import { BUSY, DENSITY, ENERGY_WORDS, energyAt, pickEnergy } from './solo2';
 import { type GapNote, findGaps, pickGaps } from './solomelody-gaps';
 import { BREATH_GENRE, BREATH_MOOD, type PlanOpts } from './soloplan';
-import { SOLO_MOOD, aimFor } from './solomood';
+import { SOLO_MOOD, aimFor, moodScale } from './solomood';
 import { tuneScore } from './solotune';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
@@ -31,6 +31,8 @@ const sign = (x: number) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 
 /** How many versions of a solo are written; the best as a tune is played. */
 export const TUNE_TRIES = 12;
+/** Mood scale applies when this share of the solo sits on chords with no third. */
+export const MOOD_SCALE_BARE = 0.5;
 /** How much the mood's liking of a move counts against the rest of a note's cost. */
 const MOOD_W = 0.35;
 /** The pick of a cell: how sharply it follows the costs. */
@@ -80,7 +82,7 @@ const TEMPLATES: Record<number, [Cell[], number][]> = {
   ],
 };
 
-export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean } = {}): Guitar2Part {
+export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean } = {}): Guitar2Part {
   // (`moody`, Solo mood: the mood's own character in the intervals, jumps, pace, colour notes and the score; docs/SOLO-MOOD.md)
   const tries = x.tries ?? TUNE_TRIES, moody = !!x.moody;
   const { key, bars, total } = song;
@@ -88,7 +90,14 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const t = song.tuning ?? TUNINGS.standard;
   const fit = lickFit(song, chords, riff);
   const mood: Mood = o.mood ?? 'nostalgic';
-  const scale = SCALES[song.mode] as readonly number[];
+  // (Mood scale: over chords with no third the mood turns the scale's 3rd and 6th; a song of full chords keeps its own scale)
+  const own = SCALES[song.mode] as readonly number[];
+  const thirdless = (() => {
+    let bare = 0;
+    chords.timeline.forEach((e, i) => { if (new Set((QUALITIES[e.chord.q] as readonly number[]).map((q) => q % 12)).size <= 2) bare += (chords.timeline[i + 1]?.step ?? total) - e.step; });
+    return bare / Math.max(1, total);
+  })();
+  const scale: readonly number[] = moody && x.scale && thirdless >= MOOD_SCALE_BARE ? moodScale(own, o.mood ?? 'nostalgic') : own;
   const PM = SOLO_MOOD[mood];
   const barIx = (g: number) => { for (let i = bars.length - 1; i >= 0; i--) if (g >= bars[i].start) return i; return 0; };
   const profs = bars.map((_, i) => profileFor(mood, 'solo', o.tension?.length ? o.tension[Math.min(o.tension.length - 1, i)] : undefined));
