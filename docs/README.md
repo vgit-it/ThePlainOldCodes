@@ -40,6 +40,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `SOLO-LIBRARY.md`: step 2d of the story: the recipe lab's licks join the recipes (jobs from the lab's marks or guesses), and recipes are strung together so no rest is over a beat. Behind a switch.
 - `SOLO-POLISH.md`: step 2e, the player dresses the story (vibrato, bends, figures on long holds, touches on short notes). Switch: Solo polish.
 - `SOLO-SHAPE.md`: step 2f, the story's dynamics (loudness follows the arc, a laid-back start in soft moods, the last note rings). Switch: Solo shape.
+- `SOLO-TUNE.md`: "Tune first", a melody-first solo writer (phrases of 2 to 4 bars, a strong note per phrase, answers, best of 12 by a tune score). Switch: Solo writer. Checks: `npm run solo-tune-check`, `solo-tunefirst-check`.
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.
 - `GUITAR-SOUNDS.md`: the lead's new sounds (pinch and natural harmonics, whammy dive, feedback, pick scrape), made in code.
