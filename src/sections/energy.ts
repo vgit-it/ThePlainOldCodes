@@ -180,7 +180,8 @@ export function shapeBass(idea: Idea, e: number) {
 }
 
 /** Cap notes so nothing rings past step `s`. */
-export const capAt = (s: number) => (h: GuitarHit): GuitarHit => ({ ...h, len: Math.max(1, Math.min(h.len, s - h.step)) });
+// (a note the solo expression pass made shorter than a step on purpose, a 32nd, stays short)
+export const capAt = (s: number) => (h: GuitarHit): GuitarHit => (h.quick && h.len < 1 ? h : { ...h, len: Math.max(1, Math.min(h.len, s - h.step)) });
 
 /**
  * A planned solo's last note carries on (docs/SOLO-PLAN.md, round 2): it rings through the rest of the section and the next

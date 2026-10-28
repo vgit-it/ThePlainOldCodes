@@ -22,6 +22,7 @@ import { generateSoloPlan, isCoreMode } from './parts/soloplan';
 import { performSolo } from './parts/soloplayer';
 import { addLeadSounds } from './parts/solosounds';
 import { shapeStory } from './parts/solodynamics';
+import { expressSolo } from './parts/soloexpress';
 import { LIVE_RULES, NO_RULES } from './parts/solorules-live';
 import { singLead } from './parts/leadvocal';
 import { emoOn, setsOf } from './verse/emotion';
@@ -97,6 +98,8 @@ export interface TrackOptions {
   soloPolish?: 'on' | 'off';
   /** The story's own dynamics on the core note modes: loudness follows the arc, a laid-back start, a closing ring (docs/SOLO-SHAPE.md). */
   soloShape?: 'on' | 'off';
+  /** Tune first only (docs/SOLO-EXPRESSION.md): the melody played the way a guitarist would: held bent notes, quick runs, flurries and breaths in windows of any length; replaces Solo polish (missing in older links: off). */
+  soloExpress?: 'on' | 'off';
   /** Checks only (scripts/solo-*-check.ts), never set by the page: a step of the melody + player writer on its own (the melody, with gap marks, with joins, or read and left as written). */
   soloCheck?: 'melody' | 'marks' | 'joins' | 'player';
   /** When the rhythm guitar plays (src/players/presence.ts): it sits out intros, verses and bridges, comes in late, drops out, as in real songs (missing in older links: off). */
@@ -516,6 +519,9 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
   // the solo player (Melody + player): the melody + joins, played like a guitarist would (the check step `player`: every note as written)
   const playSolo = (sol: Guitar2Part, seed: string, idea: Idea, mood: Mood, tension: number[], play: boolean): Guitar2Part =>
     performSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind, breath: opts.soloBreath === 'on' || coreOn || tuneFirst, grid: opts.soloGrid === 'on' || coreOn || tuneFirst, light: coreOn || tuneFirst }, play ? LIVE_RULES : NO_RULES);
+  // Solo expression (docs/SOLO-EXPRESSION.md): the Tune first melody played again in windows, bent and held, run and breathed
+  const expressTune = (sol: Guitar2Part, seed: string, idea: Idea, mood: Mood, tension: number[]): Guitar2Part =>
+    expressSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind });
   // Lead guitar sounds (docs/SOLO-SOUNDS.md): harmonics, dives, feedback and a pick scrape put on the finished solo (its own seed: nothing else changes)
   // (the amp is the section's own Guitar 2 sound, as on Auto; `before` and `after` are the sections either side)
   const withSounds = (sol: Guitar2Part, seed: string, idea: Idea, lick: LickKind, intensity: number, solo: boolean, said: string[], si: number): Guitar2Part => {
@@ -697,14 +703,15 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
         : opts.soloPlan === 'on'
         ? generateSoloPlan(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity, { mood: arc.mood, tension: tt, drums: idea.drums })
         : generateSolo2(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity);
-      if (melody && (coreOn || tuneFirst ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-${si}`, idea, arc.mood, tt, melody.play);
+      if (tuneFirst && opts.soloExpress === 'on') sol = expressTune(sol, `${soloSeed}-${si}`, idea, arc.mood, tt);
+      else if (melody && (coreOn || tuneFirst ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-${si}`, idea, arc.mood, tt, melody.play);
       if (melody && melody.play && coreOn && opts.soloShape === 'on') sol = shapeStory(sol, arc.mood);
       if (opts.soloSounds === 'on') sol = withSounds(sol, `${soloSeed}-${si}`, idea, lead.lick, intensity, true, notes, si);
       idea.guitar2 = sol.hits;
       idea.soloCurve = sol.curve;
       idea.section!.solo = true;
       g2 = sol.notes[0];
-      if (melody && coreOn) g2more = sol.notes.slice(1);
+      if (melody && coreOn || tuneFirst && opts.soloExpress === 'on') g2more = sol.notes.slice(1);
       if (s.kind === 'solo') notes.push(`Guitar solo, ${idea.song.bars.length} bars over the ${soloOverChorus ? 'chorus' : 'verse'} chords; the rhythm guitar backs off`);
       else notes.push('Guitar 2 solos over the outro');
     } else if (s.g2 === 'break') {
@@ -716,7 +723,8 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
         : opts.soloPlan === 'on'
         ? generateSoloPlan(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums })
         : generateSolo2(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3);
-      if (melody && (coreOn || tuneFirst ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-break-${si}`, idea, arc.mood, arc.sections[si].tension, melody.play);
+      if (tuneFirst && opts.soloExpress === 'on') sol = expressTune(sol, `${soloSeed}-break-${si}`, idea, arc.mood, arc.sections[si].tension);
+      else if (melody && (coreOn || tuneFirst ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-break-${si}`, idea, arc.mood, arc.sections[si].tension, melody.play);
       if (melody && melody.play && coreOn && opts.soloShape === 'on') sol = shapeStory(sol, arc.mood);
       if (opts.soloSounds === 'on') sol = withSounds(sol, `${soloSeed}-break-${si}`, idea, lead.lick, 0.3, false, notes, si);
       idea.guitar2 = sol.hits;
