@@ -47,6 +47,6 @@ Switch: Track options → **Solo expression** → On (`soloExpress: 'on'`). Need
 1. Paul listens.
 2. Bend dials: built, behind the Solo bends switch (`SOLO-BENDS.md`). Paul listens.
 3. Recast: built, behind the Solo recast switch (`SOLO-RECAST.md`): library licks, legato rolls, pedal figures and trill climbs as run parts; slide-ins and trills on held notes. Paul listens.
-4. Expression as a motif: an answer plays its call's gesture again, changed; one signature gesture per solo. This wants the melody step to hand over its structure (which cell, which echo).
+4. Echo: built, behind the Solo echo switch (`SOLO-ECHO.md`): an answer plays its call's figure again on its own notes, changed now and then; one signature figure comes back near the climax and the end. Paul listens.
 5. Fold into Mood: all the way.
 6. Maybe the melody step: some 16ths, dotted and syncopated rhythm, repeated bars that differ, long notes followed by a step (good for bends), and a reward for "room to play" in its best-of-12. Only if listening says the skeleton is in the way.

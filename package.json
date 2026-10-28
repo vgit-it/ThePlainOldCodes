@@ -71,6 +71,7 @@
     "solo-back-check": "rolldown scripts/solo-back-check.ts --platform node --format esm -o node_modules/.cache/solo-back-check.mjs && node node_modules/.cache/solo-back-check.mjs",
     "solo-bend-check": "rolldown scripts/solo-bend-check.ts --platform node --format esm -o node_modules/.cache/solo-bend-check.mjs && node node_modules/.cache/solo-bend-check.mjs",
     "solo-recast-check": "rolldown scripts/solo-recast-check.ts --platform node --format esm -o node_modules/.cache/solo-recast-check.mjs && node node_modules/.cache/solo-recast-check.mjs",
+    "solo-echo-check": "rolldown scripts/solo-echo-check.ts --platform node --format esm -o node_modules/.cache/solo-echo-check.mjs && node node_modules/.cache/solo-echo-check.mjs",
     "solo-tunefirst-check": "rolldown scripts/solo-tunefirst-check.ts --platform node --format esm -o node_modules/.cache/solo-tunefirst-check.mjs && node node_modules/.cache/solo-tunefirst-check.mjs",
     "solo-tune-check": "rolldown scripts/solo-tune-check.ts --platform node --format esm -o node_modules/.cache/solo-tune-check.mjs && node node_modules/.cache/solo-tune-check.mjs",
     "solo-shape-check": "rolldown scripts/solo-shape-check.ts --platform node --format esm -o node_modules/.cache/solo-shape-check.mjs && node node_modules/.cache/solo-shape-check.mjs",

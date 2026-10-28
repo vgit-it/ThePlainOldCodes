@@ -199,6 +199,8 @@ export interface SoloCurve {
   moves?: SoloMove[];
   /** The expression pass (docs/SOLO-EXPRESSION.md): the windows it played again, each with its start and end step, its pattern and the heat it was played at. */
   express?: { t0: number; t1: number; pattern: string; heat: number }[];
+  /** The echo (docs/SOLO-ECHO.md): the windows that play another window's figure again (its start `from`), an answer playing its call or the signature figure coming back. */
+  echo?: { from: number; fromEnd: number; t0: number; t1: number; via: string }[];
   /** How the solo player read the melody (docs/SOLO-PLAYER.md, step 2): the situation of every note, joint, cell and phrase. */
   read?: SoloRead;
   /** Core notes with moves between (docs/SOLO-CORE.md, step 2): what was written in each gap between the cores. */
