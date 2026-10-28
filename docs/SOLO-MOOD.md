@@ -64,8 +64,7 @@ Share of the non-chord 3rd and 6th notes that are minor, over power chords:
 - Hard rock: only about 8% to 36% of its solos are on power chords, so it changes little. Its fix is the song's mode (next).
 
 ## Not done
-- Hard rock's major key: needs the mood to pick the song's mode (a larger change, a new switch).
-- Tempo and drum feel by mood (melancholic and dark slower or half-time).
+- Hard rock's major key and tempo by mood: done in `MOOD-SONG.md` (switch: Mood song).
 - Solo shape (loudness) for Tune first.
 - 6/8 and 7/8: the mood score's pass rate is lower there (small samples).
 - The numbers are my own measures; Paul's ears decide.

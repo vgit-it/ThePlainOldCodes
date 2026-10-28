@@ -9,7 +9,8 @@ import type { MoveId } from './parts/moves';
 import { autoVoice, singTrack } from './parts/vocal';
 import type { EnergyStyle } from './parts/energy';
 import { type Mood, type MoodChoice, PROFILES, arcNote, autoMood, planTension } from './tension';
-import { type BuildOptions, buildIdea, withSheet } from './generator';
+import { type BuildOptions, buildIdea, generate, withSheet } from './generator';
+import type { MoodSong } from './moodsong';
 import { GENRES, type Genre, QUIET_STYLES, type RiffStyle } from './genres';
 import type { ChordSheet, GuitarHit, Idea, SectionKind, Song } from './idea';
 import { type G2Options, type Guitar2Part, type Guitar2Style, chordTones, generateHook, leadFret } from './parts/guitar2';
@@ -74,6 +75,8 @@ export interface TrackOptions {
   soloMood?: 'on' | 'off';
   /** Tune first with Solo mood: the mood turns the scale's 3rd and 6th over chords with no third (missing in older links: off). */
   soloMoodScale?: 'on' | 'off';
+  /** Mood song (docs/MOOD-SONG.md): the song's mode and/or its tempo and drum feel follow the mood chosen (not on Auto). Missing in older links: off. */
+  moodSong?: 'off' | 'tempo' | 'mode' | 'both';
   /** Melody + player only (docs/SOLO-MELODY.md, step 0f): a phrase repeats its first beat or two of rhythm (missing in older links: off). */
   soloMotif?: 'on' | 'off';
   /** Melody + player only (step 0f): after a busy stretch of quick notes the player lets the next note be (missing in older links: off). */
@@ -199,9 +202,19 @@ const MAX_SECONDS = 210;
 /** Solo New, above 100 bpm: the chance of a longer solo, by genre. */
 const LONG_SOLO: Record<Genre, number> = { metal: 0.7, hardrock: 0.65, rock: 0.5, altmetal: 0.5, grunge: 0.45, funk: 0.35, pop: 0.3 };
 
-export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(src)): Track {
+/** What Mood song asks of the idea: nothing on Auto (the Auto mood comes from the song), or on a mood no longer in the list. */
+export function moodSongOf(opts: TrackOptions): MoodSong | undefined {
+  const v = opts.moodSong;
+  if ((v !== 'tempo' && v !== 'mode' && v !== 'both') || !opts.mood || opts.mood === 'auto' || !PROFILES[opts.mood as Mood]) return undefined;
+  return { mood: opts.mood as Mood, tempo: v !== 'mode', mode: v !== 'tempo' };
+}
+
+export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOptions(srcIn)): Track {
   // (an old link may carry a Solo writer that is gone: it plays as "As before")
   const opts: TrackOptions = given.soloPlan === 'on' || given.soloPlan === 'perform' || given.soloPlan === 'tune' || given.soloPlan === undefined ? given : { ...given, soloPlan: 'off' };
+  // (Mood song: the same seeds, the song written again for the mood; switched off, back as it was)
+  const want = moodSongOf(opts);
+  const src = JSON.stringify(srcIn.opts.moodSong ?? null) === JSON.stringify(want ?? null) ? srcIn : generate({ ...srcIn.opts, moodSong: want }, srcIn.seeds);
   const S = opts.seeds;
   // (Tune first, docs/SOLO-TUNE.md: its own melody writer; the player dresses it, lightly, behind Solo polish)
   const tuneFirst = opts.soloPlan === 'tune';

@@ -8,6 +8,7 @@ import type { MoveId } from './parts/moves';
 import { autoVoice, singIdea } from './parts/vocal';
 import type { EnergyStyle } from './parts/energy';
 import { autoMood } from './tension';
+import { moodHalf, moodMode, moodTempo } from './moodsong';
 import { GENRES, GENRE_LIST, type Genre, type RiffStyle } from './genres';
 import type { ChordPart, Cycle, GenOptions, Idea, Seeds, Song, Stroke } from './idea';
 import { BASS_LINE_DESC, bassLengths, generateBass, generateRiffBass, pickBassLine, writeBassLine } from './parts/bass';
@@ -61,12 +62,16 @@ export function planSong(rng: Rng, opts: GenOptions): Song {
   }
   const rolledMode = w > 0.6 && rng.chance(0.5) ? rng.pick(['phrygian', 'lydian'] as const) : rng.pick(G.modes);
   // (rolled anyway, so a chosen key or mode doesn't change any other decision; the lick lab uses them)
-  const mode = opts.mode ?? rolledMode;
+  const ms = opts.moodSong;
+  const mode = opts.mode ?? (ms?.mode ? moodMode(G.modes, ms.mood, rolledMode) : rolledMode);
   if (opts.key !== undefined) key = opts.key;
   let bpm = rng.int(...G.bpm);
   if (w > 0.8 && rng.chance(0.4)) bpm += rng.pick([-25, 25]);
   // rolled anyway, so a fixed tempo doesn't change any other decision
   if (opts.bpm) bpm = opts.bpm;
+  else if (ms?.tempo) bpm = moodTempo(bpm, ms.mood);
+  // (a slow mood at a fast tempo: the drums sit back in half-time)
+  const forceHalf = ms?.tempo && !opts.bpm && moodHalf(bpm, ms.mood) ? true : undefined;
 
   const meters = pickMeters(rng, opts.meter, w, G.altMeters);
   const groupsFor: Record<string, number[]> = {};
@@ -91,7 +96,7 @@ export function planSong(rng: Rng, opts: GenOptions): Song {
   }
 
   return {
-    genreSel, genre, partGenres, key, mode, bpm, swing: G.swing, w,
+    genreSel, genre, partGenres, key, mode, bpm, swing: G.swing, w, ...(forceHalf ? { forceHalf } : {}),
     meters, meterLabel: meters.length > 1 ? meters.join(' + ') : meters[0],
     groupsFor, bars, total: pos, plan, cycles, tuning, sections,
   };
