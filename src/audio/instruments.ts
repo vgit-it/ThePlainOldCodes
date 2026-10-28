@@ -8,6 +8,7 @@ import { type DrumPiece, DRUM_PIECES, RoundRobin, loadCab, loadDrums, loadPitche
 import { captureAmp, resample } from './realamp';
 import { inContext } from './context';
 import { squeaks } from './squeak';
+import { fxSets, SCRAPE_LEN } from './guitarfx';
 import { SampleVoice } from './voice';
 
 const midiNote = (m: number) => Tone.Frequency(m, 'midi').toNote();
@@ -59,6 +60,11 @@ export interface StrumArgs {
   trill?: number;
   tremolo?: boolean;
   rake?: number;
+  /** The lead's extra sounds (docs/GUITAR-SOUNDS.md): a harmonic, a whammy dive (semitones), feedback (the
+   * tone's semitones above). A pick scrape is played on its own (`scrape`): it starts before the note. */
+  harm?: 'pinch' | 'natural';
+  dive?: number;
+  feedback?: number;
 }
 
 export interface ChordInstrument {
@@ -68,6 +74,8 @@ export interface ChordInstrument {
   strum(a: StrumArgs): void;
   /** A finger squeak along the wound strings as the hand shifts (`up` the neck, or down). Guitars only. */
   squeak?(time: number, vel: number, up: boolean): void;
+  /** A pick scrape from `time`, `dur` seconds long, ending as the next note is picked (docs/GUITAR-SOUNDS.md). Guitars only. */
+  scrape?(time: number, dur: number, vel: number, clean?: boolean): void;
   /** Stop everything ringing (at `time`, or now). */
   releaseAll(time?: number): void;
 }
@@ -332,6 +340,10 @@ class Amp {
 interface Take {
   ring: MultiSampler;
   muted: MultiSampler;
+  /** The lead's extra sounds (docs/GUITAR-SOUNDS.md): natural harmonics, a pinch harmonic's squeal, feedback. */
+  chime: MultiSampler;
+  squeal: MultiSampler;
+  drone: MultiSampler;
   strings: (Voice | undefined)[];
   /** The notes of the last chord strummed (a repeat of it rings on instead of being stopped). */
   last: number[];
@@ -339,6 +351,9 @@ interface Take {
 
 /** How loud a finger squeak goes in (driven amps bring it up a lot). */
 const SQUEAK = { driven: 0.03, clean: 0.045, acoustic: 0.06 };
+/** How loud the lead's extra sounds go in (docs/GUITAR-SOUNDS.md; measured against a plain note). A pinch's
+ * picked note is played softer, under its squeal; the scrape is cut back a lot into a driven amp. */
+const FX = { natural: 0.14, squeal: 0.3, picked: 0.75, drone: 0.12, scrape: 0.25, scrapeDriven: 0.8 };
 
 export class Guitar implements ChordInstrument {
   readonly kind = 'guitar';
@@ -442,6 +457,7 @@ export class Guitar implements ChordInstrument {
         this.amps.forEach((a) => a.setCabs({ clean, crunch, dist }));
         this.cleanAmp?.setCabs({ clean });
       }
+      const fx = fxSets(this.ctx.sampleRate);
       this.takes = inContext(this.ctx, () => this.outs.map((head) => {
         // palm mute: the string is damped, so the highs die almost at once
         const pm = new Tone.BiquadFilter({ type: 'lowpass', frequency: 950, Q: 0.5 }).connect(head);
@@ -449,6 +465,9 @@ export class Guitar implements ChordInstrument {
           // (a released note fades like a lifted finger, not a cut)
           ring: new MultiSampler(set, head, 0.15, this.ctx),
           muted: new MultiSampler(set, pm, 0.04, this.ctx),
+          chime: new MultiSampler(fx.chime, new Tone.Gain(FX.natural).connect(head), 0.3, this.ctx),
+          squeal: new MultiSampler(fx.chime, new Tone.Gain(FX.squeal).connect(head), 0.15, this.ctx),
+          drone: new MultiSampler(fx.drone, new Tone.Gain(FX.drone).connect(head), 0.25, this.ctx),
           strings: [] as (Voice | undefined)[],
           last: [] as number[],
         };
@@ -483,6 +502,17 @@ export class Guitar implements ChordInstrument {
     });
   }
 
+  scrape(time: number, dur: number, vel: number, clean?: boolean) {
+    if (!this.takes.length) return;
+    const quiet = clean && this.type === 'electric' && this.tone !== 'clean';
+    const driven = this.type === 'electric' && this.tone !== 'clean' && !quiet;
+    const takes = quiet ? [this.takes[this.cleanIdx]] : this.takes.slice(0, this.doubled ? 2 : 1);
+    // squeezed or stretched to the time it has (within reason), and always ending on the note
+    const rate = Math.min(3, Math.max(0.6, SCRAPE_LEN / Math.max(0.05, dur)));
+    const len = SCRAPE_LEN / rate;
+    takes.forEach((take) => take.ring.shot(fxSets(this.ctx.sampleRate).scrape, Math.max(0, time + dur - len), Math.min(1, vel) * (driven ? FX.scrapeDriven : FX.scrape), rate));
+  }
+
   private squeakTake(take: Take, time: number, vel: number, up: boolean, driven: boolean) {
     const set = squeaks(this.ctx.sampleRate).filter((_, i) => (i % 2 === 0) === up);
     // the amp's drive and compression bring a squeak right up: much less goes in
@@ -490,7 +520,7 @@ export class Guitar implements ChordInstrument {
   }
 
   private strumTake(take: Take, a: StrumArgs, driven: boolean) {
-    const { stroke, notes, strings, time, dur, vel, sixteenth, letRing, slide, swell, touch: hands, unbend, lateBend, bendAt, trill, tremolo, rake } = a;
+    const { stroke, notes, strings, time, dur, vel, sixteenth, letRing, slide, swell, touch: hands, unbend, lateBend, bendAt, trill, tremolo, rake, harm, dive, feedback } = a;
     const fadeIn = swell ? Math.min(0.6, dur * 0.4) : 0;
     const str = strings ?? notes.map((_, i) => 6 - notes.length + i);
     // time between strings: faster at quicker tempos, ~25-45 ms across six strings; a hand never
@@ -524,18 +554,19 @@ export class Guitar implements ChordInstrument {
     if (hands?.squeak) this.squeakTake(take, time - 0.05 - Math.random() * 0.04, vel, Math.random() < 0.5, driven);
 
     // the hand moves on along the same string(s) without a new pick: hammer-on, pull-off, slide
-    if (stroke === 'D' && hands && hands.move !== 'pick' && !letRing && !swell) {
+    // (a harmonic or feedback is always picked)
+    if (stroke === 'D' && hands && hands.move !== 'pick' && !letRing && !swell && !harm && !feedback) {
       const t = time + jitter(1);
       const vs = str.map((s) => take.strings[s]);
       if (vs.every((v, i) => take.ring.canLegato(v, notes[i], t, dur))) {
-        vs.forEach((v, i) => take.ring.legato(v!, notes[i], t, dur, hands.move as LegatoMove, { vibrato, tied: hands.tied, fall: hands.fall }));
+        vs.forEach((v, i) => take.ring.legato(v!, notes[i], t, dur, hands.move as LegatoMove, { vibrato, tied: hands.tied, fall: hands.fall, dive }));
         return;
       }
     }
     // a double-stop bend: the lower string pushed up under the held top one (a unison or oblique bend)
     const dyad = notes.length === 2 && !octave;
     const bendAll = hands?.bend ?? (dyad ? 0 : a.bend);
-    const hand = { tied: hands?.tied, fall: hands?.fall, bend: lateBend ? undefined : bendAll, unbend, lateBend, bendAt, trill };
+    const hand = { tied: hands?.tied, fall: hands?.fall, bend: lateBend ? undefined : bendAll, unbend, lateBend, bendAt, trill, dive };
     // a rake: the pick drags across a few muted strings on its way to the note
     if (rake && stroke === 'D') {
       for (let k = rake; k >= 1; k--) take.muted.play(notes[0] - 5 * k, time - k * 0.022 + jitter(1), 0.03, Math.min(1, vel * (0.35 + 0.08 * (rake - k))), { detune });
@@ -566,7 +597,23 @@ export class Guitar implements ChordInstrument {
         const t = Math.max(0, time - early + i * gap + jitter(1.5));
         if (letRing || same) take.ring.choke(take.strings[str[i]], t, same ? 0.02 : undefined);
         const v = vel * touch() * (1 - (notes.length - 1 - i) * 0.015);
-        take.strings[str[i]] = take.ring.play(m, t, dur, v, { slide, vibrato, detune, fadeIn: fadeIn || brush(), ...hand, bend: dyad && i === 0 && !hands ? a.bend : hand.bend });
+        const o = { slide, vibrato, detune, fadeIn: fadeIn || brush(), ...hand, bend: dyad && i === 0 && !hands ? a.bend : hand.bend };
+        if (harm === 'natural') {
+          // touched at a node, not fretted: a chime at the note, no vibrato (the bar still moves it)
+          take.strings[str[i]] = take.chime.play(m, t, dur, v, { ...o, vibrato: 0, detune: 0.5 });
+          continue;
+        }
+        take.strings[str[i]] = take.ring.play(m, t, dur, harm === 'pinch' ? v * FX.picked : v, o);
+        // a pinch harmonic: the thumb catches the string as it's picked, and an overtone an octave and a
+        // fifth up squeals over the note, bent and shaken with it (wider: it's what the player leans on)
+        if (harm === 'pinch') take.squeal.play(m + 19, t, dur, v, { ...o, vibrato: Math.max(vibrato, 18) * 1.4, detune: 0 });
+      }
+      // feedback: the held note gives way to a tone above it, swelling in as the speaker drives the string
+      const top = notes.length - 1;
+      if (feedback && dur > 0.6) {
+        const at = time + Math.min(0.5, dur * 0.3), swell = Math.min(1.5, (time + dur - at) * 0.5);
+        take.drone.play(notes[top] + feedback, at, time + dur - at, vel, { fadeIn: swell, vibrato: 16, dive });
+        take.ring.choke(take.strings[str[top]], at + swell, 0.5);
       }
     } else if (stroke === 'U') {
       // up-strokes catch the top 2-4 strings, a little lighter; lower strings keep ringing

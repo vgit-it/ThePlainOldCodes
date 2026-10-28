@@ -39,6 +39,14 @@ export interface LibNote {
   out?: boolean;
   /** Wide vibrato. */
   vib?: boolean;
+  /** A pinch harmonic (the squeal over the picked note) or a natural harmonic (a chime at the note), docs/GUITAR-SOUNDS.md. */
+  harm?: 'pinch' | 'natural';
+  /** A whammy dive through the end of the note, this many semitones. */
+  dive?: number;
+  /** Feedback taking the held note over, this many semitones up. */
+  feedback?: number;
+  /** A pick scrape into the note, this many 16ths long. */
+  scrape?: number;
   /** The string it is fingered on in the tab (1 high E to 6 low E): only for showing the tab, the app picks its own. */
   str?: number;
 }
@@ -73,7 +81,8 @@ export interface LickFile { about: string; licks: LickEntry[] }
  * Notes as "pos:semi:len:techniques", techniques comma-separated: bN bent up N, rN let down N, pbN
  * pre-bent N and released, h hammered/pulled (legato), s slid, d-N a second note N below (d-0 a unison
  * bend, d-12 an octave), trN trilled N above, trem tremolo picked, rk raked, x ghost, c a passing
- * note outside the key, v wide vibrato, @N fingered on string N (the tab only).
+ * note outside the key, v wide vibrato, ph a pinch harmonic, nh a natural harmonic, dvN a whammy dive N
+ * down, fbN feedback N up, scN a pick scrape N 16ths long into it, @N fingered on string N (the tab only).
  * Throws on anything it doesn't know, so a typo can't slip into the library.
  */
 export function parseNotes(src: string): LibNote[] {
@@ -86,6 +95,11 @@ export function parseNotes(src: string): LibNote[] {
       if (t.startsWith('pb')) n.unbend = num(2);
       else if (t === 'trem') n.tremolo = true;
       else if (t === 'rk') n.rake = true;
+      else if (t === 'ph') n.harm = 'pinch';
+      else if (t === 'nh') n.harm = 'natural';
+      else if (t.startsWith('dv')) n.dive = num(2);
+      else if (t.startsWith('fb')) n.feedback = num(2);
+      else if (t.startsWith('sc')) n.scrape = num(2);
       else if (t.startsWith('tr')) n.trill = num(2);
       else if (t.startsWith('b')) n.bend = num(1);
       else if (t.startsWith('r')) n.unbend = num(1);
@@ -119,6 +133,10 @@ export function writeNotes(notes: LibNote[]): string {
     if (n.dead) t.push('x');
     if (n.out) t.push('c');
     if (n.vib) t.push('v');
+    if (n.harm) t.push(n.harm === 'pinch' ? 'ph' : 'nh');
+    if (n.dive) t.push(`dv${n.dive}`);
+    if (n.feedback) t.push(`fb${n.feedback}`);
+    if (n.scrape) t.push(`sc${n.scrape}`);
     if (n.str) t.push(`@${n.str}`);
     return `${n.pos}:${n.semi}:${n.len}${t.length ? ':' + t.join(',') : ''}`;
   }).join(' ');

@@ -58,6 +58,6 @@ Step 2b, the story: `docs/SOLO-STORY.md` (every gap gets a part in the solo befo
   - pinch harmonic (best on the climax core) 2 1 1 3 3 2 3; natural harmonic 1 2 1 1 2 2 2
   - tapping (on `tap` leaps) 1 1 1 2 3 1 2; palm mute (a chug between cores) 1 1 2 2 3 2 3
   - whammy / dive bomb 1 1 1 2 3 2 2; pick scrape (into the solo: arrangement) 1 1 1 2 3 2 2
-- Sounds (a separate job): the lead has no sound yet for harmonics, tapping, whammy or pick scrape. Palm mute exists only on the rhythm guitar. Until those sounds exist, these play as plain notes.
+- Sounds: harmonics, whammy and pick scrape exist now (`GUITAR-SOUNDS.md`) and solos use them behind a switch (`SOLO-SOUNDS.md`, with these weights). Tapping still plays as legato. Palm mute exists only on the rhythm guitar.
 - Tune by ear: the 3rd or 7th share, how long a core is held, how far the cores jump.
 - The player is not run on the cores or the moves.

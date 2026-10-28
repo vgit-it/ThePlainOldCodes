@@ -29,6 +29,8 @@ export interface PlayOptions {
   bend?: number;
   /** Slide off the end of the note, down this many semitones. */
   fall?: number;
+  /** Whammy dive: the bar pushed down through the end of the note, the pitch falling this many semitones. */
+  dive?: number;
   /** Let a bend down again partway through the note, this many semitones (no bend: picked already bent). */
   unbend?: number;
   /** Held this many semitones below, then bent up to the note partway through (a bend after a hold). */
@@ -50,6 +52,10 @@ export interface PlayOptions {
   /** Always play this velocity layer (0 = softest), whatever the velocity. */
   layer?: number;
 }
+
+/** A whammy dive takes the last this-many seconds of its note (a fixed time, so the note's other pitch moves
+ * always end before it, however they're worked out). */
+const DIVE = 0.8;
 
 /** How the hand moves to a legato note on the same string. */
 export type LegatoMove = 'hammer' | 'pull' | 'slide';
@@ -150,7 +156,7 @@ export class MultiSampler {
 
   /** Until when the note's own pitch moves may run (a tie or a fall-off takes over after). */
   private pitchEnd(end: number, from: number, o: PlayOptions) {
-    return o.tied ? end - 0.045 : o.fall ? Math.max(from, end - Math.min(0.18, (end - from) * 0.5)) : Infinity;
+    return o.tied ? end - 0.045 : o.dive ? Math.max(from, end - DIVE) : o.fall ? Math.max(from, end - Math.min(0.18, (end - from) * 0.5)) : Infinity;
   }
 
   /** A held note's vibrato (from `from`) and fall-off (at its end, `end`). */
@@ -170,7 +176,15 @@ export class MultiSampler {
       pr.setValueCurveAtTime(curve, from, len);
       v.free = until + 0.001;
     }
-    if (o.fall && !o.tied) {
+    if (o.dive && !o.tied) {
+      // the whammy bar pushed down: slowly at first, then the strings go slack fast
+      const d0 = Math.max(v.free ?? 0, until), len = Math.max(0.05, end + 0.02 - d0);
+      const n = Math.max(16, Math.ceil(len * 120));
+      const curve: number[] = new Array(n);
+      for (let i = 0; i < n; i++) curve[i] = rate * 2 ** ((-o.dive * (i / (n - 1)) ** 1.7) / 12);
+      pr.setValueCurveAtTime(curve, d0, len);
+      v.free = d0 + len + 0.001;
+    } else if (o.fall && !o.tied) {
       // the finger slides down the string as the note is let go
       const f0 = Math.max(v.free ?? 0, until);
       pr.setValueAtTime(rate, f0);
@@ -230,9 +244,9 @@ export class MultiSampler {
     return this.start(buf, time, buf.duration, vel, 1, 0.02);
   }
 
-  /** Play any one-shot (e.g. a finger squeak) through this instrument. */
-  shot(buf: AudioBuffer, time: number, gain: number) {
-    this.start(buf, time, buf.duration, gain, 1, 0.02);
+  /** Play any one-shot (e.g. a finger squeak) through this instrument; `rate` plays it faster (shorter, higher). */
+  shot(buf: AudioBuffer, time: number, gain: number, rate = 1) {
+    this.start(buf, time, buf.duration / rate, gain, rate, 0.02);
   }
 
   /** String-damping noise when a ringing chord is stopped. */

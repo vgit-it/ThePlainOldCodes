@@ -67,6 +67,11 @@ export interface PlacedNote {
   rake?: number;
   dead?: boolean;
   vib?: number;
+  /** The lead's extra sounds, as the library marks them (docs/GUITAR-SOUNDS.md). */
+  harm?: 'pinch' | 'natural';
+  dive?: number;
+  feedback?: number;
+  scrape?: number;
 }
 
 /** What a lick has to fit: the key, the chords and the riff. */
@@ -156,6 +161,7 @@ export function placeLibLick(
       step: step(n), midi: best!.base + n.semi, len, vel: n.dead ? 0.55 : vel + (i === 0 ? 0.04 : 0) + (rng.next() - 0.5) * 0.05,
       bend: n.bend ?? 0, unbend: n.unbend, art: n.art ?? (i === 0 ? 'pick' : undefined), dyad: n.dyad, trill: n.trill,
       tremolo: n.tremolo, rake, dead: n.dead, vib: n.vib && len >= 4 ? 24 : undefined,
+      harm: n.harm, dive: n.dive, feedback: n.feedback, scrape: n.scrape,
     };
   });
 }
@@ -165,6 +171,7 @@ export function placedHit(e: PlacedNote, t: Tuning, pos: number, clean?: boolean
   const f = leadFret(e.midi, t, pos);
   const extra = {
     bend: e.bend, unbend: e.unbend, lateBend: e.lateBend, bendAt: e.bendAt, art: e.art, trill: e.trill, tremolo: e.tremolo, rake: e.rake, vib: e.vib,
+    harm: e.harm, dive: e.dive, feedback: e.feedback, scrape: e.scrape,
     mute: e.dead ? ('dead' as const) : undefined, clean,
   };
   if (e.dyad === undefined) return { step: e.step, ...f, len: e.len, vel: e.vel, ...extra };

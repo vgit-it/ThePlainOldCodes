@@ -894,6 +894,7 @@ export class Engine {
       swell: h.swell,
       touch: h.touch,
       bend: h.bend, unbend: h.unbend, lateBend: h.lateBend, bendAt: h.bendAt !== undefined ? h.bendAt * six : undefined, trill: h.trill, tremolo: h.tremolo, rake: h.rake,
+      harm: h.harm, dive: h.dive, feedback: h.feedback,
     });
   }
 
@@ -988,6 +989,12 @@ export class Engine {
     if (this.g2Inst && !this.realNow.guitar2) {
       const hits = this.hitsAt2[this.idx][g] ?? [];
       const next = hits.length ? toNext(this.hitsAt2) : 0;
+      // a pick scrape starts before its note (up to a bar): one that begins on this step, in this section or the next
+      for (let n = 1; n <= 16; n++) {
+        const k = g + n;
+        const ahead = k < total ? this.hitsAt2[this.idx]?.[k] : nextIdx >= 0 ? this.hitsAt2[nextIdx]?.[k - total] : undefined;
+        for (const h of ahead ?? []) if (h.scrape === n) this.g2Inst.scrape?.(time + (h.shift ?? 0) * six + (idea.g2Feel ?? 0) / 1000, n * six, h.vel, h.clean);
+      }
       for (const h of hits) {
         // (a triplet sounds between the steps)
         const off = (h.shift ?? 0) * six;
