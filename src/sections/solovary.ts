@@ -1,6 +1,6 @@
 // Solo variation (docs/SOLO-VARY.md): a long solo (16 bars or more) is the same eight bars of band again and again.
 // One stretch of it (4 or 8 bars, on a four-bar phrase, never the first four bars) gets another band feel:
-//  - drums: lighter (closed hats, no crashes), half-time, or a lift (ride 8ths, a crash every bar);
+//  - drums: a breakdown, heavy half-time, or a push (a different groove each, always; see varyDrums);
 //  - chords: the other section's chords (and its groove), or the song's chords held (power or full chords).
 // Which one follows the genre and the mood; the solo's energy over the stretch follows it (a dip or a lift).
 
@@ -8,7 +8,8 @@ import type { Genre } from '../genres';
 import type { Idea, SectionInfo } from '../idea';
 import { Rng } from '../rng';
 import type { Mood } from '../tension';
-import { crashAt, shapeDrums } from './energy';
+import { groupStarts } from '../rhythm';
+import { crashAt } from './energy';
 import type { Seg } from './join';
 
 export type SoloVary = NonNullable<SectionInfo['soloVary']>[number];
@@ -58,14 +59,11 @@ const PAIRS_24: [[number, number], [number, number]][] = [
 export function planVary(seed: string, bars: number, genre: Genre, mood: Mood, halfOk: boolean, heldAll: boolean): SoloVary[] | null {
   if (bars < 16) return null;
   const r = new Rng(seed);
-  if (!r.chance(0.8)) return null;
   const kinds: Kind[] = halfOk ? ['light', 'half', 'lift'] : ['light', 'lift'];
   const stretch = ([from, to]: [number, number], held: boolean, not?: VaryDrumKind): SoloVary => {
     const drums = r.weighted<Kind>(kinds.filter((k) => k !== not).map((k) => [k, DRUM_G[genre][k] * DRUM_M[mood][k]]));
     const chords = r.weighted<SoloVary['chords']>([['other', 0.45], ['held', held ? 0.25 : 0], ['same', 0.3]]);
-    // (the other section's chords bring their own groove: the drums change on top of it only half the time)
-    const d: VaryDrumKind = chords === 'other' && r.chance(0.5) ? 'same' : drums;
-    return { from, to, drums: d, chords };
+    return { from, to, drums, chords };
   };
   if (bars >= 24 && r.chance(0.7)) {
     const [a, b] = r.pick(PAIRS_24);
@@ -109,50 +107,82 @@ export function varyTension(tt: number[], plan: SoloVary[]): number[] {
   });
 }
 
+/** Genres whose breakdown stays kick-led (the kick pattern is kept, the rest drops away). */
+const HEAVY = new Set<Genre>(['metal', 'hardrock', 'altmetal']);
+const LANES = ['kick', 'snare', 'hat', 'hatOpen', 'ride', 'crash', 'tom'] as const;
+
 /**
- * Change the drums over the stretch. The last bar of the solo (the hand-over) and the bars with a fill stay as they are.
+ * Change the drums over the stretch, to another groove (not a tweak of the same one). The last bar of the solo (the hand-over)
+ * and the bars with a fill stay as they are.
+ *  - light, a breakdown: no snare, no cymbals but quiet hats on the beats; the kick on the 1 (kick-led genres keep their kick pattern);
+ *  - half, heavy half-time: one snare on the 3rd beat, one kick on the 1, slow hats, a crash or an open hat on the 1;
+ *  - lift, a push: the ride on every 8th, the kick on every beat, the snare on the off-beats (pop and funk keep the backbeat), a crash a bar.
  * Returns the note for the section card ('' when nothing changed).
  */
-export function varyDrums(idea: Idea, v: SoloVary, rng: Rng): string {
+export function varyDrums(idea: Idea, v: SoloVary, _rng: Rng): string {
   if (v.drums === 'same') return '';
   const d = idea.drums, { song } = idea, last = song.bars.length - 1;
+  const genre = song.partGenres.drums;
   const filled = new Set(d.fills.map((f) => f.bar));
   const todo = song.bars.map((b, i) => ({ b, i })).filter(({ i }) => i >= v.from && i < v.to && i < last && !filled.has(i));
-  const lift = () => {
+  type Bar = (typeof todo)[number]['b'];
+  const wipe = (b: Bar) => { for (const l of LANES) d[l].fill(0, b.start, b.start + b.len); };
+  const beats = (b: Bar) => groupStarts(b.groups).map((p) => b.start + p);
+  const four = (b: Bar) => b.len === 16 && b.groups.length === 4;
+  const breakdown = () => {
+    for (const { b, i } of todo) {
+      const kicks = HEAVY.has(genre) ? Array.from({ length: b.len }, (_, j) => d.kick[b.start + j] * 0.85) : null;
+      wipe(b);
+      if (kicks) kicks.forEach((k, j) => { d.kick[b.start + j] = k; });
+      d.kick[b.start] = Math.max(d.kick[b.start], 0.85);
+      // (a lone kick on the 3rd beat every other bar, so the pulse is felt)
+      if (!kicks && four(b) && (i - v.from) % 2) d.kick[b.start + 8] = 0.7;
+      beats(b).forEach((g, j) => { d.hat[g] = j ? 0.38 : 0.44; });
+    }
+    return todo.length;
+  };
+  const half = () => {
     let n = 0;
-    for (const { b } of todo) {
-      for (let j = 0; j < b.len; j += 2) {
-        const g = b.start + j;
-        if (!d.hat[g] && !d.hatOpen[g] && !d.ride[g]) d.ride[g] = 0.7;
-      }
-      crashAt(d, b.start);
+    for (const { b, i } of todo) {
+      // (4/4 only)
+      if (!four(b) || (d.snare[b.start + 4] < 0.5 && d.snare[b.start + 12] < 0.5)) continue;
+      const hats = beats(b).map((g) => d.hat[g] || d.ride[g] || 0.6);
+      const and2 = d.kick[b.start + 6] ? 0.8 : 0;
+      wipe(b);
+      d.snare[b.start + 8] = 1;
+      d.kick[b.start] = 1;
+      d.kick[b.start + 6] = and2;
+      beats(b).forEach((g, j) => { d.hat[g] = hats[j]; });
+      // (a crash on the 1 every other bar; an open hat on the 1 in between)
+      if ((i - v.from) % 2 === 0) crashAt(d, b.start);
+      else { d.hat[b.start] = 0; d.hatOpen[b.start] = 0.7; }
       n++;
     }
     return n;
   };
-  const half = () => {
-    let n = 0;
+  const lift = () => {
     for (const { b } of todo) {
-      // (4/4 only: the snare from the 2nd and 4th beat to the 3rd)
-      if (b.len !== 16 || b.groups.length !== 4) continue;
-      const [s2, s3, s4] = [b.start + 4, b.start + 8, b.start + 12];
-      if (d.snare[s2] < 0.5 && d.snare[s4] < 0.5) continue;
-      d.snare[s3] = Math.max(0.95, d.snare[s2], d.snare[s4]);
-      d.snare[s2] = 0; d.snare[s4] = 0;
-      d.kick[s3] = 0;
-      d.kick[b.start] = Math.max(d.kick[b.start], 0.9);
-      n++;
+      const backbeat = genre === 'pop' || genre === 'funk';
+      const bs = beats(b), starts = groupStarts(b.groups);
+      wipe(b);
+      for (let j = 0; j < b.len; j += 2) d.ride[b.start + j] = bs.includes(b.start + j) ? 0.9 : 0.74;
+      bs.forEach((g) => { d.kick[g] = 1; });
+      if (backbeat) { if (four(b)) { d.snare[b.start + 4] = 0.95; d.snare[b.start + 12] = 0.95; } }
+      else b.groups.forEach((gl, k) => { if (gl >= 4) d.snare[b.start + starts[k] + Math.round(gl / 2)] = 0.9; });
+      crashAt(d, b.start);
     }
-    return n;
+    return todo.length;
   };
   let kind = v.drums;
   let n = 0;
   if (kind === 'half') { n = half(); if (!n) kind = 'lift'; }
   if (kind === 'lift') n = lift();
-  if (kind === 'light') {
-    for (const { b } of todo) { shapeDrums(idea, 2, rng, b.start, b.start + b.len); n++; }
-  }
+  if (kind === 'light') n = breakdown();
   if (!n) return '';
-  const what = kind === 'light' ? 'the drums ease off (closed hats, no crashes)' : kind === 'half' ? 'the drums go to half-time' : 'the drums lift (ride on the 8ths, a crash every bar)';
-  return `Solo bars ${v.from + 1}-${v.to}: ${what}`;
+  const what = kind === 'light'
+    ? (HEAVY.has(genre) ? 'a breakdown (the kick leads, no snare, quiet hats)' : 'a breakdown (kick on the 1, no snare, quiet hats on the beats)')
+    : kind === 'half' ? 'heavy half-time (one big kick, one big snare, slow hats)'
+    : genre === 'pop' || genre === 'funk' ? 'a push (ride on the 8ths, kick on every beat, a crash a bar)'
+    : 'a push (ride on the 8ths, kick on every beat, snare on the off-beats, a crash a bar)';
+  return `Solo bars ${v.from + 1}-${v.to}: the drums go to ${what}`;
 }
