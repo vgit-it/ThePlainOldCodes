@@ -74,6 +74,8 @@ export interface GenOptions {
   vocalTune?: number;
   /** Strong notes (src/verse/skeleton.ts, docs/VOCAL-TUNE.md): the strong note of every phrase of a verse and a chorus is planned first as a path through the chords' notes and the line is written toward it; left out: off. */
   vocalSkeleton?: boolean;
+  /** Cell motifs (src/verse/cells.ts, docs/VOCAL-TUNE.md): a phrase is built from a motif in scale steps (stated, moved, changed, turned over), runs up to its held ending, and an answer plays its call's cells again; in the place of rule 39's copies. Left out: off. */
+  vocalCells?: boolean;
   /** Real strum mix (docs/STUDY-RHYTHM.md): strumming patterns from a library widened to what real guitarists play: held chords, quarters, 8ths in many shapes, 16ths, stabs. */
   strumMix?: boolean;
   /** Guitar 2 (the lead player) plays whole lines, mostly by step, as well as short licks (docs/LEAD-LINES.md). Off: as before. */
