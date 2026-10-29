@@ -82,7 +82,28 @@ Both steps first ignored the mood (the Intervals rule, `INTERVALS.md`, and the o
 - **Still weaker with Strong notes: the lean to rise or fall.** Off: melancholic 48% rising moves against triumphant 74%. Strong notes alone: 43% against 52%. With the Tune pick on top: 43% against 61%. The pull toward the plan evens out the up and down moves. Best used with the Tune pick; or to fix later by giving the plan the mood's direction inside each phrase.
 - `npm run interval-check` fails its leap-ratio target on the unchanged code too (it did before these steps).
 
+## Step C: cell motifs (`npm run vocal-cells-check`)
+Switch: **Phrases built from cells** (Vocal melody card). Off = rule 39's copies as before. `src/verse/cells.ts`, in `build.ts` at the place rule 39 had (last, on the line as it will sound). Verse and chorus only.
+- It rewrites pitches only. Rhythm, breaths, long notes, bends and every mood note stay as the rules before made them (checked: the rhythm is the same note for note).
+- **Motif**: a phrase's first 3-4 notes are the motif, as written (stated). A later stretch with the same rhythm is sung to its shape in scale steps: moved up or down the scale, the same, changed at its last note, or turned upside down (a contrast; only for the third). Rough rhythm = short or long note; the exact rhythm is looked for first.
+- **Run-up**: the 2 (sometimes 3) short notes before a held ending step up or down to it by scale steps. Less often for a big-move mood, so its leaps stay.
+- **Answers replay the call's cells**: an answering leaf plays its call's cells again, wherever its rhythm has them, then runs up to its own ending.
+- A cell is only placed where long notes on strong beats stay on the chord's notes and the range holds; else the notes stay.
+- Rule 39's big shapes (bar-long, across call and response) stand down in verse and chorus when this is on.
+
+### Numbers (60 songs, first verse and first chorus; plain tune score)
+| way | verse score / tune | chorus score / tune | verse ends by a step | chorus ends by a step |
+|---|---|---|---|---|
+| Off (rule 39) | 0.697 / 73% | 0.617 / 28% | 62% | 67% |
+| Cells | 0.725 / 80% | 0.648 / 45% | 74% | 74% |
+| Cells + Strong notes + best of 12 | 0.822 / 98% | 0.742 / 85% | 68% | 58% |
+- A motif lands in 23% of verse phrases and 4% of chorus phrases. Chorus phrases have few notes (4-5) and long ones, so there is no room for two cells of the same rhythm. In the chorus the gain is the run-up and the answers.
+- Run-ups into the ending: 34% of verse phrases, 25% of chorus phrases. 181 cells replayed in answers (verses).
+- **Not better: the "cell that comes back" part of the score** (verse 0.75 → 0.72, chorus 0.26 → 0.22). A pitch-only pass finds few places with the same rhythm, and a run-up turns a distinct ending into a plain run. Rule 39 copied the rhythm as well; this one can't.
+- The mood holds (`npm run vocal-mood-check`, six ways): Cells alone sits close to Off in size of move, leaps and rising moves; the order of moods holds in every way.
+- Checks that hold: no overlaps, no lone short unit, range, choruses over the same chords are one melody, `song-check` unchanged with the switch off.
+
 ## What is next
-- **C. Cells**: build the melody from a motif in scale steps (stated, moved, changed, contrast), a cadence run-up into each held note, and answers that play the call's cells again. Replaces the after-the-fact copies of rule 39.
+- **Cells that set the rhythm too**: a motif with its own rhythm written first (the solo does this), so every phrase can carry two cells. Needs the rhythm rules (phrases, runs, holds, silence fit, short-note share) to work around cells; a bigger change.
 - Vocal-only score terms: stressed syllables on strong beats (words are written after the notes today), chorus above verse.
 - The skeleton could cover the pre-chorus climb and the bridge too, and plan the whole song at once (so the chorus peak is the song's peak by construction, not by the lifts).
