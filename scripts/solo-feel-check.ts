@@ -4,6 +4,7 @@
 //  - the burst (a bar or two of palm-muted notes, `chug`): never in pop or funk, rare in rock, grunge and hard rock, most in metal and angry, at most one per solo,
 //    8 to 40 steps long, never over a goal note, at a speed the hand can play (50 ms between muted notes);
 //  - ghost notes (dead, muted) sit inside runs and never replace the tune's notes; pre-bends let down and minor-third bends can be heard;
+//  - slides from note to note (art `slide`): a fret to five apart, the note before long enough, the two follow on; bends into the next note (pushed up or let down on its beat);
 //  - the same seed gives the same notes.
 //   npm run solo-feel-check        (N=120 songs)
 import { MAIN_GUITARS, generate } from '../src/generator';
@@ -25,7 +26,7 @@ const build = (j: number, extra: Record<string, unknown>) => {
 };
 const key = (hits: any[]) => hits.map((h) => `${h.step}:${h.shift ?? 0}:${h.len}:${h.notes.join('.')}:${h.mute ?? ''}:${h.chug ? 1 : 0}:${h.bend ?? 0}:${h.unbend ?? 0}:${h.lateBend ?? 0}`).join('|');
 
-const T = { solos: 0, fast: 0, run3: 0, run3Slow: 0, pairs: 0, burstSolos: 0, burstOver1: 0, chug: 0, chugSlow: 0, ghosts: 0, ghostSolos: 0, preRel: 0, minor3: 0, hash: 0, bursts32: 0, bursts16: 0, burstLens: [] as number[] };
+const T = { solos: 0, fast: 0, run3: 0, run3Slow: 0, pairs: 0, slides: 0, slideSolos: 0, slideDist: [0, 0, 0, 0, 0, 0], pushNext: 0, fallNext: 0, burstSolos: 0, burstOver1: 0, chug: 0, chugSlow: 0, ghosts: 0, ghostSolos: 0, preRel: 0, minor3: 0, hash: 0, bursts32: 0, bursts16: 0, burstLens: [] as number[] };
 const burstBy: Record<string, [number, number]> = {}, burstMood: Record<string, [number, number]> = {}, ghostBy: Record<string, [number, number]> = {};
 const bump = (m: Record<string, [number, number]>, k: string, hit: boolean) => { const v = (m[k] ??= [0, 0]); v[1]++; if (hit) v[0]++; };
 for (let j = 0; j < N; j++) {
@@ -76,7 +77,20 @@ for (let j = 0; j < N; j++) {
       const before = h.filter((x) => x.step + (x.shift ?? 0) < g.step - 1e-6).pop(), after = h.find((x) => x.step + (x.shift ?? 0) > g.step + 1e-6);
       if (!before || !after) fail(`${a.s}: a ghost note at ${g.step} with no note beside it`);
     }
+    // slides from note to note
+    let slides = 0;
+    h.forEach((x, k) => {
+      if (x.art !== 'slide' || k === 0) return;
+      const pv = h[k - 1], dist = Math.abs(x.notes[0] - pv.notes[0]);
+      slides++; T.slideDist[Math.min(5, dist)]++;
+      if (dist < 1 || dist > 5) fail(`${a.s}: slide of ${dist} semitones at ${x.step} (${sec.song.bpm} bpm, slide field ${x.slide ?? '-'}, bend ${x.bend ?? '-'})`);
+      if (x.step + (x.shift ?? 0) - (pv.step + (pv.shift ?? 0) + pv.len) > 0.51) fail(`${a.s}: a slide at ${x.step} after a gap`);
+      if (pv.len * s16 < 70) fail(`${a.s}: a slide at ${x.step} from a note of ${(pv.len * s16).toFixed(0)} ms`);
+    });
+    T.slides += slides; if (slides) T.slideSolos++;
     // bends
+    T.pushNext += h.filter((x) => x.lateBend && x.bendAt !== undefined).length;
+    T.fallNext += h.filter((x) => x.unbend && !x.bend && x.bendAt !== undefined).length;
     T.preRel += h.filter((x) => x.unbend && !x.bend).length;
     T.minor3 += h.filter((x) => x.bend === 3 || x.lateBend === 3).length;
   });
@@ -88,6 +102,7 @@ console.log(`bursts: ${T.burstSolos} solos (${pct(T.burstSolos, T.solos)}%); 32n
 console.log(`bursts by genre: ${row(burstBy)}`);
 console.log(`bursts by mood: ${row(burstMood)}`);
 console.log(`ghost notes ${T.ghosts} in ${T.ghostSolos} solos; by genre ${row(ghostBy)}`);
+console.log(`slides note to note ${T.slides} in ${T.slideSolos} solos (a fret apart ${T.slideDist[1]}, 2: ${T.slideDist[2]}, 3: ${T.slideDist[3]}, 4: ${T.slideDist[4]}, 5: ${T.slideDist[5]}); bends timed to a beat: pushed up ${T.pushNext}, let down ${T.fallNext}`);
 console.log(`pre-bends let down ${T.preRel}; minor-third bends ${T.minor3}`);
 if (T.hash) fail(`${T.hash} solos differ with the same seed`);
 console.log(bad ? `${bad} problems` : 'all good');

@@ -22,7 +22,7 @@ import { echoPlan } from './soloecho';
 import { type PEvent, TOL, eventsToHits, readBase, snap, sounding } from './soloevents';
 import type { PlayerCtx } from './soloplayer';
 import { personOf } from './soloperson';
-import { type VCtx, type Violation, MIN_CHUG_MS, MIN_LEGATO_MS, MIN_PICK_MS, unplayable, verify } from './soloverify';
+import { type VCtx, type Violation, MIN_CHUG_MS, MIN_LEGATO_MS, MIN_PICK_MS, slidesKept, unplayable, verify } from './soloverify';
 
 /** How many plans are written; the best as playing is kept. */
 export const EXPRESS_TRIES = 8;
@@ -94,6 +94,8 @@ export interface Win {
   seed?: string;
   /** A held note's dress: how it was bent (the echo gives an answer's last note the same kind), or asked to be. */
   dress?: Dress;
+  /** One held note that bends (or lets down) into the next note of the tune, on the second note's beat (a step or two up or down). */
+  bendNext?: boolean;
 }
 export type Dress = 'pre' | 'late' | 'release' | 'vib' | 'none';
 type Pattern = 'plain' | 'decor' | 'hold+run' | 'run+hold' | 'run' | 'hold' | 'hold+run+hold' | 'run+hold+run' | 'burst';
@@ -212,7 +214,14 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       ];
       let pat: Pattern = r.weighted(wt.filter(([, x]) => x > 0));
       if (pat === 'plain' || pat === 'decor') { j = i; }
-      const w: Win = { i, j, t0: n.t, t1: notes[j].t + notes[j].len, pattern: pat, parts: [], heat };
+      // a held note that bends into the next note of the tune (a step or two up: pushed up to it; down: picked bent and let down to it)
+      let bendNext = false;
+      const nx1 = notes[i + 1];
+      if ((pat === 'plain' || pat === 'decor' || pat === 'hold') && j <= i + 1 && nx1 && !isGoal(n) && !isGoal(nx1) && n.len >= 3 && Math.abs(nx1.midi - n.midi) >= 1 && Math.abs(nx1.midi - n.midi) <= 2
+        && nx1.t - (n.t + n.len) <= 0.5 + 1e-6 && nx1.t + nx1.len - n.t >= 5 && nx1.t + nx1.len - n.t <= 20 && r.chance(clamp(0.3 * (0.4 + T.bendy) * Math.min(1.3, amt), 0, 0.55))) {
+        j = i + 1; pat = 'hold'; bendNext = true;
+      }
+      const w: Win = { i, j, t0: n.t, t1: notes[j].t + notes[j].len, pattern: pat, parts: [], heat, ...(bendNext ? { bendNext } : {}) };
       if (pat !== 'plain' && pat !== 'decor') {
         const parts = cutParts(r, w, KINDS[pat], T, heat);
         if (parts) w.parts = parts; else { w.pattern = 'plain'; w.j = w.i; w.t1 = n.t + n.len; }
@@ -468,13 +477,17 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       const g = guide(w, p.a);
       if (p.kind === 'hold') {
         let pitch = g.midi;
-        let thin: number | undefined;
+        let thin: number | undefined, fallBy: number | undefined;
         if (w.pattern === 'hold' && w.parts.length === 1) {
           const dn = notes[w.j].midi - n0.midi;
-          if (dn >= 1 && dn <= 2 && r.chance(0.7 * (0.4 + T.bendy))) { pitch = notes[w.j].midi; thin = dn; }
+          if (dn >= 1 && dn <= 2 && r.chance(w.bendNext ? 0.95 : 0.7 * (0.4 + T.bendy))) { pitch = notes[w.j].midi; thin = dn; }
+          // (down to the next note: picked already bent, and let down as the next note's beat comes)
+          else if (w.bendNext && dn <= -1 && dn >= -2 && r.chance(0.95)) fallBy = -dn;
         }
         if (!holdsOver(pitch, p.a, p.b)) return null;
-        const dec = decorOf(r, pitch, p.b - p.a, T, strong, thin, undefined, n0.anchor !== 'all');
+        const dec = fallBy !== undefined ? { unbend: fallBy } as Partial<GuitarHit> : decorOf(r, pitch, p.b - p.a, T, strong, thin, undefined, n0.anchor !== 'all');
+        // (the push or the let-down comes on the next note's beat)
+        if (w.bendNext && (dec.lateBend || dec.unbend)) dec.bendAt = Math.max(0.5, n0.len);
         out.push(mkEv(p.a, p.b - p.a, pitch, vel0 + (k === 0 ? 0.02 : 0), g.i, dec));
         prevPitch = pitch;
       } else {
@@ -866,6 +879,42 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     for (const q of qs) revert(q);
   }
 
+  // ---------------------------------------------------- slides between notes
+  // Now and then a note is slid into from the one before it (same string, no new pick), where the length and the distance make sense: the
+  // note before is long enough to hear the move (more time for a wider move), the move is a fret to five, the two follow on. Goal notes
+  // keep their start, pitch and end (only how they are reached changes). The hands have the last word: a slide they cannot make on one
+  // string goes back to a picked note. How often follows the player (docs/SOLO-EXPRESSION.md, Feel).
+  let slid = 0;
+  {
+    const flat: { q: number; k: number; e: PEvent }[] = [];
+    chosen.events.forEach((evs, q) => evs.forEach((e, k) => flat.push({ q, k, e })));
+    const line = flat.filter((x) => sounding(x.e.hit)).sort((a, b) => a.e.t - b.e.t);
+    const plainHit = (h: GuitarHit) => h.notes.length === 1 && !h.chug && !h.bend && !h.unbend && !h.lateBend && !h.trill && !h.tremolo && !h.rake && !h.harm && !h.dive && !h.feedback && !h.scrape && !h.slide && !h.letRing && !h.swell;
+    const taste = clamp((person.dress.slide ?? 0.8) * (0.5 + c.hands.slide), 0.1, 1.6);
+    const marked: { q: number; k: number; was: PEvent; now: PEvent }[] = [];
+    let lastAt = -9;
+    for (let m = 1; m < line.length; m++) {
+      const a = line[m - 1], b = line[m];
+      // (the last note is left alone: the hand-over into the next section moves it its own way)
+      if (m - lastAt < 3 || m === line.length - 1 || !plainHit(a.e.hit) || !plainHit(b.e.hit)) continue;
+      if ((a.e.hit.art ?? 'pick') !== 'pick' || (b.e.hit.art ?? 'pick') !== 'pick') continue;
+      const dist = Math.abs(b.e.hit.notes[0] - a.e.hit.notes[0]);
+      if (dist < 1 || dist > 5) continue;
+      if (b.e.t - (a.e.t + a.e.len) > 0.51 || (b.e.t - a.e.t) * s16 < 70 + 25 * dist || a.e.len * s16 < 70 + 20 * dist) continue;
+      const p = clamp(0.2 * taste * Math.min(1.4, amt) * (dist <= 2 ? 1.2 : dist <= 4 ? 0.8 : 0.4) * (a.e.len * s16 >= 300 ? 1.4 : 1), 0, 0.5);
+      // (each pair draws from its own place in the time, so a change in one window does not shift the choices in another)
+      if (!new Rng(`${c.seed}-express-slide-${Math.round(b.e.t * 12)}`).chance(p)) continue;
+      const now: PEvent = { ...b.e, hit: { ...b.e.hit, art: 'slide' } };
+      marked.push({ q: b.q, k: b.k, was: b.e, now });
+      chosen.events[b.q][b.k] = now;
+      lastAt = m;
+    }
+    if (marked.length) {
+      const kept = slidesKept(assemble(), vctx);
+      for (const x of marked) { if (kept.has(x.now)) slid++; else chosen.events[x.q][x.k] = x.was; }
+    }
+  }
+
   // ---------------------------------------------------- the bend dials (docs/SOLO-BENDS.md)
   // How fast each bent note bends, the shape of the bend, and when in the note it happens: from the note's place (the climax and the
   // last note sing, slowly; a goal note leans) and its neighbours (a quick note right after is a snap). Its own seed: the tune,
@@ -888,7 +937,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       const out: GuitarHit = { ...h };
       const late = !!h.lateBend, release = !!h.unbend;
       // when in the note the bend happens (a pre-bend does it at the pick)
-      if (late || release) {
+      if ((late || release) && h.bendAt === undefined) {
         const frac = release ? (big ? u(0.5, 0.75) : u(0.4, 0.65)) : big ? u(0.4, 0.65) : u(0.2, 0.5);
         out.bendAt = Math.max(0.5, Math.round(frac * h.len * 4) / 4);
       }
@@ -934,7 +983,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   const fine = hits.some((h) => h.shift || h.exact);
   return {
     hits,
-    notes: [...base.notes, `Solo expression (${words}${amt < 1 ? ', light' : amt > 1 ? ', full' : ''}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were${o.dials ? `; ${dialed} bends with their own speed and shape` : ''}${o.recast ? `; recast: ${recastWords()}` : ''}${o.echo ? `; echo: ${echoWords()}` : ''}`],
+    notes: [...base.notes, `Solo expression (${words}${amt < 1 ? ', light' : amt > 1 ? ', full' : ''}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were${slid ? `; ${slid} slides from note to note` : ''}${o.dials ? `; ${dialed} bends with their own speed and shape` : ''}${o.recast ? `; recast: ${recastWords()}` : ''}${o.echo ? `; echo: ${echoWords()}` : ''}`],
     curve: base.curve ? { ...base.curve, express: chosen.wins.map((w) => ({ t0: w.t0, t1: w.t1, pattern: w.pattern, heat: Math.round(w.heat * 100) / 100 })), ...(echoed.size ? { echo: [...echoed].map(([q, x]) => ({ from: chosen.wins[x.from].t0, fromEnd: chosen.wins[x.from].t1, t0: chosen.wins[q].t0, t1: chosen.wins[q].t1, via: x.via })) } : {}), ...(fine ? { fine: true } : {}) } : undefined,
   };
 }

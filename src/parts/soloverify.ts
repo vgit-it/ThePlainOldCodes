@@ -65,6 +65,7 @@ function bendLands(h: GuitarHit, s6: number): boolean {
     const at = h.bendAt !== undefined ? h.bendAt * s6 : Math.max(0.12, Math.min(dur * 0.45, 0.9));
     return at + (0.14 + h.lateBend * 0.04) + 0.05 < end;
   }
+  if (h.unbend && h.bendAt !== undefined) return h.bendAt * s6 + 0.12 < end;
   if (h.bend) return 0.05 + h.bend * 0.025 + 0.05 < end;
   return true;
 }
@@ -142,6 +143,20 @@ export function verify(events: PEvent[], base: BaseNote[], c: VCtx): Violation[]
     if (!fast && ms < min - 1e-6) v.push({ code: 'speed', at: b.t, msg: `${ms.toFixed(0)} ms between two notes` });
   }
   return v;
+}
+
+/** The events that ask to be slid into (art `slide`) and that the hands do slide into: same string, a fret apart. A copy of the performance is fingered, the events are not touched. */
+export function slidesKept(events: PEvent[], c: VCtx): Set<PEvent> {
+  const hits = eventsToHits(events).map((h) => { const x = structuredClone(h); delete x.touch; return x; });
+  const idea = {
+    song: c.song, guitar2: hits, section: { energy: c.energy, kind: c.kind },
+    soloCurve: { ...(c.curve ?? { shape: '', pitchC: 0, paceC: 0, energy: [], centre: [], pace: [] }), fine: true },
+  } as unknown as Idea;
+  playGuitar2(idea, c.hands, (c.song.tuning ?? TUNINGS.standard).strings, 'verify');
+  const order = events.map((e, k) => ({ e, k })).sort((a, b) => a.e.t - b.e.t || a.k - b.k).map((x) => x.e);
+  const kept = new Set<PEvent>();
+  hits.forEach((h, i) => { if (h.art === 'slide' && h.touch?.move === 'slide') kept.add(order[i]); });
+  return kept;
 }
 
 /** The fingering check: the hands' own placement on a copy of the performance. Returns the events that have no place on the neck. */
