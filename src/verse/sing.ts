@@ -11,7 +11,7 @@ import type { Built } from './build';
 import { dialsFor } from './personality';
 import { energyVolume } from './profile';
 import type { EmoOptions } from './emotion';
-import { vocalTune, TUNE_KINDS, TUNE_MAX } from './tune';
+import { aimFor, vocalTune, TUNE_KINDS, TUNE_MAX } from './tune';
 import { accentsOf, buildSection, chordsKey, chorusMaster, chordsOf, hookSig, isChorus, isInterlude, isOutro, isShared, kindOf, moodOf, personalityOf, songGrid, verseSeed, type SectionOptions, type SungKind } from './section';
 import { DEFAULT_RANGE, type BandNote, type Range } from './verse';
 import { writeWords, type Words } from './words';
@@ -112,7 +112,7 @@ export function writeSong(list: Idea[], o: SectionOptions): Map<Idea, SectionVoi
       k = 0;
       for (let v = 0; v < tries; v++) {
         const b = buildSection(master, o, accOf(master), undefined, verse, chorus, { self: v });
-        const s = vocalTune(b.notes, b.phrases, { key: master.song.key, grid: songGrid(master), chordAt: chordsOf(master) }).score;
+        const s = vocalTune(b.notes, b.phrases, { key: master.song.key, grid: songGrid(master), chordAt: chordsOf(master), aim: aimFor(moodOf(master, o), kind) }).score;
         if (s > best + 1e-9) { best = s; k = v; }
       }
       picked.set(key, k);

@@ -10,6 +10,8 @@
 
 import { Rng } from '../rng';
 import { SCALES, type Chord, type Mode } from '../theory';
+import type { Mood } from '../tension';
+import { profileFor } from './intervals';
 import type { BarGrid } from './grid';
 import { fifth, third, type BandNote, type ChordNote, type Gap, type Range, type ToneBias } from './verse';
 
@@ -26,6 +28,8 @@ export interface SkelIn {
   mode: Mode;
   range: Range;
   kind: string;
+  /** The song's mood: it tilts the spine (a rising mood falls less across a section, a falling one more) and sizes the swing and the leaps (intervals.ts). */
+  mood: Mood;
   seed: string;
   /** Where this stretch of the section starts and ends (0-1), and whether it holds the section's last phrase. */
   u0: number;
@@ -47,9 +51,9 @@ export interface Skeleton {
 const mod12 = (x: number) => ((x % 12) + 12) % 12;
 
 /** The spine of a section kind: the height (-1 low, 1 high) at a place in it (0-1). */
-export function spine(kind: string, u: number): number {
-  if (kind === 'chorus') return u < 0.3 ? 0.5 + (u / 0.3) * 0.5 : 1 - ((u - 0.3) / 0.7) * 1.1;
-  return 0.15 - 0.7 * u;
+export function spine(kind: string, u: number, fall = 1): number {
+  if (kind === 'chorus') return u < 0.3 ? 0.5 + (u / 0.3) * 0.5 : 1 - ((u - 0.3) / 0.7) * 1.1 * fall;
+  return 0.15 - 0.7 * fall * u;
 }
 
 /**
@@ -62,7 +66,10 @@ export function planSkeleton(inp: SkelIn, reuse?: Pick<Skeleton, 'goals' | 'star
   if (swing === undefined || !ph.length) return null;
   const { key, range, chordAt } = inp;
   const rng = new Rng(inp.seed + '|skel');
-  const mid = (range.lo + range.hi) / 2, half = ((range.hi - range.lo) / 2) * swing;
+  const P = profileFor(inp.mood, inp.kind);
+  // (a calm mood swings less and leaps less, a big-move mood swings more; a rising mood leans up across the section, a falling one down)
+  const tilt = (P.up - 0.5) * 2, fall = Math.max(0.3, Math.min(1.5, 1 - 1.6 * tilt)), leapMax = Math.round(4 + P.size);
+  const mid = (range.lo + range.hi) / 2, half = ((range.hi - range.lo) / 2) * swing * Math.max(0.7, Math.min(1.3, P.size / 3.5));
   const scale = inp.pent ?? new Set(SCALES[inp.mode].map((i) => (key + i) % 12));
   const at = (g: Gap) => chordAt[Math.max(0, Math.min(chordAt.length - 1, Math.floor(g.step + g.len - 1 + 1e-6)))];
   const rootPc = (c: Chord) => mod12(key + c.root);
@@ -81,7 +88,7 @@ export function planSkeleton(inp: SkelIn, reuse?: Pick<Skeleton, 'goals' | 'star
   const target = ph.map((g, i) => {
     const u = inp.u0 + (inp.u1 - inp.u0) * ((g.step + g.len) / (ph[n - 1].step + ph[n - 1].len));
     const off = roles[i] === 'call' ? 0.18 : roles[i] === 'response' ? -0.18 : -0.45;
-    return mid + Math.max(-1, Math.min(1, spine(inp.kind, u) + off)) * half;
+    return mid + Math.max(-1, Math.min(1, spine(inp.kind, u, fall) + off)) * half;
   });
   // the peak: the phrase drawn highest (not the section's end, unless it is the only phrase)
   let peakAt = -1;
@@ -109,7 +116,7 @@ export function planSkeleton(inp: SkelIn, reuse?: Pick<Skeleton, 'goals' | 'star
       let lo = Infinity, k0 = 0;
       use[i - 1].forEach((p, k) => {
         const d = x.m - p.m;
-        const tc = best[i - 1][k].c + (d === 0 ? 3 : 0) + (Math.abs(d) > 7 ? 1.5 : 0) + (roles[i] === 'response' && d > 0 ? 2 : 0) + (roles[i] === 'call' && d < 0 && i > 1 ? 1 : 0);
+        const tc = best[i - 1][k].c + (d === 0 ? 3 : 0) + (Math.abs(d) > leapMax ? 1.5 : 0) + (roles[i] === 'response' && d > 0 ? 2 : 0) + (roles[i] === 'call' && d < 0 && i > 1 ? 1 : 0);
         if (tc < lo) { lo = tc; k0 = k; }
       });
       return { c: lo + local, from: k0 };
@@ -124,7 +131,7 @@ export function planSkeleton(inp: SkelIn, reuse?: Pick<Skeleton, 'goals' | 'star
     k = best[i][k].from;
   }
   // the lean: each phrase's line goes from the note before (the section's height, for the first) to its own note
-  const startH = reuse && reuse.goals.length === n ? reuse.startH : mid + spine(inp.kind, inp.u0) * half;
+  const startH = reuse && reuse.goals.length === n ? reuse.startH : mid + Math.max(-1, Math.min(1, spine(inp.kind, inp.u0, fall))) * half;
   const lean = (step: number): number | undefined => {
     for (let i = 0; i < n; i++) {
       const a = ph[i].step, b = ph[i].step + ph[i].len;
@@ -161,6 +168,8 @@ export function withGoals(notes: BandNote[], phrases: Gap[], goals: Goal[], chor
     for (let j = 0; j < out.length; j++) if (out[j].step >= g.step - 1e-6 && out[j].step < g.step + g.len - 1e-6) last = j;
     if (last < 0 || !goals[i]) return;
     const n = out[last];
+    // (a mood's hanging end (the 7th, the 2nd, the 4th) or colour note is its own: the plan leaves it)
+    if (n.endRole === 'hang' || n.colour) return;
     const c = chordAt[Math.max(0, Math.min(chordAt.length - 1, Math.floor(n.step + 1e-6)))];
     const tones = [0, third(c), fifth(c)].map((x) => mod12(key + c.root + x));
     if (!tones.includes(mod12(goals[i].midi)) || n.midi === goals[i].midi) return;

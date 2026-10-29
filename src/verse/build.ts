@@ -83,7 +83,7 @@ export interface Built {
 }
 
 /** How hard the skeleton pulls the line to its notes (voiceLead's pull): firmer than the mood contour's lean. */
-const SKEL_PULL = { leap: 0.7, w: 1.0 };
+const SKEL_PULL = { leap: 0.8, w: 0.5 };
 
 export function buildVerse(inp: BuildInput): Built {
   const { key, mode } = inp;
@@ -153,7 +153,7 @@ export function buildVerse(inp: BuildInput): Built {
       // (rule 21: each phrase starts on a freshly drawn core note)
       // (mood notes: the chord note a bar or phrase sits on leans to the mood's degrees and the phrase's contour)
       // (the skeleton: each phrase's strong note planned first; the line leans to it and the bar it ends in sits on its chord note)
-      const skel = X?.E.skeleton && !d.climb && d.dwell === undefined ? planSkeleton({ phrases, chordAt, key, mode, range, kind: X.E.kind, seed: sd.tones, u0: from / total, u1: end / total, last: end >= total, grid: G, pent }, srcSkel) : null;
+      const skel = X?.E.skeleton && !d.climb && d.dwell === undefined ? planSkeleton({ phrases, chordAt, key, mode, range, kind: X.E.kind, mood: X.E.mood, seed: sd.tones, u0: from / total, u1: end / total, last: end >= total, grid: G, pent }, srcSkel) : null;
       const bias = bothBiases(bothBiases(X && toneBias(X, phrases, sd.phrases), lead && bassBias(lead)), skel?.bias);
       const drawn = randomTones(len, G, sd.tones, accOf('tones'), d, { from, total }, fit, bias);
       const { tones, bars } = rerollTones(drawn.tones, drawn.bars, phrases, G, sd.tones, d, fit, bias);
@@ -169,9 +169,12 @@ export function buildVerse(inp: BuildInput): Built {
       const held = withOpeners(withHolds(plain, holds), phrases, chordAt, G, sd.phrases, accOf('phrases'), d);
       // (mood notes: where the climb and the dwell don't pull, the phrase's contour and the tension lean the register, gently)
       const emoPull = X && !climbTo && !skel ? pullTo(X, phrases, sd.phrases) : undefined;
+      // (with the skeleton the mood's contour is in the plan; the tension curve still leans the register, on top of it)
+      const tensionPull = X && skel ? pullTo({ ...X, E: { ...X.E, on: new Set([...X.E.on].filter((x) => x !== 'contour')) } }, phrases, sd.phrases) : undefined;
+      const skelTarget = skel && tensionPull ? (step: number) => { const t = skel.target(step), p = tensionPull(step); return t === undefined || p === undefined ? t : t + (p - (range.lo + range.hi) / 2); } : skel?.target;
       // (rule 46, intervals by mood: where a core note is sung, and which way a neighbour goes, follow the mood's liking of the interval)
       const iv = X && intervalsFor(X, phrases, `${sd.tones}|iv`);
-      const walked = walkToNext(addNeighbours(voiceLead(withStretch(held.notes, tones, chordAt, G, sd.holds, accOf('holds'), d, held.opened), range, climbTo ?? skel?.target ?? emoPull, { tones, chordAt, bar: G, chance: d.octave, up: d.octaveUp, seed: `${sd.tones}|oct` }, skel ? SKEL_PULL : emoPull ? EMO_PULL : undefined, iv), key, mode, G, sd.neighbours, d, iv), phrases, key, mode, G, sd.walk, d);
+      const walked = walkToNext(addNeighbours(voiceLead(withStretch(held.notes, tones, chordAt, G, sd.holds, accOf('holds'), d, held.opened), range, climbTo ?? skelTarget ?? emoPull, { tones, chordAt, bar: G, chance: d.octave, up: d.octaveUp, seed: `${sd.tones}|oct` }, skel ? SKEL_PULL : emoPull ? EMO_PULL : undefined, iv), key, mode, G, sd.neighbours, d, iv), phrases, key, mode, G, sd.walk, d);
       const pushed = pushNotes(limitSame(smallBreaks(foldIntoRange(walked, range), phrases, G, sd.small, accOf('small'), d)), phrases, G, sd.small, accOf('small'), d);
       const ended = phraseEndings(pushed, phrases, G, sd.endings, d, { key, mode, chordAt, range });
       // (mood notes: each phrase end gets a degree by its job: home, open, hanging)
