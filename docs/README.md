@@ -64,7 +64,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 ## Vocal
 - `VOCAL.md`: the demo singer and the main vocal.
 - `VERSE-SECTIONS.md`: the verse melody writer (the main one): rules, forms, meters.
-- `VOCAL-TUNE.md`: the solo's Tune-first ideas for the vocal. Tune pick: a verse and a chorus written in 4, 8 or 12 versions, the best by a tune score is sung. Strong notes planned first: each phrase's note planned as a path (verse falls, chorus peaks early). Switches: Vocal melody card. Checks: `npm run vocal-tune-check`, `vocal-skeleton-check`.
+- `VOCAL-TUNE.md`: the solo's Tune-first ideas for the vocal. Tune pick: a verse and a chorus written in 4, 8 or 12 versions, the best by a tune score is sung. Strong notes planned first: each phrase's note planned as a path (verse falls, chorus peaks early). Switches: Vocal melody card. Mood-aware. Checks: `npm run vocal-tune-check`, `vocal-skeleton-check`, `vocal-mood-check`.
 - `VOCAL-EMOTION.md`: mood in the notes (study and the mood-note switches).
 - `INTERVALS.md`: the mood in how the line moves.
 - `VOCAL-BASS.md`: the bass-led vocal.

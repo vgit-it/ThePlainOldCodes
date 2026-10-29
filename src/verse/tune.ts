@@ -9,6 +9,8 @@
 
 import { QUALITIES, chordPc, type Chord } from '../theory';
 import type { BarGrid } from './grid';
+import type { Mood } from '../tension';
+import { profileFor } from './intervals';
 import type { BandNote, Gap } from './verse';
 
 /** Part weights: the cell that comes back and the phrase ends count most (what the ear takes for a tune). */
@@ -25,7 +27,18 @@ export const TUNE_CHOICES = [0, 4, 8, 12] as const;
 /** A version's seed: version 0 is the section as it always was; another version rolls the pitch rules (PITCH_RULES, form.ts) again. */
 export const withVariant = (seed: string, variant: number) => (variant > 0 ? `${seed}|vt${variant}` : seed);
 
-export interface VocalTuneCtx { key: number; grid: BarGrid; chordAt: Chord[] }
+/** The mood parts' weights: how well the moves fit the mood's table of intervals, its size of move, its share of leaps and of rising moves. */
+export const VOCAL_MOOD_WEIGHTS: Record<string, number> = { moodFit: 2, size: 1.5, dir: 3 };
+
+/** What a mood wants of a line (from its interval profile, intervals.ts): the share of steps, the share of leaps, the share of rising moves, the table of intervals, how often a leap is answered. */
+export interface VocalAim { steps: number; leaps: number; up: number; w: readonly number[]; fill: number }
+/** The aim of a mood in a kind of section: small moves want many steps and few leaps, big moves the other way. */
+export function aimFor(mood: Mood, kind: string): VocalAim {
+  const P = profileFor(mood, kind);
+  return { steps: Math.max(0.35, Math.min(0.85, 1.05 - 0.14 * P.size)), leaps: Math.max(0.04, Math.min(0.3, 0.05 * (P.size - 1.5))), up: P.up, w: P.w, fill: P.fill };
+}
+
+export interface VocalTuneCtx { key: number; grid: BarGrid; chordAt: Chord[]; /** Left out: the same tune for every mood. */ aim?: VocalAim }
 /** Each part, 0 (not a tune) to 1 (a tune); `score` is their weighted mean. */
 export interface VocalTune { notes: number; score: number; parts: Record<string, number> }
 
@@ -118,18 +131,31 @@ export function vocalTune(notes: BandNote[], phrases: Gap[], c: VocalTuneCtx): V
   for (const t of toks) startKeys.push(t.length >= N ? t.slice(0, N).map((x) => x.shape).join(',') : '');
   const echo = share(startKeys.filter((k, i) => k && startKeys.slice(0, i).includes(k)).length, Math.max(1, ph.length - 1), 0);
 
+  // the mood: how well the moves fit its table of intervals, the size of its moves, and the way it leans
+  const aim = c.aim;
+  const leapShare = share(moving.filter((x) => Math.abs(x) >= 5).length, moving.length, 0);
+  const upShare = share(moving.filter((x) => x > 0).length, moving.length, 0.5);
+  let logW = 0;
+  if (aim) for (const x of d) logW += Math.log(Math.max(0.05, aim.w[Math.min(12, Math.abs(x))]));
+  const moodFit = aim ? Math.exp(logW / Math.max(1, d.length)) : 1;
   const parts: Record<string, number> = {
     repeat: clamp01((0.7 * repeat + 0.3 * shapeCover) / 0.5) * 0.85 + 0.15 * clamp01(echo / 0.3),
-    steps: band(steps, 0.1, 0.4, 0.8, 0.98),
+    steps: aim ? band(steps, aim.steps - 0.35, aim.steps - 0.15, aim.steps + 0.15, aim.steps + 0.35) : band(steps, 0.1, 0.4, 0.8, 0.98),
     ends: 0.6 * endsChord + 0.4 * endsLong,
-    leapBack,
+    leapBack: aim ? 1 - (1 - leapBack) * aim.fill : leapBack,
     smooth: clamp01((0.62 - turns) / 0.2),
     range: tight,
     beats: beatChord,
     same: clamp01((0.55 - sameNote) / 0.2),
     top: clamp01((1 - topPhrases) / 0.4),
   };
+  if (aim) {
+    parts.moodFit = clamp01((moodFit - 0.45) / 0.6);
+    parts.size = band(leapShare, aim.leaps - 0.12, Math.max(0, aim.leaps - 0.05), aim.leaps + 0.05, aim.leaps + 0.14);
+    parts.dir = band(upShare, aim.up - 0.25, aim.up - 0.1, aim.up + 0.1, aim.up + 0.25);
+  }
+  const weights = aim ? { ...VOCAL_TUNE_WEIGHTS, ...VOCAL_MOOD_WEIGHTS } : VOCAL_TUNE_WEIGHTS;
   let wsum = 0, ssum = 0;
-  for (const k of Object.keys(VOCAL_TUNE_WEIGHTS)) { wsum += VOCAL_TUNE_WEIGHTS[k]; ssum += VOCAL_TUNE_WEIGHTS[k] * clamp01(parts[k]); }
+  for (const k of Object.keys(weights)) { wsum += weights[k]; ssum += weights[k] * clamp01(parts[k]); }
   return { notes: n, score: ssum / wsum, parts };
 }

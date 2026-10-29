@@ -1,4 +1,4 @@
-Status: live behind two switches (2026-10-29): step A (Tune pick) and step B (Strong notes planned first) of bringing the Tune-first solo's ideas to the vocal. Paul has not heard either.
+Status: live behind two switches (2026-10-29): step A (Tune pick) and step B (Strong notes planned first) of bringing the Tune-first solo's ideas to the vocal, both mood-aware. Paul has not heard either.
 
 # Vocal tune: best of N versions, by a tune score
 
@@ -52,18 +52,35 @@ Switch: Vocal melody card → **Strong notes planned first** (checkbox; `vocalSk
 - Prechorus and bridge keep their own climb and dwell (rules 22, 24); interlude and outro are not planned.
 - With the Tune pick on, each version rolls the plan's dice too (the plan is part of the version).
 
-### Numbers (60 songs, first verse and first chorus, 7 genres)
+### Numbers (60 songs, first verse and first chorus, 7 genres; after the mood step below)
 | | chorus top above verse's | verse falls | chorus peaks early | answers end on root | verse score | chorus score |
 |---|---|---|---|---|---|---|
 | Off | 60% | 43% | 62% | 27% | 0.70 | 0.61 |
-| Tune pick: best of 12 | 72% | 42% | 62% | 29% | 0.83 | 0.79 |
-| Strong notes | 93% | 63% | 97% | 53% | 0.73 | 0.63 |
-| Strong notes + best of 12 | 95% | 72% | 83% | 54% | 0.85 | 0.77 |
-- Phrase ends land within 2 semitones of the plan in 94% of phrases, on its note in 90%.
+| Tune pick: best of 12 | 67% | 45% | 58% | 33% | 0.78 | 0.73 |
+| Strong notes | 92% | 67% | 90% | 45% | 0.72 | 0.62 |
+| Strong notes + best of 12 | 90% | 63% | 85% | 46% | 0.80 | 0.72 |
+- Scores here are the plain tune score. Since the mood step the pick is made by the mood-aware score, so the plain score of the pick is lower than the 0.83 / 0.79 of step A.
+- Phrase ends land within 2 semitones of the plan in 80% of phrases, on its note in 67%. The rest are a mood's own ending (a hanging 7th, 2nd or 4th, or a colour note), which the plan leaves alone.
 - The speed is as before (the plan is cheap).
-- A cost: the chorus's tune score is a little under the best-of-12 alone (0.77 against 0.79). The planned heights make a few more leaps in a chorus. The score does not measure the song's shape (the peak, the fall, the root ends), which is what this step is for.
 - Checks that hold: no overlaps, no empty section, no lone short unit, choruses over the same chords are the same notes.
-- Tried and left: a weaker pull (leap 0.7, w 1.0 is kept; 0.8 / 0.6 changed little) and a smaller spine swing (0.4 / 0.5 left the chorus under the verse in 1 song in 5).
+
+## Mood: the tune keeps the song's mood (`npm run vocal-mood-check`)
+Both steps first ignored the mood (the Intervals rule, `INTERVALS.md`, and the other mood notes ran as before, but the tune score wanted one kind of line for every mood and the plan's spine was one shape). Fixed:
+- **Tune score with a mood aim** (`aimFor` in `tune.ts`, from the mood's interval profile): the share of steps and of leaps it wants (small-move moods want many steps and few leaps, big-move moods the other way), the share of rising moves, how often a leap is answered by a step back, and how well the moves fit the mood's table of intervals. The pick keeps the version that is a tune *in the mood's way*.
+- **Strong notes with a mood**: a rising mood (happy, triumphant) falls less across a section, a falling one (melancholic, dark) more; a calm mood swings less and leaps less, a big-move mood more. A mood's hanging ending or colour note is left alone by the plan. The tension curve still leans the register (it did before the plan too).
+- A weaker pull toward the plan (leap 0.8, w 0.5): a strong pull overrode the Intervals rule's liking of rising or falling.
+
+### Numbers (40 songs, four moods, verse and first chorus; moves inside phrases)
+| way | melancholic | tense | angry | triumphant |
+|---|---|---|---|---|
+| Off: size / leaps / rising | 3.3 / 22% / 48% | 3.6 / 24% / 67% | 3.9 / 28% / 59% | 4.1 / 34% / 74% |
+| Tune pick | 2.4 / 10% / 42% | 2.7 / 12% / 64% | 3.6 / 22% / 56% | 3.7 / 27% / 70% |
+| Strong notes | 2.9 / 19% / 43% | 3.3 / 26% / 51% | 3.6 / 29% / 46% | 3.7 / 31% / 52% |
+| Both | 2.5 / 11% / 43% | 2.5 / 11% / 57% | 3.3 / 22% / 52% | 3.5 / 26% / 61% |
+- The order of the moods holds in every way: sad is small, triumphant wide, in size and in leaps.
+- Tune pick makes every mood a little calmer (smaller moves, fewer leaps) than Off: the tune score likes steps. The moods stay apart.
+- **Still weaker with Strong notes: the lean to rise or fall.** Off: melancholic 48% rising moves against triumphant 74%. Strong notes alone: 43% against 52%. With the Tune pick on top: 43% against 61%. The pull toward the plan evens out the up and down moves. Best used with the Tune pick; or to fix later by giving the plan the mood's direction inside each phrase.
+- `npm run interval-check` fails its leap-ratio target on the unchanged code too (it did before these steps).
 
 ## What is next
 - **C. Cells**: build the melody from a motif in scale steps (stated, moved, changed, contrast), a cadence run-up into each held note, and answers that play the call's cells again. Replaces the after-the-fact copies of rule 39.
