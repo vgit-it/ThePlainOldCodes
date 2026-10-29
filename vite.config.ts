@@ -39,14 +39,14 @@ function recipeSave(): Plugin {
 }
 
 // Relative base so the build works on GitHub Pages under any repo name.
-// Pages: the generator, the band view (opened from its Band link) and the lick lab (/lick-lab.html, not linked).
+// Pages: the generator, the band view (opened from its Band link), the lick lab (/lick-lab.html, not linked) and the riff lab (/riff-lab.html, not linked).
 // The recipe lab (/recipe-lab.html) is for the dev server only (npm run recipe-lab), so it isn't built.
 export default defineConfig({
   base: './',
   plugins: [recipeSave()],
   build: {
     rollupOptions: {
-      input: { main: resolve(__dirname, 'index.html'), band: resolve(__dirname, 'band.html'), lickLab: resolve(__dirname, 'lick-lab.html') },
+      input: { main: resolve(__dirname, 'index.html'), band: resolve(__dirname, 'band.html'), lickLab: resolve(__dirname, 'lick-lab.html'), riffLab: resolve(__dirname, 'riff-lab.html') },
     },
   },
 });
