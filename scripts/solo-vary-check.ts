@@ -25,17 +25,17 @@ const build = (j: number, extra: Record<string, unknown>) => {
 };
 const J = JSON.stringify;
 
-const T = { songs: 0, soloSecs: 0, longSolos: 0, long: 0, varied: 0, drums: { light: 0, half: 0, lift: 0, same: 0 } as Record<string, number>, chords: { other: 0, held: 0, same: 0 } as Record<string, number>, otherDiffers: 0, spans: {} as Record<string, number>, heldRiff: 0 };
+const T = { songs: 0, soloSecs: 0, longSolos: 0, long: 0, pairs: 0, long24: 0, varied: 0, drums: { light: 0, half: 0, lift: 0, same: 0 } as Record<string, number>, chords: { other: 0, held: 0, same: 0 } as Record<string, number>, otherDiffers: 0, spans: {} as Record<string, number>, heldRiff: 0 };
 for (let j = 0; j < N; j++) {
   const base = build(j, {}), off = build(j, { soloVary: 'off' }), on = build(j, { soloVary: 'on' }), again = build(j, { soloVary: 'on' });
   T.songs++;
   if (J(base.secs) !== J(off.secs)) fail(`${base.s}: "Off" changed the track`);
   if (J(on.secs) !== J(again.secs)) fail(`${base.s}: not the same twice`);
   on.secs.forEach((sec, si) => {
-    const was = base.secs[si], v = sec.section?.soloVary;
+    const was = base.secs[si], vs = sec.section?.soloVary as any[] | undefined;
     const isSolo = sec.section?.kind === 'solo';
-    if (isSolo) { T.soloSecs++; if (sec.song.bars.length >= 16) T.longSolos++; }
-    if (!v) {
+    if (isSolo) { T.soloSecs++; if (sec.song.bars.length >= 16) T.longSolos++; if (sec.song.bars.length >= 24) T.long24++; }
+    if (!vs) {
       const near = [si - 1, si + 1].some((k) => on.secs[k]?.section?.soloVary);
       if (!near && J(sec) !== J(was)) fail(`${base.s}: section ${si} (${sec.section?.label}) has no stretch but changed`);
       return;
@@ -44,6 +44,14 @@ for (let j = 0; j < N; j++) {
     if (!isSolo) { fail(`${base.s}: a stretch in a ${sec.section.kind}`); return; }
     if (n < 16) { fail(`${base.s}: a stretch in a ${n}-bar solo`); return; }
     T.long++; T.varied++;
+    if (vs.length > (n >= 24 ? 2 : 1)) fail(`${base.s}: ${vs.length} stretches in ${n} bars`);
+    if (vs.length === 2) {
+      T.pairs++;
+      if (vs[1].from - vs[0].to < 4) fail(`${base.s}: stretches ${vs[0].from}-${vs[0].to} and ${vs[1].from}-${vs[1].to} too close`);
+      if (vs[0].drums === vs[1].drums && vs[0].drums !== 'same') fail(`${base.s}: both stretches change the drums the same way`);
+      if (vs.filter((x: any) => x.chords === 'held').length > 1) fail(`${base.s}: two held stretches`);
+    }
+    for (const v of vs) {
     T.drums[v.drums]++; T.chords[v.chords]++;
     T.spans[`${v.from}-${v.to}`] = (T.spans[`${v.from}-${v.to}`] ?? 0) + 1;
     const len = v.to - v.from;
@@ -81,7 +89,7 @@ for (let j = 0; j < N; j++) {
     if (v.chords === 'other') {
       const sig = (s: any, a: number, b: number) => J(s.chords.timeline.filter((e: any) => e.step >= a && e.step < b).map((e: any) => [e.step, e.chord]));
       if (sig(sec, at, end) !== sig(was, at, end)) T.otherDiffers++;
-      if (sig(sec, 0, at) !== sig(was, 0, at)) fail(`${base.s}: chords before the stretch changed`);
+      if (v === vs[0] && sig(sec, 0, at) !== sig(was, 0, at)) fail(`${base.s}: chords before the stretch changed`);
     }
     if (v.chords === 'held') {
       const back = sec.section.soloBack, strikes = new Set<number>(back?.strikes ?? []);
@@ -90,12 +98,15 @@ for (let j = 0; j < N; j++) {
       for (const e of tl) if (e.step >= at && e.step < end && !strikes.has(e.step)) fail(`${base.s}: chord at ${e.step} not struck`);
       const riff = !!(sec.guitar && song.tuning);
       if (riff) T.heldRiff++;
-      for (let g = at; g < end; g++) {
+      // (the last bar is the hand-over to the next section: a push, band hits, a ring-out; the checks stop before it)
+      const upto = Math.min(end, bars[n - 1].start);
+      for (let g = at; g < upto; g++) {
         if (!strikes.has(g) && (sec.strum[g] !== '.' || sec.bass[g])) { fail(`${base.s}: rhythm or bass plays off a strike at ${g}`); break; }
         if (strikes.has(g) && !sec.bass[g]) { fail(`${base.s}: no bass root on a strike at ${g}`); break; }
       }
-      if (riff) for (const h of sec.guitar) if (h.step >= at && h.step < end && !strikes.has(h.step)) { fail(`${base.s}: riff hit off a strike at ${h.step}`); break; }
-      // outside the stretch it is as before (the first bar and the hand-over bar can move)
+      if (riff) for (const h of sec.guitar) if (h.step >= at && h.step < upto && !strikes.has(h.step)) { fail(`${base.s}: riff hit off a strike at ${h.step}`); break; }
+      // outside the stretch it is as before (the first bar and the hand-over bar can move; with two stretches the other may differ)
+      if (vs.length === 1) {
       const lastStart = bars[n - 1].start, first = bars[0].len;
       for (let g = first; g < Math.min(at, lastStart); g++) {
         if (sec.strum[g] !== was.strum[g] || (sec.bass[g] || 0) !== (was.bass[g] || 0)) { fail(`${base.s}: rhythm or bass before the stretch changed at ${g}`); break; }
@@ -103,6 +114,8 @@ for (let j = 0; j < N; j++) {
       if (end < lastStart) for (let g = end; g < lastStart; g++) {
         if (sec.strum[g] !== was.strum[g] || (sec.bass[g] || 0) !== (was.bass[g] || 0)) { fail(`${base.s}: rhythm or bass after the stretch changed at ${g}`); break; }
       }
+      }
+    }
     }
     // still a solo
     const hits = sec.guitar2.filter((h: any) => !h.mute && h.notes.length).sort((a: any, b: any) => a.step - b.step);
@@ -114,7 +127,7 @@ for (let j = 0; j < N; j++) {
     });
   });
 }
-console.log(`${T.songs} songs, ${T.soloSecs} solo sections, ${T.longSolos} of 16+ bars, ${T.long} with a stretch`);
+console.log(`${T.songs} songs, ${T.soloSecs} solo sections, ${T.longSolos} of 16+ bars, ${T.long} with a stretch (${T.long24} solos of 24+ bars, ${T.pairs} with two)`);
 if (T.long < T.longSolos * 0.6) fail(`only ${T.long} of ${T.longSolos} long solos got a stretch`);
 console.log('drums', J(T.drums), 'chords', J(T.chords), `(other differs: ${T.otherDiffers}; held riff: ${T.heldRiff})`);
 console.log('spans', J(T.spans));

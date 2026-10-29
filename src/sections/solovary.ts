@@ -11,7 +11,7 @@ import type { Mood } from '../tension';
 import { crashAt, shapeDrums } from './energy';
 import type { Seg } from './join';
 
-export type SoloVary = NonNullable<SectionInfo['soloVary']>;
+export type SoloVary = NonNullable<SectionInfo['soloVary']>[number];
 type Kind = 'light' | 'half' | 'lift';
 
 /** How likely each drum change is, by genre. */
@@ -44,23 +44,37 @@ const SPANS: Record<number, [number, number][]> = {
   16: [[4, 8], [8, 12], [8, 16], [8, 12], [4, 8], [12, 16]],
   24: [[8, 16], [16, 24], [8, 12], [16, 20], [12, 16], [8, 16]],
 };
+/** A 24-bar solo's two stretches (four bars or more apart; an 8-bar one starts on a bar 8 or 16). */
+const PAIRS_24: [[number, number], [number, number]][] = [
+  [[4, 8], [12, 16]], [[4, 8], [16, 20]], [[8, 12], [16, 20]], [[8, 12], [20, 24]],
+  [[4, 8], [16, 24]], [[8, 16], [20, 24]], [[4, 8], [20, 24]], [[12, 16], [20, 24]],
+];
 
 /**
- * Whether this solo gets a stretch, where, and how. `halfOk`: 4/4 and not half-time already.
+ * Whether this solo gets a stretch (two in a solo of 24 bars, the second a different change), where, and how.
+ * `halfOk`: 4/4 and not half-time already.
  * `heldAll`: the whole solo is held chords already (Solo backing), so a held stretch would be no change.
  */
-export function planVary(seed: string, bars: number, genre: Genre, mood: Mood, halfOk: boolean, heldAll: boolean): SoloVary | null {
-  const spans = SPANS[bars] ?? (bars >= 16 ? SPANS[bars >= 24 ? 24 : 16] : undefined);
-  if (!spans || bars < 16) return null;
+export function planVary(seed: string, bars: number, genre: Genre, mood: Mood, halfOk: boolean, heldAll: boolean): SoloVary[] | null {
+  if (bars < 16) return null;
   const r = new Rng(seed);
   if (!r.chance(0.8)) return null;
-  const [from, to] = r.pick(spans.filter(([, b]) => b <= bars));
   const kinds: Kind[] = halfOk ? ['light', 'half', 'lift'] : ['light', 'lift'];
-  const drums = r.weighted<Kind>(kinds.map((k) => [k, DRUM_G[genre][k] * DRUM_M[mood][k]]));
-  const chords = r.weighted<SoloVary['chords']>([['other', 0.45], ['held', heldAll ? 0 : 0.25], ['same', 0.3]]);
-  // (the other section's chords bring their own groove: the drums change on top of it only half the time)
-  const d: VaryDrumKind = chords === 'other' && r.chance(0.5) ? 'same' : drums;
-  return { from, to, drums: d, chords };
+  const stretch = ([from, to]: [number, number], held: boolean, not?: VaryDrumKind): SoloVary => {
+    const drums = r.weighted<Kind>(kinds.filter((k) => k !== not).map((k) => [k, DRUM_G[genre][k] * DRUM_M[mood][k]]));
+    const chords = r.weighted<SoloVary['chords']>([['other', 0.45], ['held', held ? 0.25 : 0], ['same', 0.3]]);
+    // (the other section's chords bring their own groove: the drums change on top of it only half the time)
+    const d: VaryDrumKind = chords === 'other' && r.chance(0.5) ? 'same' : drums;
+    return { from, to, drums: d, chords };
+  };
+  if (bars >= 24 && r.chance(0.7)) {
+    const [a, b] = r.pick(PAIRS_24);
+    const first = stretch(a, !heldAll);
+    // (one held stretch at most: the plan for the players has one range)
+    return [first, stretch(b, false, first.drums)];
+  }
+  const spans = SPANS[bars >= 24 ? 24 : 16].filter(([, to]) => to <= bars);
+  return [stretch(r.pick(spans), !heldAll)];
 }
 
 /** The bars `start` to `start + n` of a list of segments. */
@@ -75,17 +89,24 @@ function sliceBars(segs: Seg[], start: number, n: number): Seg[] {
   return out;
 }
 
-/** The solo's segments with the stretch's bars taken from the other section's eight (same bar of the eight). */
-export function varySegs(main: Seg[], other: Seg[], v: SoloVary): Seg[] {
-  if (v.chords !== 'other') return main;
+/** The solo's segments with each 'other chords' stretch's bars taken from the other section's eight (same bar of the eight). */
+export function varySegs(main: Seg[], other: Seg[], plan: SoloVary[]): Seg[] {
   const total = main.reduce((a, s) => a + s.n, 0);
-  return [...sliceBars(main, 0, v.from), ...sliceBars(other, v.from % 8, v.to - v.from), ...sliceBars(main, v.to, total - v.to)];
+  const out: Seg[] = [];
+  let at = 0;
+  for (const v of [...plan].filter((x) => x.chords === 'other').sort((a, b) => a.from - b.from)) {
+    out.push(...sliceBars(main, at, v.from - at), ...sliceBars(other, v.from % 8, v.to - v.from));
+    at = v.to;
+  }
+  return at ? [...out, ...sliceBars(main, at, total - at)] : main;
 }
 
-/** The tension over the stretch: a dip or a lift (a copy). */
-export function varyTension(tt: number[], v: SoloVary): number[] {
-  const d = DRUM_T[v.drums];
-  return tt.map((x, i) => (i >= v.from && i < v.to ? Math.max(0, Math.min(1, x + d)) : x));
+/** The tension over the stretches: a dip or a lift (a copy). */
+export function varyTension(tt: number[], plan: SoloVary[]): number[] {
+  return tt.map((x, i) => {
+    const v = plan.find((y) => i >= y.from && i < y.to);
+    return v ? Math.max(0, Math.min(1, x + DRUM_T[v.drums])) : x;
+  });
 }
 
 /**

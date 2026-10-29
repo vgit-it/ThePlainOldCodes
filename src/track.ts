@@ -689,12 +689,12 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     // (under a solo the rhythm guitar backs off a little)
     if (!riff && !held) shapeStrum(idea, s.g2 === 'solo' ? Math.min(3, s.energy) : s.energy);
     // (a long solo's stretch: the drums, and the chords held or the other section's)
-    if (vary) {
-      const bars = idea.song.bars, at = bars[vary.from].start, end = vary.to >= bars.length ? idea.song.total : bars[vary.to].start;
-      const dn = varyDrums(idea, vary, r);
+    for (const v of vary ?? []) {
+      const bars = idea.song.bars, at = bars[v.from].start, end = v.to >= bars.length ? idea.song.total : bars[v.to].start;
+      const dn = varyDrums(idea, v, r);
       if (dn) notes.push(dn);
-      if (vary.chords === 'held') notes.push(`Solo bars ${vary.from + 1}-${vary.to}: ${heldBacking(idea, at, end)}`);
-      else if (vary.chords === 'other') notes.push(`Solo bars ${vary.from + 1}-${vary.to}: the ${soloOverChorus ? 'verse' : 'chorus'}'s chords and groove`);
+      if (v.chords === 'held') notes.push(`Solo bars ${v.from + 1}-${v.to}: ${heldBacking(idea, at, end)}`);
+      else if (v.chords === 'other') notes.push(`Solo bars ${v.from + 1}-${v.to}: the ${soloOverChorus ? 'verse' : 'chorus'}'s chords and groove`);
     }
 
     // guitar 2
