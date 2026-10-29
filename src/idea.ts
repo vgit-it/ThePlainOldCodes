@@ -72,6 +72,8 @@ export interface GenOptions {
   vocalMaxSets?: number;
   /** Tune (src/verse/tune.ts, docs/VOCAL-TUNE.md): a verse and a chorus are written in this many versions (4, 8 or 12), the best as a tune is sung; left out: one version, as always. */
   vocalTune?: number;
+  /** Strong notes (src/verse/skeleton.ts, docs/VOCAL-TUNE.md): the strong note of every phrase of a verse and a chorus is planned first as a path through the chords' notes and the line is written toward it; left out: off. */
+  vocalSkeleton?: boolean;
   /** Real strum mix (docs/STUDY-RHYTHM.md): strumming patterns from a library widened to what real guitarists play: held chords, quarters, 8ths in many shapes, 16ths, stabs. */
   strumMix?: boolean;
   /** Guitar 2 (the lead player) plays whole lines, mostly by step, as well as short licks (docs/LEAD-LINES.md). Off: as before. */
