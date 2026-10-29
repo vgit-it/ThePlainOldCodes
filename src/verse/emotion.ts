@@ -51,7 +51,7 @@ export const EMO_INFO: Record<EmoId, { name: string; hint: string }> = {
 export const emoOn = (off?: readonly string[]): Set<EmoId> => new Set(EMO_IDS.filter((id) => !off?.includes(id)));
 
 /** What a song hands the writer: its mood (the one picked, or Auto's), the switches that are on, and its climax section. */
-export interface EmoOptions { mood: Mood; on: ReadonlySet<EmoId>; climax?: Idea; /** Most sets of notes (notes with a rest either side) in 4 bars (sets.ts); left out or 0: no limit. */ maxSets?: number }
+export interface EmoOptions { mood: Mood; on: ReadonlySet<EmoId>; climax?: Idea; /** Most sets of notes (notes with a rest either side) in 4 bars (sets.ts); left out or 0: no limit. */ maxSets?: number; /** Tune: versions of a verse or chorus written, the best as a tune kept (tune.ts); left out or 0: the first. */ tune?: number }
 
 /** The sets-per-4-bars slider (the card): 2 to 8, 9 is Off. What the app stores (`vocalMaxSets`): nothing = the default, 0 = Off. */
 export const SETS_MIN = 2, SETS_MAX = 8, SETS_DEFAULT = 4;

@@ -2,7 +2,8 @@
 // Pure: the same input gives the same notes.
 
 import { SCALES, type Chord, type Mode } from '../theory';
-import { planForm, leafSeeds, RULES, type Leaf, type Rule, type Variation } from './form';
+import { planForm, leafSeeds, PITCH_RULES, RULES, type Leaf, type Rule, type Variation } from './form';
+import { withVariant } from './tune';
 import { EMO_PULL, intervalsFor, pullTo, toneBias, withColour, withEndDegrees, withSuspensions, withSurprise, type EmoBuild, type EmoCtx } from './emotion';
 import type { Genre } from '../genres';
 import { BarGrid, gridOf } from './grid';
@@ -57,6 +58,8 @@ export interface BuildInput {
   emo?: EmoCtx;
   /** The bass-led vocal (bassline.ts): the bass line's starts and chord notes, and how much of the line is the bass's (0-1); left out: the plain grid. */
   bass?: { skel: BassSkel; share: number };
+  /** A tune version (tune.ts): 0 is the section as it always was; another rolls the pitch rules' dice again, the phrasing stays. */
+  variant?: number;
 }
 
 export interface Built {
@@ -90,6 +93,8 @@ export function buildVerse(inp: BuildInput): Built {
   const total = inp.chordAt.length;
   const leaves = planForm(inp.bars, inp.meta, inp.variation, inp.seed, inp.call);
   const seeds = leafSeeds(leaves, inp.seed);
+  // (a tune version: the pitch rules take new dice, every leaf alike, so an answering leaf still repeats the leaf it answers)
+  if (inp.variant) for (const sd of seeds.values()) for (const r of PITCH_RULES) sd[r] = withVariant(sd[r], inp.variant);
   const out: Built = { notes: [], phrases: [], breaks: [], runs: [], holds: [], tones: [], bars: [], leaves, tries: [], shapes: [], skips: {} };
   // (what a rule looks at in the band: an answering leaf's rhythm rules look at the band under the leaf they answer, so the
   // rhythm repeats even where the band under it doesn't; the rules about notes look at the band under the leaf itself)

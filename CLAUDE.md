@@ -47,7 +47,7 @@ Options + seeds → `src/generator.ts` (the idea: chords, strum, drums, bass, 8 
 - **Recipe lab** (`docs/RECIPE-LAB.md`): v1 built (the 67 named licks as data, the lab to write, mark, hear, save). Next: drafts and marks used by the writers, recipe templates.
 - **Solos** (Track options → Solo writer): "As before" (`solo2.ts`), "Planned (landings first)" (`soloplan.ts`), "Melody + player" (`solomelody.ts` → `soloplayer.ts`). Docs: `SOLO-NEW`, `SOLO-PLAN`, `SOLO-MELODY`, `SOLO-PLAYER`. Paul is listening to the newest steps.
 - **Riff lab** (`docs/RIFF-LAB.md`): new riff writer for all eight styles (`parts/riffwriter.ts`, picked and arp included) and its lab page (`riff-lab.html`, built, not linked). In tracks behind a switch (Track options → Riff writer, `docs/RIFF-WIRE.md`, best of 24, four riff genres; odd meters stay classic). Paul is to listen and keep riffs.
-- **Vocal melody** (Vocal melody card): the verse writer and its mood-note switches (`docs/VERSE-SECTIONS.md`, `VOCAL-EMOTION`, `INTERVALS`).
+- **Vocal melody** (Vocal melody card): the verse writer and its mood-note switches (`docs/VERSE-SECTIONS.md`, `VOCAL-EMOTION`, `INTERVALS`). **Tune pick** (`docs/VOCAL-TUNE.md`, `src/verse/tune.ts`): best of N versions by a tune score, behind a switch; next: a song-level skeleton, cell-based motifs.
 - **Repo clean-up**: `docs/CLEANUP-PLAN.md`, one phase at a time. Anything removed is in git (tag `archive/before-cleanup`, commit `ea84fd7`) and listed in `docs/ARCHIVE.md`. `node scripts/reach.mjs` lists files nothing uses.
 - The "next" ideas and the full decision record are in `docs/HISTORY.md`. Read it only when you need the why behind something.
 

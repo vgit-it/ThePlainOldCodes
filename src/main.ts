@@ -94,6 +94,12 @@ const verse = buildVersePanel($('verse'), {
     // (the same song with another bass share: only the lead vocal changes)
     showIdea(generate({ ...idea.opts, vocalBassShare: n === BASS_SHARE_DEFAULT ? undefined : n }, idea.seeds), true);
   },
+  tune: () => idea?.opts.vocalTune ?? 0,
+  setTune(n) {
+    if (!idea) return;
+    // (the same song with a tune pick: only the lead vocal changes)
+    showIdea(generate({ ...idea.opts, vocalTune: n || undefined }, idea.seeds), true);
+  },
   maxSets: () => setsOf(idea?.opts.vocalMaxSets),
   setMaxSets(n) {
     if (!idea) return;
@@ -298,7 +304,7 @@ function newIdea() {
   const chords = idea && hasPins(idea.opts.chords) ? idea.opts.chords : undefined;
   // (the vocal's rhythm and the singer's lift carry over to the new idea; the lift then set for its own
   // singer: the new song may sing in the other voice)
-  const opts: GenOptions = { genre: genreSel.value as GenreSel, meter: meterSel.value, weirdness: +weird.value / 100, bpm: readTempo(), chords, vocalLift: idea?.opts.vocalLift, vocalSinger: idea?.opts.vocalSinger, vocalRhythm: idea?.opts.vocalRhythm, vocalMelody: idea?.opts.vocalMelody, vocalMove: idea?.opts.vocalMove, vocalEnergy: idea?.opts.vocalEnergy, vocalReal: idea?.opts.vocalReal, vocalPatterns: idea?.opts.vocalPatterns, vocalWriter: idea?.opts.vocalWriter, vocalBassShare: idea?.opts.vocalBassShare, vocalMoodOff: idea?.opts.vocalMoodOff, vocalMaxSets: idea?.opts.vocalMaxSets };
+  const opts: GenOptions = { genre: genreSel.value as GenreSel, meter: meterSel.value, weirdness: +weird.value / 100, bpm: readTempo(), chords, vocalLift: idea?.opts.vocalLift, vocalSinger: idea?.opts.vocalSinger, vocalRhythm: idea?.opts.vocalRhythm, vocalMelody: idea?.opts.vocalMelody, vocalMove: idea?.opts.vocalMove, vocalEnergy: idea?.opts.vocalEnergy, vocalReal: idea?.opts.vocalReal, vocalPatterns: idea?.opts.vocalPatterns, vocalWriter: idea?.opts.vocalWriter, vocalBassShare: idea?.opts.vocalBassShare, vocalMoodOff: idea?.opts.vocalMoodOff, vocalMaxSets: idea?.opts.vocalMaxSets, vocalTune: idea?.opts.vocalTune };
   let next = generate(opts, seeds);
   const h = singerFor(next);
   if ((next.opts.vocalLift ?? 0) !== (h ? HIGH_VOICES[h].lift : 0) || next.opts.vocalSinger !== (h ?? undefined)) next = generate({ ...opts, ...singerOpts(h) }, seeds);

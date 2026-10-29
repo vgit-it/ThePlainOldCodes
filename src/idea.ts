@@ -70,6 +70,8 @@ export interface GenOptions {
   vocalMoodOff?: string[];
   /** The verse writer's most sets of notes (notes with a rest either side) in 4 bars (src/verse/sets.ts): left out, 4; 0, no limit. */
   vocalMaxSets?: number;
+  /** Tune (src/verse/tune.ts, docs/VOCAL-TUNE.md): a verse and a chorus are written in this many versions (4, 8 or 12), the best as a tune is sung; left out: one version, as always. */
+  vocalTune?: number;
   /** Real strum mix (docs/STUDY-RHYTHM.md): strumming patterns from a library widened to what real guitarists play: held chords, quarters, 8ths in many shapes, 16ths, stabs. */
   strumMix?: boolean;
   /** Guitar 2 (the lead player) plays whole lines, mostly by step, as well as short licks (docs/LEAD-LINES.md). Off: as before. */

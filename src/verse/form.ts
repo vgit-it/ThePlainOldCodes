@@ -11,6 +11,8 @@ import { Rng } from '../rng';
 
 export type Rule = 'phrases' | 'runs' | 'tones' | 'holds' | 'small' | 'neighbours' | 'walk' | 'endings' | 'thirds' | 'bends';
 export const RULES: Rule[] = ['phrases', 'runs', 'tones', 'holds', 'small', 'neighbours', 'walk', 'endings', 'thirds', 'bends'];
+/** The rules that choose pitches (not rhythm): a tune version (tune.ts) rolls these again and keeps the section's phrasing. */
+export const PITCH_RULES: Rule[] = ['tones', 'neighbours', 'walk', 'endings'];
 export type Variation = 'little' | 'some' | 'lots';
 
 /** The chance, at "Some", that an answering leaf draws its own version of a rule. The phrasing mostly stays; the ending usually changes. */
