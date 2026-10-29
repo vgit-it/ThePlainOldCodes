@@ -22,6 +22,8 @@ export interface VCtx {
   energy: number;
   kind: SectionKind;
   curve?: SoloCurve;
+  /** Expression pass (docs/SOLO-EXPRESSION.md): a note may be dissolved into a run, so the melody-note checks are left to that pass; everything else is still judged. */
+  loose?: boolean;
 }
 
 export interface Violation {
@@ -104,7 +106,7 @@ export function verify(events: PEvent[], base: BaseNote[], c: VCtx): Violation[]
   }
 
   // each melody note: there, and what it keeps
-  for (const n of base) {
+  for (const n of c.loose ? [] : base) {
     const g = groups.get(n.i)?.filter((e) => sounding(e.hit));
     if (!g?.length) { v.push({ code: 'lost', at: n.t, msg: `note ${n.i} (${n.midi}) is gone` }); continue; }
     const time = new Map<number, number>();

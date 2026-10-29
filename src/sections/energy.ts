@@ -180,15 +180,17 @@ export function shapeBass(idea: Idea, e: number) {
 }
 
 /** Cap notes so nothing rings past step `s`. */
-export const capAt = (s: number) => (h: GuitarHit): GuitarHit => ({ ...h, len: Math.max(1, Math.min(h.len, s - h.step)) });
+// (a note the solo expression pass made shorter than a step on purpose, a 32nd, stays short)
+export const capAt = (s: number) => (h: GuitarHit): GuitarHit => (h.quick && h.len < 1 ? h : { ...h, len: Math.max(1, Math.min(h.len, s - h.step)) });
 
 /**
  * A planned solo's last note carries on (docs/SOLO-PLAN.md, round 2): it rings through the rest of the section and the next
  * section's first bar, and bends, finishing on the bar line, to the nearest note of the next section's first chord (up to three semitones:
  * pushed up from below, or picked bent and let down). Transitions (a band stop, band hits, a snare build) have cut the
  * section's end by now; the note is the solo's final landing, else the last note left.
+ * With `dials` (Solo bends, docs/SOLO-BENDS.md) the move is slow and shaped: the bigger the step, the slower, arriving on the bar line.
  */
-export function carrySolo(idea: Idea, next: Idea | undefined) {
+export function carrySolo(idea: Idea, next: Idea | undefined, dials = false) {
   const lands = idea.soloCurve?.landings;
   if (!next || !lands || !idea.guitar2.length) return;
   const total = idea.song.total;
@@ -208,10 +210,15 @@ export function carrySolo(idea: Idea, next: Idea | undefined) {
   // (the move ends on the bar line, so it is heard in the solo's own level as the chord arrives: from the bar line on, the next section's
   // level is under it, and the note has already died away some)
   const six = 15 / idea.song.bpm;
-  const at = Math.max(0.5, total - h.step - (d > 0 ? 0.14 + d * 0.04 : 0.12) / six - 0.25);
+  // (dials: a push crawls up over 0.3 to 0.6 s, a let-down takes about 0.25 s; never more than 70% of the way from the note to the bar line)
+  const rise = dials ? Math.min(d > 0 ? 0.2 + 0.13 * d : 0.18 + 0.04 * -d, 0.7 * (total - h.step) * six) : d > 0 ? 0.14 + d * 0.04 : 0.12;
+  const at = Math.max(0.5, total - h.step - rise / six - 0.25);
   h.bend = 0;
+  // (a slide in and a bend don't go together: the carried bend wins)
+  delete h.slide;
   if (d > 0) { h.notes = [cur + d]; h.unbend = undefined; h.lateBend = d; h.bendAt = at; }
   else { h.notes = [cur]; h.lateBend = undefined; h.unbend = -d; h.bendAt = at; }
+  if (dials) { h.bendRise = Math.round(rise * 1000); h.bendEase = d > 0 ? 1.5 : 1; }
 }
 
 /** Everyone stops for the last beat or two of the section, then the next section hits. */

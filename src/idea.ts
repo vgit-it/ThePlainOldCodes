@@ -1,3 +1,4 @@
+import type { MoodSong } from './moodsong';
 import type { GuideSungLine } from './guide/words';
 import type { EnergyStyle } from './parts/energy';
 import type { VocalNote, VoiceType } from './parts/vocal';
@@ -41,6 +42,8 @@ export interface GenOptions {
   /** Fixed key (0-11) and mode; leave out for the song's own (the lick lab sets them). */
   key?: number;
   mode?: Mode;
+  /** Mood song (docs/MOOD-SONG.md): the song written for a mood, its mode, tempo and drum feel following it. Left out: the genre's own. */
+  moodSong?: MoodSong;
   /** Chords you set (strummed genres); the generator writes the rest around them. */
   chords?: ChordSheet;
   /** Semitones higher the vocal tunes are written (the Chester voice: a tenor; in key, the tune itself rewritten). */
@@ -118,6 +121,8 @@ export interface Song {
   sections?: RiffStyle[];
   /** Tracks: force the drums into (or out of) half-time. */
   forceHalf?: boolean;
+  /** Mood riff (docs/MOOD-RIFF.md): the riff's notes follow the mode's 3rd. */
+  moodRiff?: boolean;
   /** Tracks: drums never wait out the first bars of a quiet intro. */
   noTacet?: boolean;
   /** Tracks: a groove the drums shouldn't pick (the verse plays a different groove from the chorus). */
@@ -192,6 +197,10 @@ export interface SoloCurve {
   fine?: boolean;
   /** The solo player's report (docs/SOLO-PLAYER.md): what it did with each note of the melody. */
   moves?: SoloMove[];
+  /** The expression pass (docs/SOLO-EXPRESSION.md): the windows it played again, each with its start and end step, its pattern and the heat it was played at. */
+  express?: { t0: number; t1: number; pattern: string; heat: number }[];
+  /** The echo (docs/SOLO-ECHO.md): the windows that play another window's figure again (its start `from`), an answer playing its call or the signature figure coming back. */
+  echo?: { from: number; fromEnd: number; t0: number; t1: number; via: string }[];
   /** How the solo player read the melody (docs/SOLO-PLAYER.md, step 2): the situation of every note, joint, cell and phrase. */
   read?: SoloRead;
   /** Core notes with moves between (docs/SOLO-CORE.md, step 2): what was written in each gap between the cores. */
@@ -397,6 +406,10 @@ export interface GuitarHit {
   lateBend?: number;
   /** A bend let down or pushed up at this many 16ths into the note, not at the usual time (a note that carries into the next section bends on the bar line). */
   bendAt?: number;
+  /** How long the bend takes, in ms (a snap is about 40, a crawl 600); otherwise the engine's own speed. */
+  bendRise?: number;
+  /** The bend's shape: 1 is even, over 1 starts slow and finishes quick, under 1 jumps then creeps up. */
+  bendEase?: number;
   /** Trilled: hammered on and pulled off this many semitones above, fast, for the whole note. */
   trill?: number;
   /** Tremolo picked: the note picked again and again, as fast as the hand goes (32nds). */
@@ -418,6 +431,8 @@ export interface GuitarHit {
   out?: boolean;
   /** Played as written: not held on through a short rest into the next note (a pulse or a gallop on one note, docs/SOLO-PLAYER.md). */
   exact?: boolean;
+  /** A note shorter than a step on purpose (a 32nd in a run from the solo expression pass): a section's cap leaves it short. */
+  quick?: boolean;
   /** A second lead guitar plays this with it (Twin, docs/LEAD-TWIN.md): a harmony, an octave or the same notes, panned the other way. */
   twin?: number[];
   /** Fade the note in (volume swell). */
@@ -529,6 +544,8 @@ export interface SectionInfo {
   riser?: boolean;
   /** The previous section pushed this one's first chord early: its downbeat isn't struck again. */
   pushedIn?: boolean;
+  /** A solo with held chords under it (src/sections/soloback.ts): the steps where a chord is struck. */
+  soloBack?: { strikes: number[] };
   /** Tension per bar (0-1) from the song's arc, and the mix level per bar (dB, 0 at the climax). */
   tension?: number[];
   db?: number[];

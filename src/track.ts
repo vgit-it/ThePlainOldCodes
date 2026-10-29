@@ -9,17 +9,21 @@ import type { MoveId } from './parts/moves';
 import { autoVoice, singTrack } from './parts/vocal';
 import type { EnergyStyle } from './parts/energy';
 import { type Mood, type MoodChoice, PROFILES, arcNote, autoMood, planTension } from './tension';
-import { type BuildOptions, buildIdea, withSheet } from './generator';
+import { type BuildOptions, buildIdea, generate, withSheet } from './generator';
+import { type MoodSong, riffLike } from './moodsong';
 import { GENRES, type Genre, QUIET_STYLES, type RiffStyle } from './genres';
 import type { ChordSheet, GuitarHit, Idea, SectionKind, Song } from './idea';
 import { type G2Options, type Guitar2Part, type Guitar2Style, chordTones, generateHook, leadFret } from './parts/guitar2';
 import { TUNINGS } from './theory/fretboard';
 import { generateSolo2 } from './parts/solo2';
 import { generateSoloMelody } from './parts/solomelody';
+import { generateSoloTune } from './parts/solotunefirst';
 import { generateSoloPlan, isCoreMode } from './parts/soloplan';
 import { performSolo } from './parts/soloplayer';
 import { addLeadSounds } from './parts/solosounds';
 import { shapeStory } from './parts/solodynamics';
+import { expressSolo } from './parts/soloexpress';
+import { heldBacking } from './sections/soloback';
 import { LIVE_RULES, NO_RULES } from './parts/solorules-live';
 import { singLead } from './parts/leadvocal';
 import { emoOn, setsOf } from './verse/emotion';
@@ -66,7 +70,19 @@ export interface TrackOptions {
   /** Played by the band: each player plays the written parts their own way (missing in older links: on). */
   band?: 'on' | 'off';
   /** The Solo writer: off (As before), on (Planned, docs/SOLO-PLAN.md: landings first) or perform (Melody + player, docs/SOLO-MELODY.md and SOLO-PLAYER.md). Missing or removed values in older links: off. */
-  soloPlan?: 'on' | 'off' | 'perform';
+  soloPlan?: 'on' | 'off' | 'perform' | 'tune';
+  /** Tune first only (docs/SOLO-TUNE.md): how many versions of a solo are written before the best as a tune is kept (the page never sets it). */
+  soloTuneTries?: number;
+  /** Tune first only (docs/SOLO-MOOD.md): the mood's character in the intervals, jumps, pace and colour notes (missing in older links: off). */
+  soloMood?: 'on' | 'off';
+  /** Tune first with Solo mood: the mood turns the scale's 3rd and 6th over chords with no third (missing in older links: off). */
+  soloMoodScale?: 'on' | 'off';
+  /** Mood song (docs/MOOD-SONG.md): the song's mode and/or its tempo and drum feel follow the mood chosen (not on Auto). Missing in older links: off. */
+  moodSong?: 'off' | 'tempo' | 'mode' | 'both';
+  /** Mood riff (docs/MOOD-RIFF.md): the mood picks the riff styles (sad: single notes, arpeggios, low pedal; bold: gallops, big chords) and a major key's riff takes the major 3rd. Missing in older links: off. */
+  moodRiff?: 'on' | 'off';
+  /** Mood: all the way (docs/MOOD-ALL.md): Tune first solos with Solo mood and Mood scale, Mood song and Mood riff, in one switch. On Auto it uses the mood Auto picks for the song. Missing in older links: off. */
+  moodAll?: 'on' | 'off';
   /** Melody + player only (docs/SOLO-MELODY.md, step 0f): a phrase repeats its first beat or two of rhythm (missing in older links: off). */
   soloMotif?: 'on' | 'off';
   /** Melody + player only (step 0f): after a busy stretch of quick notes the player lets the next note be (missing in older links: off). */
@@ -83,6 +99,18 @@ export interface TrackOptions {
   soloPolish?: 'on' | 'off';
   /** The story's own dynamics on the core note modes: loudness follows the arc, a laid-back start, a closing ring (docs/SOLO-SHAPE.md). */
   soloShape?: 'on' | 'off';
+  /** Tune first only (docs/SOLO-EXPRESSION.md): the melody played the way a guitarist would: held bent notes, quick runs, flurries and breaths in windows of any length; replaces Solo polish (missing in older links: off). */
+  soloExpress?: 'on' | 'off';
+  /** Bend dials (docs/SOLO-BENDS.md): on Solo expression, each bent note gets its own speed, shape and timing, by its place. 'plain' (default): the engine's one fixed bend. */
+  soloBends?: 'dials' | 'plain';
+  /** Recast (docs/SOLO-RECAST.md): on Solo expression, some runs become a named lick, a legato roll, a pedal figure or a trill climb, and some held notes slide in or trill. 'off' (default): the runs as they were. */
+  soloRecast?: 'on' | 'off';
+  /** Echo (docs/SOLO-ECHO.md): on Solo expression, an answer plays its call's figure again on its own notes, and one signature figure comes back near the climax and the end. 'off' (default): every window on its own. */
+  soloEcho?: 'on' | 'off';
+  /** How much Solo expression changes the tune (docs/SOLO-AMOUNT.md): 'light' leaves most of it as written; 'full' changes more. 'normal' (default, and missing in older links): as before. */
+  soloAmount?: 'light' | 'normal' | 'full';
+  /** What the band plays under a solo (docs/SOLO-BACKING.md): 'held' = the song's chords kept, the rhythm guitar ringing each one held (power chords or full chords) instead of its riff; otherwise as written (missing in older links: as written). */
+  soloBacking?: 'held' | 'written';
   /** Checks only (scripts/solo-*-check.ts), never set by the page: a step of the melody + player writer on its own (the melody, with gap marks, with joins, or read and left as written). */
   soloCheck?: 'melody' | 'marks' | 'joins' | 'player';
   /** When the rhythm guitar plays (src/players/presence.ts): it sits out intros, verses and bridges, comes in late, drops out, as in real songs (missing in older links: off). */
@@ -192,16 +220,39 @@ const MAX_SECONDS = 210;
 /** Solo New, above 100 bpm: the chance of a longer solo, by genre. */
 const LONG_SOLO: Record<Genre, number> = { metal: 0.7, hardrock: 0.65, rock: 0.5, altmetal: 0.5, grunge: 0.45, funk: 0.35, pop: 0.3 };
 
-export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(src)): Track {
+/** What Mood song asks of the idea: nothing on Auto (the Auto mood comes from the song), or on a mood no longer in the list. */
+export function moodSongOf(opts: TrackOptions): MoodSong | undefined {
+  const v = opts.moodSong, riff = opts.moodRiff === 'on';
+  const song = v === 'tempo' || v === 'mode' || v === 'both';
+  if ((!song && !riff) || !opts.mood || opts.mood === 'auto' || !PROFILES[opts.mood as Mood]) return undefined;
+  return { mood: opts.mood as Mood, ...(song ? { tempo: v !== 'mode', mode: v !== 'tempo' } : {}), ...(riff ? { riff: true } : {}) };
+}
+
+/** The options Mood: all the way turns on (the mood on Auto is the one Auto picks for the song as the genre wrote it). */
+export function moodAllOpts(given: TrackOptions, srcIn: Idea): TrackOptions {
+  if (given.moodAll !== 'on') return given;
+  const auto = !given.mood || given.mood === 'auto' || !PROFILES[given.mood as Mood];
+  return { ...given, ...(auto ? { mood: autoMood(srcIn.song, srcIn.seeds.song) } : {}), soloPlan: 'tune', soloMood: 'on', soloMoodScale: 'on', moodSong: 'both', moodRiff: 'on' };
+}
+
+export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOptions(srcIn)): Track {
+  // (Mood: all the way: the five mood switches, whatever they were set to)
+  const moodAll = moodAllOpts(given, srcIn);
   // (an old link may carry a Solo writer that is gone: it plays as "As before")
-  const opts: TrackOptions = given.soloPlan === 'on' || given.soloPlan === 'perform' || given.soloPlan === undefined ? given : { ...given, soloPlan: 'off' };
+  const opts: TrackOptions = moodAll.soloPlan === 'on' || moodAll.soloPlan === 'perform' || moodAll.soloPlan === 'tune' || moodAll.soloPlan === undefined ? moodAll : { ...moodAll, soloPlan: 'off' };
+  // (Mood song: the same seeds, the song written again for the mood; switched off, back as it was)
+  const want = moodSongOf(opts);
+  const src = JSON.stringify(srcIn.opts.moodSong ?? null) === JSON.stringify(want ?? null) ? srcIn : generate({ ...srcIn.opts, moodSong: want }, srcIn.seeds);
   const S = opts.seeds;
+  // (Tune first, docs/SOLO-TUNE.md: its own melody writer; the player dresses it, lightly, behind Solo polish)
+  const tuneFirst = opts.soloPlan === 'tune';
+  const coreOn = !tuneFirst && isCoreMode(opts.soloCores);
   // separate random streams, so rerolling one block leaves everything else as it was
   const rng = new Rng(S.structure);
   // the mood: how the song builds and lets go (tension.ts); it leans the quiet sections, the key
   // change and the stops its way
-  const moodAuto = !opts.mood || opts.mood === 'auto';
-  const mood: Mood = moodAuto ? autoMood(src.song, src.seeds.song) : opts.mood as Mood;
+  const moodAuto = !given.mood || given.mood === 'auto';
+  const mood: Mood = !opts.mood || opts.mood === 'auto' ? autoMood(src.song, src.seeds.song) : opts.mood as Mood;
   const MP = PROFILES[mood];
   const mr = new Rng(`${S.structure}-${mood}`);
   // (a block's chords: the mood's own about half the time)
@@ -209,6 +260,8 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
     const extra = genre === 'funk' && part === 'verse' ? undefined : MOOD_PLANS[mood]?.[isMinor(src.song.mode) ? 'minor' : 'major']?.[part];
     return extra?.length && mr.chance(0.55) ? mr.pick(extra) : plan;
   };
+  // (Mood riff: the riff styles of a verse or a bridge, weighted by what the mood likes)
+  const likeRiffs = (list: [RiffStyle, number][]): [RiffStyle, number][] => (opts.moodRiff === 'on' ? list.map(([x, wt]) => [x, wt * riffLike(mood, x)]) : list);
   const vr = new Rng(S.verse), pr = new Rng(S.pre), br = new Rng(S.bridge);
   const { genre, mode } = src.song;
   const riff = !!src.song.sections;
@@ -259,7 +312,7 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
       // a new verse riff (also when the verse is rerolled): it sits on the home chord and moves in its last bar
       chorus = va !== vb ? [seg(base, 4, 4), seg(base, 4, 4)] : [seg(base)];
       const chorusStyle = vb;
-      const options = R.verse.filter(([x]) => x !== chorusStyle);
+      const options = likeRiffs(R.verse).filter(([x]) => x !== chorusStyle);
       verseStyle = options.length ? vr.weighted(options) : 'arp';
       const move = vr.pick(RIFF_VERSE_MOVE[isMinor(mode) ? 'minor' : 'major']);
       verse = [seg(block(base, vTag, ['chords', 'strum'], { sections: fill8(verseStyle) },
@@ -294,7 +347,7 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
     } else {
       br.chance(0.4);
       const quiet = !quietVerse && mr.chance(MP.quiet * 0.6);
-      const options = R.bridge.filter(([x]) => x !== vb && x !== verseStyle);
+      const options = likeRiffs(R.bridge).filter(([x]) => x !== vb && x !== verseStyle);
       const style: RiffStyle = quiet ? 'arp' : options.length ? br.weighted(options) : 'single';
       bridgeE = quiet ? 2 : 4;
       bridge = [seg(block(base, bTag, ['chords', 'strum'], { sections: fill8(style), forceHalf: quiet ? undefined : true },
@@ -476,7 +529,10 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
   const leadPlan = new Rng(`${bandSeed}-lead-plan`);
   // the solo player (Melody + player): the melody + joins, played like a guitarist would (the check step `player`: every note as written)
   const playSolo = (sol: Guitar2Part, seed: string, idea: Idea, mood: Mood, tension: number[], play: boolean): Guitar2Part =>
-    performSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind, breath: opts.soloBreath === 'on' || isCoreMode(opts.soloCores), grid: opts.soloGrid === 'on' || isCoreMode(opts.soloCores), light: isCoreMode(opts.soloCores) }, play ? LIVE_RULES : NO_RULES);
+    performSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind, breath: opts.soloBreath === 'on' || coreOn || tuneFirst, grid: opts.soloGrid === 'on' || coreOn || tuneFirst, light: coreOn || tuneFirst }, play ? LIVE_RULES : NO_RULES);
+  // Solo expression (docs/SOLO-EXPRESSION.md): the Tune first melody played again in windows, bent and held, run and breathed
+  const expressTune = (sol: Guitar2Part, seed: string, idea: Idea, mood: Mood, tension: number[]): Guitar2Part =>
+    expressSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind }, { dials: opts.soloBends === 'dials', recast: opts.soloRecast === 'on', echo: opts.soloEcho === 'on', amount: opts.soloAmount === 'light' || opts.soloAmount === 'full' ? opts.soloAmount : 'normal' });
   // Lead guitar sounds (docs/SOLO-SOUNDS.md): harmonics, dives, feedback and a pick scrape put on the finished solo (its own seed: nothing else changes)
   // (the amp is the section's own Guitar 2 sound, as on Auto; `before` and `after` are the sections either side)
   const withSounds = (sol: Guitar2Part, seed: string, idea: Idea, lick: LickKind, intensity: number, solo: boolean, said: string[], si: number): Guitar2Part => {
@@ -496,7 +552,7 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
     return { ...sol, hits: got.hits };
   };
   // how the melody writer is used: `perform` (the page) joins and plays; the check steps stop earlier
-  const melody = opts.soloCheck ? { mode: opts.soloCheck === 'player' ? 'joins' as const : opts.soloCheck === 'melody' ? 'plain' as const : opts.soloCheck, play: false } : opts.soloPlan === 'perform' ? { mode: 'joins' as const, play: true } : null;
+  const melody = opts.soloCheck ? { mode: opts.soloCheck === 'player' ? 'joins' as const : opts.soloCheck === 'melody' ? 'plain' as const : opts.soloCheck, play: false } : opts.soloPlan === 'perform' || tuneFirst ? { mode: 'joins' as const, play: true } : null;
   // Guitar 2's switches (Lines, Figures); with Figures, some songs (pop and rock most) have a picked figure through the verses
   const g2o: G2Options = { lines: src.opts.leadLines, figures: src.opts.leadFigures, figureSeed: `${bandSeed}-figure`, licks: src.opts.leadLicks ? new Set<string>() : undefined };
   const roomIntro = !!src.opts.leadRoom && new Rng(`${bandSeed}-room-intro`).chance(ROOM[src.song.partGenres.strum]);
@@ -595,6 +651,10 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
     if (s.kind === 'outro' && (jam || s.g2 === 'solo')) idea.section!.lead = true;
     const notes: string[] = [];
 
+    // Solo backing: held chords under a solo
+    const held = opts.soloBacking === 'held' && s.g2 === 'solo' && !s.intro;
+    if (held) notes.push(heldBacking(idea));
+
     // energy
     if (s.intro === 'alone') {
       pickup(idea, r);
@@ -604,7 +664,7 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
       notes.push(`${riff ? 'Riff' : 'Guitar'} alone, the drums come in with a fill`);
     } else {
       shapeDrums(idea, s.energy, r);
-      if (!riff) shapeBass(idea, s.energy);
+      if (!riff && !held) shapeBass(idea, s.energy);
       // room to breathe: half-time sections, and (for some drummers) every verse, on quarter notes
       const drumGenre = idea.song.partGenres.drums;
       const half = idea.song.forceHalf ?? idea.drums.halfTime;
@@ -615,7 +675,7 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
       }
     }
     // (under a solo the rhythm guitar backs off a little)
-    if (!riff) shapeStrum(idea, s.g2 === 'solo' ? Math.min(3, s.energy) : s.energy);
+    if (!riff && !held) shapeStrum(idea, s.g2 === 'solo' ? Math.min(3, s.energy) : s.energy);
 
     // guitar 2
     const runs = runCount(idea);
@@ -651,30 +711,36 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
       const tt = arc.sections[si].tension;
       const intensity = si === arc.climax ? 1 : Math.max(0, Math.min(1, (tt.reduce((a, b) => a + b, 0) / tt.length - MP.base) / Math.max(0.1, MP.peak - MP.base)));
       const soloHook = s.kind === 'solo' && soloOverChorus && hook.length ? hook : null;
-      let sol = melody
+      let sol = tuneFirst
+        ? generateSoloTune(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, intensity, { mood: arc.mood, tension: tt, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on' })
+        : melody
         ? generateSoloMelody(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity, { mood: arc.mood, tension: tt, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(isCoreMode(opts.soloCores) ? { cores: opts.soloCores, ...(opts.soloClimax === 'on' ? { climax: 'played' as const } : {}) } : {}) }, melody.mode)
         : opts.soloPlan === 'on'
         ? generateSoloPlan(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity, { mood: arc.mood, tension: tt, drums: idea.drums })
         : generateSolo2(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity);
-      if (melody && (isCoreMode(opts.soloCores) ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-${si}`, idea, arc.mood, tt, melody.play);
-      if (melody && melody.play && isCoreMode(opts.soloCores) && opts.soloShape === 'on') sol = shapeStory(sol, arc.mood);
+      if (tuneFirst && opts.soloExpress === 'on') sol = expressTune(sol, `${soloSeed}-${si}`, idea, arc.mood, tt);
+      else if (melody && (coreOn || tuneFirst ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-${si}`, idea, arc.mood, tt, melody.play);
+      if (melody && melody.play && coreOn && opts.soloShape === 'on') sol = shapeStory(sol, arc.mood);
       if (opts.soloSounds === 'on') sol = withSounds(sol, `${soloSeed}-${si}`, idea, lead.lick, intensity, true, notes, si);
       idea.guitar2 = sol.hits;
       idea.soloCurve = sol.curve;
       idea.section!.solo = true;
       g2 = sol.notes[0];
-      if (melody && isCoreMode(opts.soloCores)) g2more = sol.notes.slice(1);
+      if (melody && coreOn || tuneFirst && opts.soloExpress === 'on') g2more = sol.notes.slice(1);
       if (s.kind === 'solo') notes.push(`Guitar solo, ${idea.song.bars.length} bars over the ${soloOverChorus ? 'chorus' : 'verse'} chords; the rhythm guitar backs off`);
       else notes.push('Guitar 2 solos over the outro');
     } else if (s.g2 === 'break') {
       // Breaks: a short melodic solo, quoting the hook, lower and sparer than a full one; the band as it is
-      let sol = melody
+      let sol = tuneFirst
+        ? generateSoloTune(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on' })
+        : melody
         ? generateSoloMelody(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(isCoreMode(opts.soloCores) ? { cores: opts.soloCores, ...(opts.soloClimax === 'on' ? { climax: 'played' as const } : {}) } : {}) }, melody.mode)
         : opts.soloPlan === 'on'
         ? generateSoloPlan(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums })
         : generateSolo2(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3);
-      if (melody && (isCoreMode(opts.soloCores) ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-break-${si}`, idea, arc.mood, arc.sections[si].tension, melody.play);
-      if (melody && melody.play && isCoreMode(opts.soloCores) && opts.soloShape === 'on') sol = shapeStory(sol, arc.mood);
+      if (tuneFirst && opts.soloExpress === 'on') sol = expressTune(sol, `${soloSeed}-break-${si}`, idea, arc.mood, arc.sections[si].tension);
+      else if (melody && (coreOn || tuneFirst ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-break-${si}`, idea, arc.mood, arc.sections[si].tension, melody.play);
+      if (melody && melody.play && coreOn && opts.soloShape === 'on') sol = shapeStory(sol, arc.mood);
       if (opts.soloSounds === 'on') sol = withSounds(sol, `${soloSeed}-break-${si}`, idea, lead.lick, 0.3, false, notes, si);
       idea.guitar2 = sol.hits;
       idea.soloCurve = sol.curve;
@@ -827,7 +893,7 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
     idea.notes.push('The band lands on the first chord and lets it ring for a bar, then the drummer picks up into the half-time feel');
   });
   // a planned solo's last note carries on into the next section, bending to its first chord
-  sections.forEach((idea, i) => carrySolo(idea, sections[i + 1]));
+  sections.forEach((idea, i) => carrySolo(idea, sections[i + 1], opts.soloBends === 'dials' && opts.soloExpress === 'on'));
   // a long outro's tag repeats the chorus's last bars: its bars don't line up with the chorus's
   if (outroLong || jam) delete edit.outro;
   // (a jam ends in its own key)
@@ -892,7 +958,7 @@ export function buildTrack(src: Idea, given: TrackOptions = defaultTrackOptions(
   const steps = sections.reduce((a, s) => a + s.song.total, 0);
   // the lead vocal as it's sung, worked out over the whole song
   if (!verseVocal) singLead(sections, mood);
-  return { source: src, opts, order: slots.map((s) => s.kind), sections, bars, steps, edit, riffVerse, newChorus, mood, climax: arc.climax };
+  return { source: src, opts: given.moodAll === 'on' ? given : opts, order: slots.map((s) => s.kind), sections, bars, steps, edit, riffVerse, newChorus, mood, climax: arc.climax };
 }
 
 /** Which of the track's seeds a section's reroll changes (null: the section is the idea itself). */

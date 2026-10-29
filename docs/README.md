@@ -40,6 +40,17 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `SOLO-LIBRARY.md`: step 2d of the story: the recipe lab's licks join the recipes (jobs from the lab's marks or guesses), and recipes are strung together so no rest is over a beat. Behind a switch.
 - `SOLO-POLISH.md`: step 2e, the player dresses the story (vibrato, bends, figures on long holds, touches on short notes). Switch: Solo polish.
 - `SOLO-SHAPE.md`: step 2f, the story's dynamics (loudness follows the arc, a laid-back start in soft moods, the last note rings). Switch: Solo shape.
+- `SOLO-TUNE.md`: "Tune first", a melody-first solo writer (phrases of 2 to 4 bars, a strong note per phrase, answers, best of 12 by a tune score). Switch: Solo writer. Checks: `npm run solo-tune-check`, `solo-tunefirst-check`.
+- `SOLO-MOOD.md`: Solo mood (each mood's own jumps, pace, height, colour notes in Tune first) and Mood scale (over power chords the mood picks the 3rd and 6th). Switches: Solo mood, Mood scale. Checks: `npm run solo-mood-check`, `solo-scale-check`.
+- `MOOD-SONG.md`: Mood song, the mood chooses the song's mode, tempo and drum feel (a sad mood: minor, slower, half-time). Switch: Mood song. Check: `npm run mood-song-check`.
+- `MOOD-RIFF.md`: Mood riff, the mood picks the riff styles (sad: arpeggios, single notes, pedal; bold: gallops, big chords) and a major key's riff takes the major 3rd. Switch: Mood riff. Check: `npm run mood-riff-check`.
+- `MOOD-ALL.md`: Mood: all the way, one switch for Tune first solos, Solo mood, Mood scale, Mood song and Mood riff (works on Auto mood too). Check: `npm run mood-all-check`.
+- `SOLO-EXPRESSION.md`: Solo expression, the Tune first melody played like a guitarist (held bent notes, quick runs, flurries and breaths in windows of any length, tempo-honest speed, a temper per solo). Switch: Solo expression. Check: `npm run solo-express-check`.
+- `SOLO-BENDS.md`: Solo bends, the bend dials (each bent note gets its own speed, shape and timing; the engine reads them). Switch: Solo bends. Check: `npm run solo-bend-check`.
+- `SOLO-RECAST.md`: Solo recast (some runs become a library lick, a legato roll, a pedal figure or a trill climb; held notes slide in or trill). Switch: Solo recast. Check: `npm run solo-recast-check`.
+- `SOLO-ECHO.md`: Solo echo (an answer plays its call's figure again on its own notes; one signature figure comes back near the climax and the end). Switch: Solo echo. Check: `npm run solo-echo-check`.
+- `SOLO-AMOUNT.md`: Solo amount (Light / Normal / Full: how much Solo expression changes the tune). Switch: Solo amount. Check: `npm run solo-amount-check`.
+- `SOLO-BACKING.md`: Solo backing, held chords under a solo (chords merged into 2–4 bar holds, the rhythm guitar rings them, the bass holds the root). Switch: Solo backing. Check: `npm run solo-back-check`.
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.
 - `RIFF-LAB.md`: the riff lab page and the new riff writer (single-note, chug, big chords, gallop, pedal, stabs + lick, written in layers: rhythm, a few pitches, answer, form, best of many). Not in songs yet.

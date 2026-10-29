@@ -327,7 +327,7 @@ function retempo(bpm: number | undefined) {
   if (!idea) return;
   idea.opts = { ...idea.opts, bpm };
   // Auto: same seeds give the same idea, so this recovers its own tempo
-  idea.song.bpm = bpm ?? generate(idea.opts, idea.seeds).song.bpm;
+  idea.song.bpm = bpm ?? generate({ ...idea.opts, moodSong: track?.source.opts.moodSong }, idea.seeds).song.bpm;
   if (track) {
     for (const s of track.sections) s.song.bpm = idea.song.bpm;
     drawTrack(track);
@@ -407,6 +407,9 @@ $('sections').onclick = async (e) => {
 // structure options (changing one goes back to the automatic order)
 const optSel = {
   mood: $<HTMLSelectElement>('t-mood'),
+  moodAll: $<HTMLSelectElement>('t-moodall'),
+  moodSong: $<HTMLSelectElement>('t-moodsong'),
+  moodRiff: $<HTMLSelectElement>('t-moodriff'),
   intro: $<HTMLSelectElement>('t-intro'),
   pre: $<HTMLSelectElement>('t-pre'),
   interlude: $<HTMLSelectElement>('t-interlude'),
@@ -422,12 +425,28 @@ const optSel = {
   soloClimax: $<HTMLSelectElement>('t-soloclimax'),
   soloPolish: $<HTMLSelectElement>('t-solopolish'),
   soloShape: $<HTMLSelectElement>('t-soloshape'),
+  soloExpress: $<HTMLSelectElement>('t-soloexpress'),
+  soloBacking: $<HTMLSelectElement>('t-solobacking'),
+  soloBends: $<HTMLSelectElement>('t-solobends'),
+  soloRecast: $<HTMLSelectElement>('t-solorecast'),
+  soloEcho: $<HTMLSelectElement>('t-soloecho'),
+  soloAmount: $<HTMLSelectElement>('t-soloamount'),
+  soloMood: $<HTMLSelectElement>('t-solomood'),
+  soloMoodScale: $<HTMLSelectElement>('t-solomoodscale'),
   soloSounds: $<HTMLSelectElement>('t-solosounds'),
   soloCores: $<HTMLSelectElement>('t-solocores'),
 };
 function syncTrackOptions() {
   if (!track) return;
   optSel.mood.value = track.opts.mood ?? 'auto';
+  optSel.moodAll.value = track.opts.moodAll === 'on' ? 'on' : 'off';
+  // (Mood: all the way sets these five itself)
+  for (const k of ['soloPlan', 'soloMood', 'soloMoodScale', 'moodSong', 'moodRiff'] as const) {
+    optSel[k].disabled = track.opts.moodAll === 'on';
+    optSel[k].title = track.opts.moodAll === 'on' ? 'Set by Mood: all the way' : '';
+  }
+  optSel.moodRiff.value = track.opts.moodRiff === 'on' ? 'on' : 'off';
+  optSel.moodSong.value = ['both', 'mode', 'tempo'].includes(track.opts.moodSong ?? '') ? track.opts.moodSong! : 'off';
   // Auto says which mood it chose
   optSel.mood.options[0].textContent = `Auto (${MOOD_LABEL[track.mood]})`;
   optSel.intro.value = track.opts.intro;
@@ -445,6 +464,14 @@ function syncTrackOptions() {
   optSel.soloClimax.value = track.opts.soloClimax === 'on' ? 'on' : 'off';
   optSel.soloPolish.value = track.opts.soloPolish === 'on' ? 'on' : 'off';
   optSel.soloShape.value = track.opts.soloShape === 'on' ? 'on' : 'off';
+  optSel.soloExpress.value = track.opts.soloExpress === 'on' ? 'on' : 'off';
+  optSel.soloBacking.value = track.opts.soloBacking === 'held' ? 'held' : 'written';
+  optSel.soloBends.value = track.opts.soloBends === 'dials' ? 'dials' : 'plain';
+  optSel.soloRecast.value = track.opts.soloRecast === 'on' ? 'on' : 'off';
+  optSel.soloEcho.value = track.opts.soloEcho === 'on' ? 'on' : 'off';
+  optSel.soloAmount.value = track.opts.soloAmount === 'light' || track.opts.soloAmount === 'full' ? track.opts.soloAmount : 'normal';
+  optSel.soloMood.value = track.opts.soloMood === 'on' ? 'on' : 'off';
+  optSel.soloMoodScale.value = track.opts.soloMoodScale === 'on' ? 'on' : 'off';
   optSel.soloSounds.value = track.opts.soloSounds === 'on' ? 'on' : 'off';
   optSel.soloCores.value = isCoreMode(track.opts.soloCores) ? track.opts.soloCores : 'off';
   // only riff genres have a riff to carry through the verses
@@ -456,9 +483,18 @@ for (const [k, sel] of Object.entries(optSel)) {
     // the band playing it (or not) changes how it's played, not the song: stay where you are
     if (k === 'band') return rebuildTrack({ ...track.opts, band: sel.value as 'on' | 'off' }, shown, true);
     // (the same song with its solos written another way: stay where you are)
-    if (k === 'soloPlan') return rebuildTrack({ ...track.opts, soloPlan: sel.value as 'on' | 'off' | 'perform' }, shown, true);
+    if (k === 'soloPlan') return rebuildTrack({ ...track.opts, soloPlan: sel.value as 'on' | 'off' | 'perform' | 'tune' }, shown, true);
     if (k === 'soloCores') return rebuildTrack({ ...track.opts, soloCores: isCoreMode(sel.value) ? sel.value : 'off' }, shown, true);
-    if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax' || k === 'soloPolish' || k === 'soloShape' || k === 'soloSounds') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
+    // (the same song written again for the mood: stay where you are)
+    if (k === 'moodAll') return rebuildTrack({ ...track.opts, moodAll: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'moodRiff') return rebuildTrack({ ...track.opts, moodRiff: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'soloBends') return rebuildTrack({ ...track.opts, soloBends: sel.value === 'dials' ? 'dials' : 'plain' }, shown, true);
+    if (k === 'soloRecast') return rebuildTrack({ ...track.opts, soloRecast: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'soloAmount') return rebuildTrack({ ...track.opts, soloAmount: sel.value === 'light' || sel.value === 'full' ? sel.value : 'normal' }, shown, true);
+    if (k === 'soloEcho') return rebuildTrack({ ...track.opts, soloEcho: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'soloBacking') return rebuildTrack({ ...track.opts, soloBacking: sel.value === 'held' ? 'held' : 'written' }, shown, true);
+    if (k === 'moodSong') return rebuildTrack({ ...track.opts, moodSong: sel.value as TrackOptions['moodSong'] }, shown, true);
+    if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax' || k === 'soloPolish' || k === 'soloShape' || k === 'soloExpress' || k === 'soloMood' || k === 'soloMoodScale' || k === 'soloSounds') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
     const opts: TrackOptions = { ...track.opts, order: undefined };
     if (k === 'mood') opts.mood = sel.value as MoodChoice;
     else if (k === 'intro') opts.intro = sel.value as IntroChoice;

@@ -74,7 +74,8 @@ export function playBass(sections: Idea[], seed: string, drummer: Feel) {
       told = true;
     }
     // riff genres double the riff; quiet sections keep their long notes
-    if (idea.guitar || e <= 2 || !bass.some(Boolean)) return;
+    // (held chords under a solo keep their long roots: src/sections/soloback.ts)
+    if (idea.guitar || info.soloBack || e <= 2 || !bass.some(Boolean)) return;
     const last = i === lastChorus && lastChorus !== firstChorus;
     // the first verse as written; more from the second time round; the last chorus busiest
     const busy = last ? 1 : round === 0 && kind === 'verse' ? 0 : round === 0 ? bp.busy * 0.6 : bp.busy;
