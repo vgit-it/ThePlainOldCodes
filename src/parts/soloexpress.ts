@@ -27,6 +27,8 @@ import { type VCtx, type Violation, MIN_LEGATO_MS, MIN_PICK_MS, unplayable, veri
 export const EXPRESS_TRIES = 8;
 /** The share of the melody's notes that must still be there (same start, same pitch) in a plan to count. */
 export const KEEP_MIN = 0.6;
+/** How much the expression changes the tune (docs/SOLO-AMOUNT.md): 1 = as always, below 1 = lighter, above 1 = fuller. */
+export const AMOUNTS = { light: 0.35, normal: 1, full: 1.5 } as const;
 
 type Genre = 'rock' | 'pop' | 'funk' | 'hardrock' | 'metal' | 'grunge' | 'altmetal';
 const FIRE_G: Record<string, number> = { pop: 0.4, funk: 0.5, rock: 0.52, grunge: 0.46, hardrock: 0.62, metal: 0.74, altmetal: 0.66 };
@@ -91,10 +93,13 @@ const KINDS: Record<Pattern, ('hold' | 'run')[]> = {
 /** What one try came to, for the score and the card. */
 export interface Try { wins: Win[]; events: PEvent[][]; score: number; keep: number }
 
-export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number; dials?: boolean; recast?: boolean; echo?: boolean } = {}): Guitar2Part {
+export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number; dials?: boolean; recast?: boolean; echo?: boolean; amount?: keyof typeof AMOUNTS } = {}): Guitar2Part {
   const { events: ev0, notes } = readBase(base.hits, base.curve);
   if (notes.length < 4) return base;
   const { song } = c;
+  const amt = AMOUNTS[o.amount ?? 'normal'];
+  // (lighter: more of the tune is left as written, and the picker asks for more of it to survive)
+  const keepMin = amt < 1 ? 0.85 : amt > 1 ? 0.5 : KEEP_MIN;
   const genre = song.partGenres.strum as Genre;
   const s16 = 15000 / song.bpm;
   const tuning = (song.tuning ?? TUNINGS.standard).strings;
@@ -150,7 +155,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       if (r.chance(0.07 * (0.4 + T.contrast))) heat = clamp(heat + (r.chance(0.55) ? 1 : -1) * (0.25 + 0.2 * r.next()), 0, 1);
       // how far the window reaches: over the next note or two when it is free to, never over a goal note
       let j = i;
-      const reach = isGoal(n) ? 0 : 0.14 + 0.3 * T.free + 0.2 * (heat - 0.5);
+      const reach = isGoal(n) ? 0 : (0.14 + 0.3 * T.free + 0.2 * (heat - 0.5)) * amt;
       for (let k = 0; k < 2 && r.chance(k ? reach * 0.45 : reach); k++) {
         const nx = notes[j + 1];
         if (!nx || isGoal(nx) || nx.t - (notes[j].t + notes[j].len) > 0.5 || nx.t + nx.len - n.t > 20) break;
@@ -162,7 +167,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       const both = Math.sqrt(runLike * holdLike);
       const frozenish = isGoal(n) || n.len < 2;
       const wt: [Pattern, number][] = [
-        ['plain', 0.7 + 0.5 * (1 - T.fire)],
+        ['plain', (0.7 + 0.5 * (1 - T.fire)) / Math.pow(amt, 2)],
         ['decor', n.len >= 3 ? holdLike * 0.6 : 0],
         ['hold+run', !frozenish && W >= 4 ? 0.9 * both : 0],
         ['run+hold', !frozenish && W >= 4 ? 0.7 * both : 0],
@@ -451,7 +456,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     let fl = 0, rel = 0;
     f.forEach((x, k) => { if (x.fast >= 6) { fl++; if (f.slice(k, k + 3).some((y) => y.holdSteps >= 4)) rel++; } });
     const reliefS = fl ? rel / fl : 0.8;
-    const s = 0.25 * contrastS + 0.25 * mixedS + 0.2 * regularS + 0.1 * varietyS + 0.2 * reliefS - (keep < KEEP_MIN ? 1 : 0) - (changedShare < 0.25 ? 0.5 : 0);
+    const s = 0.25 * contrastS + 0.25 * mixedS + 0.2 * regularS + 0.1 * varietyS + 0.2 * reliefS - (keep < keepMin ? 1 : 0) - (changedShare < 0.25 * Math.min(1, amt * amt) ? 0.5 : 0);
     return { score: s, keep };
   };
 
@@ -701,7 +706,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   // figure comes back at the answer's pitches); one signature figure comes back near the end of the climax and of the last phrase.
   // Before the recast, which then plays a copy the way it played its source. A window that cannot be played again stays as it was.
   const echo = () => {
-    const plan = echoPlan(notes, chosen.wins, new Rng(`${c.seed}-express-echo`));
+    const plan = echoPlan(notes, chosen.wins, new Rng(`${c.seed}-express-echo`), { light: amt < 1 });
     for (const [qa, cp] of plan.copies) {
       const src = chosen.wins[cp.from];
       const w = cp.win;
@@ -800,7 +805,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   const fine = hits.some((h) => h.shift || h.exact);
   return {
     hits,
-    notes: [...base.notes, `Solo expression (${words}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were${o.dials ? `; ${dialed} bends with their own speed and shape` : ''}${o.recast ? `; recast: ${recastWords()}` : ''}${o.echo ? `; echo: ${echoWords()}` : ''}`],
+    notes: [...base.notes, `Solo expression (${words}${amt < 1 ? ', light' : amt > 1 ? ', full' : ''}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were${o.dials ? `; ${dialed} bends with their own speed and shape` : ''}${o.recast ? `; recast: ${recastWords()}` : ''}${o.echo ? `; echo: ${echoWords()}` : ''}`],
     curve: base.curve ? { ...base.curve, express: chosen.wins.map((w) => ({ t0: w.t0, t1: w.t1, pattern: w.pattern, heat: Math.round(w.heat * 100) / 100 })), ...(echoed.size ? { echo: [...echoed].map(([q, x]) => ({ from: chosen.wins[x.from].t0, fromEnd: chosen.wins[x.from].t1, t0: chosen.wins[q].t0, t1: chosen.wins[q].t1, via: x.via })) } : {}), ...(fine ? { fine: true } : {}) } : undefined,
   };
 }

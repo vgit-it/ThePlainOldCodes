@@ -50,3 +50,5 @@ Switch: Track options → **Solo expression** → On (`soloExpress: 'on'`). Need
 4. Echo: built, behind the Solo echo switch (`SOLO-ECHO.md`): an answer plays its call's figure again on its own notes, changed now and then; one signature figure comes back near the climax and the end. Paul listens.
 5. Fold into Mood: all the way.
 6. Maybe the melody step: some 16ths, dotted and syncopated rhythm, repeated bars that differ, long notes followed by a step (good for bends), and a reward for "room to play" in its best-of-12. Only if listening says the skeleton is in the way.
+
+Amount dial (built, behind the Solo amount switch): Light / Normal / Full for how much of the tune the expression changes. See `SOLO-AMOUNT.md`.

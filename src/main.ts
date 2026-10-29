@@ -430,6 +430,7 @@ const optSel = {
   soloBends: $<HTMLSelectElement>('t-solobends'),
   soloRecast: $<HTMLSelectElement>('t-solorecast'),
   soloEcho: $<HTMLSelectElement>('t-soloecho'),
+  soloAmount: $<HTMLSelectElement>('t-soloamount'),
   soloMood: $<HTMLSelectElement>('t-solomood'),
   soloMoodScale: $<HTMLSelectElement>('t-solomoodscale'),
   soloSounds: $<HTMLSelectElement>('t-solosounds'),
@@ -468,6 +469,7 @@ function syncTrackOptions() {
   optSel.soloBends.value = track.opts.soloBends === 'dials' ? 'dials' : 'plain';
   optSel.soloRecast.value = track.opts.soloRecast === 'on' ? 'on' : 'off';
   optSel.soloEcho.value = track.opts.soloEcho === 'on' ? 'on' : 'off';
+  optSel.soloAmount.value = track.opts.soloAmount === 'light' || track.opts.soloAmount === 'full' ? track.opts.soloAmount : 'normal';
   optSel.soloMood.value = track.opts.soloMood === 'on' ? 'on' : 'off';
   optSel.soloMoodScale.value = track.opts.soloMoodScale === 'on' ? 'on' : 'off';
   optSel.soloSounds.value = track.opts.soloSounds === 'on' ? 'on' : 'off';
@@ -488,6 +490,7 @@ for (const [k, sel] of Object.entries(optSel)) {
     if (k === 'moodRiff') return rebuildTrack({ ...track.opts, moodRiff: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'soloBends') return rebuildTrack({ ...track.opts, soloBends: sel.value === 'dials' ? 'dials' : 'plain' }, shown, true);
     if (k === 'soloRecast') return rebuildTrack({ ...track.opts, soloRecast: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'soloAmount') return rebuildTrack({ ...track.opts, soloAmount: sel.value === 'light' || sel.value === 'full' ? sel.value : 'normal' }, shown, true);
     if (k === 'soloEcho') return rebuildTrack({ ...track.opts, soloEcho: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'soloBacking') return rebuildTrack({ ...track.opts, soloBacking: sel.value === 'held' ? 'held' : 'written' }, shown, true);
     if (k === 'moodSong') return rebuildTrack({ ...track.opts, moodSong: sel.value as TrackOptions['moodSong'] }, shown, true);

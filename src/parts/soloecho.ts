@@ -106,7 +106,7 @@ const figureWeight = (w: Win): number => {
  * Who plays whose figure. `strength` (per solo, drawn from the seed): how likely a call/answer pair is to echo; `vary`: how likely
  * a copied window takes a seed of its own. Answers first; the signature only goes where an answer has not.
  */
-export function echoPlan(notes: BaseNote[], wins: Win[], r: Rng, o: { strength?: number; vary?: number } = {}): EchoPlan {
+export function echoPlan(notes: BaseNote[], wins: Win[], r: Rng, o: { strength?: number; vary?: number; light?: boolean } = {}): EchoPlan {
   const strength = o.strength ?? 0.55 + 0.45 * r.next();
   const vary = o.vary ?? 0.3;
   const copies = new Map<number, EchoCopy>();
@@ -154,6 +154,8 @@ export function echoPlan(notes: BaseNote[], wins: Win[], r: Rng, o: { strength?:
     // (the window nearest the goal note that is not a goal itself, and has room for the figure)
     const q = fromGoal(ph).find((x) => !goalOf(notes[wins[x].i]));
     if (q === undefined || q === sig || copies.has(q) || wins[q].t0 < wins[sig].t0) continue;
+    // (Light expression: the signature only goes where the window was already played another way, never over a plain one)
+    if (o.light && wins[q].pattern === 'plain') continue;
     const win = transplant(wins[sig], wins[q]);
     if (!win) continue;
     copies.set(q, { from: sig, win, own: false, via: 'signature' });
