@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Riff lab</title>
+  <style>
+    :root { --bg: #f6f5f2; --card: #fff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e2e0da; --accent: #e8623a; --chip: #f0eee9; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #141416; --card: #1e1e21; --ink: #f2f2f3; --muted: #9a9aa0; --line: #2e2e33; --accent: #f07a52; --chip: #29292d; } }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
+    main { max-width: 860px; margin: 0 auto; padding: 20px 16px 48px; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .lead { color: var(--muted); margin: 0 0 18px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+    .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+    label.f { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+    select, button, input { font: inherit; color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+    input[type=number] { width: 80px; }
+    input[type=text] { width: 150px; }
+    input[type=range] { padding: 0; width: 120px; }
+    button { cursor: pointer; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    button:disabled { opacity: .5; cursor: default; }
+    .list { display: grid; gap: 6px; max-height: 460px; overflow: auto; }
+    .list h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 10px 0 2px; }
+    .item { display: flex; gap: 6px; align-items: stretch; }
+    .item .pick { flex: 1; text-align: left; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+    .item .pick.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+    .item .heart { padding: 8px 10px; }
+    .item .heart.on { color: var(--accent); }
+    .pick span { display: grid; gap: 1px; }
+    .pick small { color: var(--muted); font-size: 12px; }
+    .pick .score { white-space: nowrap; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; }
+    #roll { width: 100%; height: 220px; display: block; border-radius: 8px; background: var(--chip); }
+    .hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Riff lab</h1>
+    <p class="lead">Write riffs with the new riff writer, hear each one over drums and bass, keep the ones you like. Not linked from the main app.</p>
+
+    <section class="card">
+      <h2>Jam</h2>
+      <div class="row">
+        <label class="f">Key <select id="key"></select></label>
+        <label class="f">Mode <select id="mode"></select></label>
+        <label class="f">Chords <select id="prog"></select></label>
+        <label class="f">Genre <select id="genre">
+          <option value="hardrock">Hard rock</option><option value="metal">Metal</option><option value="grunge">Grunge</option><option value="altmetal">Alt-metal</option>
+        </select></label>
+        <label class="f">Tuning <select id="tuning"></select></label>
+        <label class="f">Tempo <input id="bpm" type="number" min="60" max="200" value="110" /></label>
+        <button id="reroll">New band take</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Riff writer</h2>
+      <div class="row">
+        <label class="f">Style <select id="style"></select></label>
+        <label class="f">Second half <select id="style2"></select></label>
+        <label class="f">Single-note feel <select id="feel"></select></label>
+        <label class="f">Follows <select id="follow"><option value="chords">The chords</option><option value="key">Stays on the key</option></select></label>
+        <label class="f">Register <select id="register"><option value="">Auto</option><option value="low">Low, open strings</option><option value="mid">Up an octave</option></select></label>
+        <label class="f">Best of <select id="tries"><option value="1">1 (raw)</option><option value="8">8</option><option value="24" selected>24</option><option value="80">80</option></select></label>
+        <button id="write" class="primary">Write 12 new riffs</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="f">Seed <input id="seed" type="text" placeholder="paste a seed" /></label>
+        <button id="seedGo">Write that one</button>
+      </div>
+      <p class="hint">Best of: the writer makes that many riffs from each seed and keeps the one its rules like best. 1 is the raw first one, to hear what the rules add.</p>
+    </section>
+
+    <section class="card">
+      <h2>Sound</h2>
+      <div class="row">
+        <label class="f">Guitar <select id="amp"><option value="electric-dist" selected>Distortion</option><option value="electric-crunch">Crunch</option><option value="electric-clean">Clean</option></select></label>
+        <label class="f">Guitar level <input id="vGuitar" type="range" min="0" max="100" value="85" /></label>
+        <label class="f">Band level <input id="vBand" type="range" min="0" max="100" value="65" /></label>
+        <button id="real">Prepare real sound</button>
+      </div>
+      <p class="hint" id="realHint"></p>
+    </section>
+
+    <section class="card">
+      <h2>Riffs</h2>
+      <div class="list" id="list"></div>
+    </section>
+
+    <section class="card">
+      <h2>Playing</h2>
+      <div class="row">
+        <button id="play" class="primary" disabled>Play</button>
+        <span id="status" class="hint" style="margin:0"></span>
+      </div>
+      <canvas id="roll"></canvas>
+      <p class="hint" id="info"></p>
+    </section>
+
+    <section class="card">
+      <h2>Keepers</h2>
+      <div class="list" id="keepers"></div>
+      <div class="row" style="margin-top:10px">
+        <button id="copyKeep">Copy the keepers</button>
+        <button id="clearKeep">Clear them</button>
+      </div>
+      <p class="hint">Kept in this browser only. Copy them to send the seeds and settings on.</p>
+    </section>
+  </main>
+  <script type="module" src="/src/lab/riffLab.ts"></script>
+</body>
+</html>
