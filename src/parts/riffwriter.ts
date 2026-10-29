@@ -7,22 +7,26 @@
 //  3. a one-bar cell, then an answer (half the same, half new), a turnaround, and a form (AAAB, ABAB...)
 //  4. how each hit is struck: open note, palm mute, power chord, ghost note, a slide in
 //  5. a pick of many: write several riffs from the seed, keep the one the style's rules like best
-// Pure and deterministic: the same seed, song and chords give the same riff. 4/4 only for now; the chord-picking
-// styles (picked hooks, arpeggios) are still riff.ts's.
+// Pure and deterministic: the same seed, song and chords give the same riff. 4/4 only for now. The two chord-picking
+// styles (a picked hook, a clean arpeggio) write their notes as places in a chord (a scale step, a place in the shape)
+// and take their fingering from the chord at each step (see `toHits`).
 
 import { GENRES, type Genre, type RiffStyle } from '../genres';
 import type { ChordPart, GuitarHit, Song } from '../idea';
 import { Rng } from '../rng';
 import { groupStarts } from '../rhythm';
 import { SCALES, chordPc } from '../theory';
-import { type Tuning, lowestOf, powerChord, riffNote } from '../theory/fretboard';
-import type { RiffPart } from './riff';
+import { type Tuning, lowestOf, powerChord, riffNote, voicingsInTuning } from '../theory/fretboard';
+import { PICK_STEPS, PICK_TEMPLATES } from './figures';
+import { chordScale, pitchCell, stepSemis } from './motif';
+import { ARP_PATTERNS, type RiffPart } from './riff';
 
-/** The styles this writer can write (the others of `RiffStyle`, picked and arp, pick chord shapes: riff.ts). */
-export type WrittenStyle = 'single' | 'chug' | 'big' | 'gallop' | 'pedal' | 'lick';
-export const WRITTEN_STYLES: readonly WrittenStyle[] = ['single', 'chug', 'big', 'gallop', 'pedal', 'lick'];
+/** The styles this writer can write: all eight of `RiffStyle`. */
+export type WrittenStyle = 'single' | 'chug' | 'big' | 'gallop' | 'pedal' | 'lick' | 'picked' | 'arp';
+export const WRITTEN_STYLES: readonly WrittenStyle[] = ['single', 'chug', 'big', 'gallop', 'pedal', 'lick', 'picked', 'arp'];
 export const STYLE_LABEL: Record<WrittenStyle, string> = {
   single: 'Single-note riff', chug: 'Chugs and stabs', big: 'Big chords', gallop: 'Gallop', pedal: 'Pedal note', lick: 'Stabs and a lick',
+  picked: 'Picked hook', arp: 'Clean arpeggio',
 };
 export const writes = (s: RiffStyle): s is WrittenStyle => (WRITTEN_STYLES as readonly string[]).includes(s);
 
@@ -114,9 +118,15 @@ interface Ev {
   len: number;
   /** Semitones above the root of the chord sounding. */
   deg: number;
-  kind: 'note' | 'palm' | 'power' | 'dead';
+  kind: 'note' | 'palm' | 'power' | 'dead' | 'pick' | 'arp';
   slide?: number;
   vel: number;
+  /** Picked hook: the note's place in the shape (L low root, O octave, F fifth, I inner, T the moving top), its scale step above the chord's root, and where the hand sits (a fret). `deg` is the same note in the key, to rate it by. */
+  role?: string;
+  step?: number;
+  hand?: number;
+  /** Arpeggio: how far up the chord's shape the note is (0 the lowest string, 1 the highest). */
+  frac?: number;
   /** Stays on the key's root whatever the chord (a pedal note). */
   pedal?: boolean;
   /** Stays as written when the answer or a repeat changes notes (the pedal and the chugs). */
@@ -133,6 +143,10 @@ interface Rules {
   same: [number, number];
   /** Share of hits off the beat. */
   off: [number, number];
+  /** Bars that repeat (missing: about half to most). */
+  repeat?: [number, number];
+  /** False: big jumps are what the style does (picking through a chord), so they cost nothing. */
+  leaps?: boolean;
 }
 
 /** A style's riff for four bars: the cell, its answer, the few pitches. */
@@ -144,6 +158,8 @@ interface Motif {
   rules: Rules;
   /** A palm mute or ghost note only works on the root: a changed note becomes an open one (single-note and lick). */
   strict: boolean;
+  /** The key's scale (semitones above the root), for the notes that are scale steps. */
+  scale: number[];
 }
 
 const isRoot = (d: number) => ((d % 12) + 12) % 12 === 0;
@@ -333,6 +349,37 @@ function lickCell(rng: Rng, set: number[]): Ev[] {
   return out;
 }
 
+/** A picked hook: one note on every 8th (every 16th in a slow song) following a template; the top note moves, the rest are low root, octave, fifth and an inner note. */
+function pickedCell(rng: Rng, song: Song, scale: number[]): Ev[] {
+  const tpl = rng.pick(PICK_TEMPLATES);
+  const nT = [...tpl].filter((x) => x === 'T').length;
+  // (the moving top stays in a small range: octave to 11th)
+  const tops = pitchCell(rng, Math.max(2, nT), 3).map((s) => Math.max(7, Math.min(10, 8 + s)));
+  const hand = rng.int(7, 14);
+  const every = song.bpm < 100 && rng.chance(0.5) ? 1 : 2;
+  const out: Ev[] = [];
+  let k = 0;
+  for (let p = 0, slot = 0; p < 16; p += every, slot++) {
+    const role = tpl[slot % tpl.length];
+    const step = role === 'T' ? tops[k++ % tops.length] : PICK_STEPS[role];
+    out.push({ pos: p, len: every * 2, deg: stepSemis(scale, step), kind: 'pick', role, step, hand, vel: role === 'L' ? 0.86 : role === 'T' ? 0.84 : 0.7 + rng.next() * 0.06 });
+  }
+  return out;
+}
+
+/** A clean arpeggio: a pattern up and down the chord's shape on every 8th (now and then every 16th), with the odd gap. */
+function arpCell(rng: Rng, song: Song): Ev[] {
+  const pattern = rng.pick(ARP_PATTERNS);
+  const every = rng.chance(0.2 + song.w * 0.3) ? 1 : 2;
+  const out: Ev[] = [];
+  for (let p = 0, k = 0; p < 16; p += every, k++) {
+    if (k > 1 && rng.chance(0.08)) continue; // a little air
+    const frac = pattern[k % pattern.length];
+    out.push({ pos: p, len: 8, deg: Math.round(frac * 12), kind: 'arp', frac, vel: frac === 0 ? 0.66 : 0.52 + rng.next() * 0.1 });
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ 3b. the answer, the turnaround, the form */
 
 /** A hit changes note (a palm mute or ghost note only works on the root, where `strict`). */
@@ -342,8 +389,19 @@ function renote(e: Ev, deg: number, strict: boolean) {
 }
 
 /** The second half of the bar answers the first: the same start, new notes (a beat at a time in a gallop), sometimes ending on a held note. */
-function answerOf(rng: Rng, cell: Ev[], set: number[], strict: boolean, byBeat = false): Ev[] {
+function answerOf(rng: Rng, cell: Ev[], set: number[], strict: boolean, scale: number[], byBeat = false): Ev[] {
   const out = cell.map((e) => ({ ...e }));
+  // the chord-picking styles keep the first half and move the second: new top notes, or another pattern up the shape
+  if (out.some((e) => e.kind === 'pick')) {
+    for (const e of out) if (e.pos >= 8 && e.role === 'T' && rng.chance(0.85)) retop(e, rng, scale);
+    return out;
+  }
+  if (out.some((e) => e.kind === 'arp')) {
+    const other = rng.pick(ARP_PATTERNS);
+    let k = 0;
+    for (const e of out) if (e.pos >= 8) { e.frac = other[k++ % other.length]; e.deg = Math.round(e.frac * 12); }
+    return out;
+  }
   if (set.length > 1) {
     if (byBeat) {
       for (const b of [2, 3]) {
@@ -357,9 +415,25 @@ function answerOf(rng: Rng, cell: Ev[], set: number[], strict: boolean, byBeat =
   return out;
 }
 
+/** A picked hook's top note moves a step or two (staying in the octave to 11th). */
+function retop(e: Ev, rng: Rng, scale: number[]) {
+  const step = Math.max(7, Math.min(10, e.step! + rng.pick([-2, -1, 1, 2])));
+  e.step = step;
+  e.deg = stepSemis(scale, step);
+}
+
 /** One hit of a repeat played differently (the second time round). */
-function varyOne(rng: Rng, cell: Ev[], set: number[], strict: boolean): Ev[] {
+function varyOne(rng: Rng, cell: Ev[], set: number[], strict: boolean, scale: number[]): Ev[] {
   const out = cell.map((e) => ({ ...e }));
+  if (out.some((e) => e.kind === 'pick' || e.kind === 'arp')) {
+    const free = out.filter((e) => e.role === 'T' || e.kind === 'arp');
+    if (free.length) {
+      const e = rng.pick(free);
+      if (e.kind === 'pick') retop(e, rng, scale);
+      else { e.frac = Math.round(Math.max(0, Math.min(1, e.frac! + rng.pick([-0.2, 0.2]))) * 10) / 10; e.deg = Math.round(e.frac * 12); }
+    }
+    return out;
+  }
   const free = set.length > 1 ? out.slice(1).filter((e) => !e.fixed) : [];
   if (free.length) { const e = rng.pick(free); renote(e, rng.pick(set.filter((d) => d !== e.deg)), strict); }
   return out;
@@ -368,6 +442,13 @@ function varyOne(rng: Rng, cell: Ev[], set: number[], strict: boolean): Ev[] {
 /** How a four-bar half ends: a chord left to ring, silence for a drum fill, a run of 16ths, or a pickup into the next bar. */
 function turnaround(rng: Rng, cell: Ev[], set: number[]): { cell: Ev[]; name: string } {
   const keep = (to: number) => cell.filter((e) => e.pos < to).map((e) => ({ ...e, len: Math.min(e.len, to - e.pos) }));
+  if (cell.some((e) => e.kind === 'arp')) {
+    // (a clean arpeggio ends clean: a note left to ring, silence, or a quick climb up the shape)
+    const kind = rng.weighted<'ring' | 'stop' | 'climb'>([['ring', 2], ['stop', 2], ['climb', 2]]);
+    if (kind === 'stop') return { cell: keep(12), name: 'a stop for the drum fill' };
+    if (kind === 'ring') return { cell: [...keep(12), { pos: 12, len: 4, deg: 0, kind: 'arp', frac: 0, vel: 0.7 }], name: 'a note left to ring' };
+    return { cell: [...keep(12), ...[0, 1, 2, 3].map((i) => ({ pos: 12 + i, len: 4, deg: [4, 7, 10, 12][i], kind: 'arp' as const, frac: [0.3, 0.5, 0.7, 0.9][i], vel: 0.6 + i * 0.04 }))], name: 'a quick climb up the shape' };
+  }
   const kind = rng.weighted<'ring' | 'stop' | 'run' | 'push'>([['ring', 2], ['stop', 2], ['run', 2], ['push', 1]]);
   if (kind === 'ring') {
     const at = rng.chance(0.5) ? 8 : 12;
@@ -392,6 +473,8 @@ const RULES: Record<Exclude<WrittenStyle, 'single'>, Rules> = {
   gallop: { hits: [6, 13], pitches: [1, 4], root: [0.4, 1], same: [0.6, 1], off: [0.35, 0.85] },
   pedal: { hits: [4, 9], pitches: [2, 5], root: [0.4, 0.75], same: [0.3, 0.8], off: [0.25, 0.75] },
   lick: { hits: [3, 8], pitches: [2, 5], root: [0.25, 0.7], same: [0.1, 0.6], off: [0.15, 0.7] },
+  picked: { hits: [8, 16], pitches: [4, 8], root: [0.2, 0.6], same: [0, 0.35], off: [0.4, 0.8], repeat: [0.5, 1], leaps: false },
+  arp: { hits: [7, 16], pitches: [3, 6], root: [0.15, 0.6], same: [0, 0.3], off: [0.4, 0.8], repeat: [0.5, 1], leaps: false },
 };
 
 /** A style's riff for four bars: the pitches, the cell, and the answer to it. */
@@ -400,7 +483,13 @@ function motifFor(rng: Rng, style: WrittenStyle, song: Song, f: FeelSet, registe
   /** The root and `n` of the others, in order. */
   const withRoot = (n: number, from: number[]) => [0, ...rng.shuffle(from).slice(0, n)].sort((a, b) => a - b);
   let set: number[], a: Ev[], rules: Rules, strict = false, byBeat = false;
-  if (style === 'single') {
+  const scale = [...(SCALES[song.mode] as readonly number[])];
+  if (style === 'picked' || style === 'arp') {
+    // (the pitches here are places in the chord; `set` is the notes a turnaround can lean on)
+    set = [0, third, 5, 7, 10];
+    a = style === 'picked' ? pickedCell(rng, song, scale) : arpCell(rng, song);
+    rules = RULES[style];
+  } else if (style === 'single') {
     set = pitchSet(rng, song, register);
     const pos = skeleton(rng, f);
     a = cellOf(rng, f, pos, melody(rng, f, pos, set));
@@ -431,7 +520,7 @@ function motifFor(rng: Rng, style: WrittenStyle, song: Song, f: FeelSet, registe
     rules = RULES.lick;
     strict = true;
   }
-  return { style, set, a, b: answerOf(rng, a, set, strict, byBeat), rules, strict };
+  return { style, set, a, b: answerOf(rng, a, set, strict, scale, byBeat), rules, strict, scale };
 }
 
 /* ------------------------------------------------------------------ 4. onto the guitar */
@@ -448,9 +537,31 @@ function toHits(cells: Ev[][], song: Song, chords: ChordPart, follow: RiffFollow
   const { key, total } = song;
   const chordAt = (g: number) => chords.timeline[chords.chordIdx[Math.min(g, total - 1)]].chord;
   const hits: GuitarHit[] = [];
+  // (picked notes and arpeggio notes ring on into the next ones: they keep their length)
+  const rings = new Set<GuitarHit>();
+  const home = chords.timeline[0].chord;
+  const shapes = cells.some((c) => c.some((e) => e.kind === 'arp')) ? voicingsInTuning(key, chords.timeline.map((te) => te.chord), t, { preferOpen: true }) : [];
   cells.forEach((cell, bi) => {
     for (const e of cell) {
       const step = song.bars[bi].start + e.pos;
+      const base0 = { step, len: Math.max(1, e.len), vel: e.vel };
+      if (e.kind === 'pick') {
+        // a scale step above the chord's root, on the string nearest where the hand sits
+        const ch = follow === 'key' ? home : chordAt(step);
+        const midi = 50 + (((chordPc(key, ch) - 50) % 12) + 12) % 12 + stepSemis(chordScale(song.mode, ch), e.step!);
+        const h: GuitarHit = { ...base0, ...fretNear(midi, t, e.hand!), letRing: true };
+        hits.push(h); rings.add(h);
+        continue;
+      }
+      if (e.kind === 'arp') {
+        // the note a fraction of the way up the chord's shape (the shape of the chord sounding at that step)
+        const v = shapes[follow === 'key' ? 0 : chords.chordIdx[Math.min(step, total - 1)]];
+        const strings = v.frets.flatMap((f, s) => (f === null ? [] : [s]));
+        const i = Math.round(e.frac! * (v.notes.length - 1));
+        const h: GuitarHit = { ...base0, notes: [v.notes[i]], strings: [strings[i]], clean: true, letRing: true };
+        hits.push(h); rings.add(h);
+        continue;
+      }
       const rootPc = e.pedal || follow === 'key' ? key : chordPc(key, chordAt(step));
       const pc = (((rootPc + e.deg) % 12) + 12) % 12;
       const base = { step, len: Math.max(1, e.len), vel: e.vel };
@@ -464,8 +575,24 @@ function toHits(cells: Ev[][], song: Song, chords: ChordPart, follow: RiffFollow
   });
   hits.sort((a, b) => a.step - b.step);
   // a hit never rings past the next one
-  hits.forEach((h, i) => { if (hits[i + 1]) h.len = Math.max(1, Math.min(h.len, hits[i + 1].step - h.step)); });
+  hits.forEach((h, i) => { if (hits[i + 1] && !rings.has(h)) h.len = Math.max(1, Math.min(h.len, hits[i + 1].step - h.step)); });
   return hits;
+}
+
+/** A single note on the string whose fret is closest to where the hand sits, up to fret 14 (an octave lower when it won't reach). */
+function fretNear(midi: number, t: Tuning, pos: number): { notes: number[]; strings: number[] } {
+  let m = midi;
+  while (m < t.strings[0]) m += 12;
+  for (;; m -= 12) {
+    let best = -1, cost = Infinity;
+    for (let s = 0; s < 6; s++) {
+      const f = m - t.strings[s];
+      if (f < 0 || f > 14) continue;
+      const c = Math.abs(f - pos) + (f === 0 ? 1.5 : 0);
+      if (c < cost) { best = s; cost = c; }
+    }
+    if (best >= 0 || m - 12 < t.strings[0]) return { notes: [m], strings: [Math.max(0, best)] };
+  }
 }
 
 /** What the drums and the bass read from the riff (as riff.ts leaves them). */
@@ -474,6 +601,7 @@ function riffPartOf(hits: GuitarHit[], song: Song, notes: string[]): RiffPart {
   const sounding = new Array<boolean>(song.total).fill(false);
   const beats = new Set(song.bars.flatMap((b) => groupStarts(b.groups).map((p) => b.start + p)));
   for (const h of hits) {
+    if (h.clean) continue; // (clean arpeggio notes don't lead the drums or the bass)
     const a = h.mute === 'palm' ? 0.3 : h.mute === 'dead' ? 0 : h.notes.length > 1 ? 1 : beats.has(h.step) ? 0.5 : 0.2;
     accents[h.step] = Math.max(accents[h.step], a);
     for (let g = h.step; g < Math.min(song.total, h.step + h.len); g++) sounding[g] = true;
@@ -504,8 +632,8 @@ function rate(cells: Ev[][], r: Rules): number {
   s -= outside(degs, r.pitches) * 0.4;
   s -= outside(rootShare, r.root) * 2;
   s -= outside(n > 1 ? same / (n - 1) : 1, r.same) * 1.2;
-  s -= leaps * 0.12;
-  s -= outside(barRepeat, [0.5, 0.85]) * 1.5;
+  if (r.leaps !== false) s -= leaps * 0.12;
+  s -= outside(barRepeat, r.repeat ?? [0.5, 0.85]) * 1.5;
   s -= Math.max(0, kinds - 3) * 0.25;
   s -= outside(offBeat, r.off);
   // starts on the one, on the root; ends somewhere that leads on
@@ -536,7 +664,7 @@ function attempt(seed: string, song: Song, chords: ChordPart, styles: [WrittenSt
     let turn = 'nothing special';
     [...form].forEach((letter, j) => {
       let cell = letter === 'A' ? m.a : m.b;
-      if (same && half === 1 && j === 2 && rng.chance(0.35)) cell = varyOne(rng, cell, m.set, m.strict);
+      if (same && half === 1 && j === 2 && rng.chance(0.35)) cell = varyOne(rng, cell, m.set, m.strict, m.scale);
       if (j === 3 && (half === 1 || rng.chance(same ? 0.3 : 0.7))) { const t = turnaround(rng, cell, m.set); cell = t.cell; turn = t.name; }
       mine.push(cell);
     });

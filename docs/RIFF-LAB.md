@@ -9,14 +9,15 @@ Page: `npm run dev`, then `/riff-lab.html` (built with the app, not linked). Pic
 ## The writer (`writeRiff(seed, song, chords, options)`)
 4/4, eight bars: two runs of four bars, each with its own style (the way the app's riff songs have a style for each half). Pure and deterministic: the same seed, song and options give the same riff.
 
-**Styles** (six of the app's eight; `STYLE_LABEL` in the file):
+**Styles** (all eight of the app's; `STYLE_LABEL` in the file):
 - **Single-note riff:** hits where a *feel* likes them (Driving 8ths, Syncopated, Sparse and heavy, Chugging 16ths, Bouncy), 2 to 4 pitches, a contour, a pull to the root on the beats.
 - **Chugs and stabs:** a power chord on the one and one to three other spots (left to ring), palm-muted chugs on the root between them (8ths or 16ths, a few gaps, ghost notes in 16ths), the odd stab on another note.
 - **Big chords:** one chord a bar, halves, quarters, 8ths, a dotted 3-3-2, a 3-3-2-ish tresillo, or a chord and a push or two.
 - **Gallop:** an 8th and two 16ths on each beat (or two 16ths and an 8th), on the root or on a line that moves a note a beat; now and then a held hit instead.
 - **Pedal note:** palm-muted root hits with open melody notes bouncing off them (a half-bar pattern, played twice).
 - **Stabs and a lick:** stabs in the first half of the bar, a single-note lick in the second.
-- Not written yet: **picked** hooks and **arp** (clean arpeggios): they pick chord shapes string by string, and stay `riff.ts`'s. A genre arrangement that has one of them isn't used by Auto.
+- **Picked hook:** one note on every 8th (every 16th in a slow song) following a template: a low root, octave, fifth, an inner note and a **moving top note** (octave to 11th, a contour). Each note is a scale step above the root of the chord sounding, fingered on the string nearest where the hand sits (a fret from 7 to 14, never past fret 14). Driven, letting notes ring. The answer moves the top notes in the second half.
+- **Clean arpeggio:** a pattern up and down the shape of the chord sounding (open shapes), on every 8th, now and then 16ths, with the odd gap. Clean channel, notes left to ring. The answer is another pattern in the second half; the turnaround stays clean (a note left to ring, a stop, a quick climb).
 
 **Layers** (all styles): the style's rhythm, a few pitches (the root most), a one-bar cell, an answer (the first half the same, the second half new notes; a gallop changes a beat at a time), a turnaround (a chord left to ring, a stop for a drum fill, a run of 16ths, a pickup), a form over four bars (AAAB, ABAB, AAAA, AABA). Where both halves have the same style they are the same riff: the second time round has a turnaround and sometimes a note changed. Where they differ, each half is its own riff.
 
@@ -37,7 +38,8 @@ Page: `npm run dev`, then `/riff-lab.html` (built with the app, not linked). Pic
 
 ## Next (not built)
 - Listen, and tune the rules and kits from the keepers.
-- Picked hooks and arpeggios through the same layers (they need the chord-shape picking of `figures.ts` / `riff.ts`).
+- Picked and arpeggio rules are wide (a raw first riff already scores about 9.5): tighten them from what Paul keeps.
+- An arpeggio that restarts its pattern on a mid-bar chord change (the classic one does); here the pattern runs on.
 - Odd meters; real riff numbers from the Lakh MIDI study as the rules' ranges (`src/realism/`).
 - The riff and the kick written together, not the kick after the riff.
 - Into the app: a switch in Track options ("Riff writer: As before / New"), the writer called for each four-bar run of a section from `generateRiff` (`riff.ts`), where the style is already chosen; the styles it can't write stay with the old code. Once Paul has listened.
