@@ -183,9 +183,9 @@ export function playGuitar2(idea: Idea, hands: Hands, open: number[], seed: stri
     if (h.bend !== undefined) { t.bend = h.bend || undefined; if (h.bend) t.move = 'pick'; }
     if (h.vib !== undefined) t.vib = h.vib;
     // a let-down bend, a trill, tremolo picking or a rake: picked, played as written, no fall-off
-    if (h.unbend || h.lateBend || h.trill || h.tremolo || h.rake) { t.move = 'pick'; t.fall = undefined; }
+    if (h.unbend || h.lateBend || h.trill || h.tremolo || h.rake || h.chug) { t.move = 'pick'; t.fall = undefined; }
     if (h.lateBend) t.bend = undefined;
-    if (h.trill || h.tremolo) t.tied = false;
+    if (h.trill || h.tremolo || h.chug) t.tied = false;
     h.touch = t;
     h.strings = line[i].offs.map((o) => t.string + o);
   });

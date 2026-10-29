@@ -124,7 +124,7 @@ export function echoPlan(notes: BaseNote[], wins: Win[], r: Rng, o: { strength?:
     for (let k = 0; k < Math.min(cs.length, as.length, 4); k++) {
       const qc = cs[k], qa = as[k];
       const wc = wins[qc], wa = wins[qa];
-      if (wc.pattern === 'plain') continue;
+      if (wc.pattern === 'plain' || wc.pattern === 'burst' || wa.pattern === 'burst') continue;
       const own = r.chance(vary);
       if (k === 0) {
         // the goal note: the same kind of dress, if it is a held note that can take it
@@ -143,7 +143,7 @@ export function echoPlan(notes: BaseNote[], wins: Win[], r: Rng, o: { strength?:
   const end = notes.length ? notes[notes.length - 1].t + notes[notes.length - 1].len : 0;
   const cand: [number, number][] = [];
   wins.forEach((w, q) => {
-    if (w.pattern === 'plain' || w.pattern === 'decor' || goalOf(notes[w.i]) || w.t0 >= end * 0.5) return;
+    if (w.pattern === 'plain' || w.pattern === 'decor' || w.pattern === 'burst' || goalOf(notes[w.i]) || w.t0 >= end * 0.5) return;
     const f = figureWeight(w);
     if (f > 0) cand.push([q, f]);
   });
@@ -155,7 +155,7 @@ export function echoPlan(notes: BaseNote[], wins: Win[], r: Rng, o: { strength?:
     const q = fromGoal(ph).find((x) => !goalOf(notes[wins[x].i]));
     if (q === undefined || q === sig || copies.has(q) || wins[q].t0 < wins[sig].t0) continue;
     // (Light expression: the signature only goes where the window was already played another way, never over a plain one)
-    if (o.light && wins[q].pattern === 'plain') continue;
+    if (wins[q].pattern === 'burst' || (o.light && wins[q].pattern === 'plain')) continue;
     const win = transplant(wins[sig], wins[q]);
     if (!win) continue;
     copies.set(q, { from: sig, win, own: false, via: 'signature' });

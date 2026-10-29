@@ -387,6 +387,8 @@ export interface GuitarHit {
   vel: number;
   /** palm = palm-muted chug, dead = muted scratch. */
   mute?: 'palm' | 'dead';
+  /** A lead note played palm-muted (a chug in a solo's burst of muted notes, docs/SOLO-EXPRESSION.md). Unlike `mute: 'palm'` the hands still finger it and the checks still count it as a note. */
+  chug?: boolean;
   /** Quiet section: play on the clean channel even when the amp is driven. */
   clean?: boolean;
   /** Let other strings keep ringing (arpeggios). */

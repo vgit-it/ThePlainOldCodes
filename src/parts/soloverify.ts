@@ -36,6 +36,8 @@ export interface Violation {
 /** The quickest the pick can go: 16ths at 250 bpm (60 ms); a hammer-on or pull-off or slide is quicker (40 ms). */
 export const MIN_PICK_MS = 60;
 export const MIN_LEGATO_MS = 40;
+/** The quickest a palm-muted note can be picked over and over: 20 a second (a tremolo picker's top speed). */
+export const MIN_CHUG_MS = 50;
 
 const six = (song: Song) => 15 / song.bpm;
 const barAt = (song: Song, g: number) => song.bars.find((b) => g >= b.start && g < b.start + b.len) ?? song.bars[song.bars.length - 1];
@@ -136,7 +138,7 @@ export function verify(events: PEvent[], base: BaseNote[], c: VCtx): Violation[]
     if (gap > beatAt(song, endOf(a)) + 1e-6) v.push({ code: 'silence', at: endOf(a), msg: `${gap.toFixed(2)} steps of silence` });
     const ms = (b.t - a.t) * s6 * 1000;
     const fast = a.hit.tremolo || a.hit.trill || b.hit.tremolo;
-    const min = b.hit.art === 'legato' || b.hit.art === 'slide' ? MIN_LEGATO_MS : MIN_PICK_MS;
+    const min = b.hit.art === 'legato' || b.hit.art === 'slide' ? MIN_LEGATO_MS : b.hit.chug || a.hit.chug ? MIN_CHUG_MS : MIN_PICK_MS;
     if (!fast && ms < min - 1e-6) v.push({ code: 'speed', at: b.t, msg: `${ms.toFixed(0)} ms between two notes` });
   }
   return v;

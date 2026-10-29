@@ -878,7 +878,7 @@ export class Engine {
   /** `ring` overrides how long the hit rings (the final chord of a track). */
   private playHit(inst: ChordInstrument, h: GuitarHit, time: number, six: number, dyn = 1, ring?: number, legato = false) {
     inst.strum({
-      stroke: h.mute === 'palm' ? 'p' : h.mute === 'dead' ? 'x' : 'D',
+      stroke: h.mute === 'palm' || h.chug ? 'p' : h.mute === 'dead' ? 'x' : 'D',
       notes: h.notes,
       strings: h.strings,
       time,

@@ -21,7 +21,8 @@ import { POOL } from './sololibrary';
 import { echoPlan } from './soloecho';
 import { type PEvent, TOL, eventsToHits, readBase, snap, sounding } from './soloevents';
 import type { PlayerCtx } from './soloplayer';
-import { type VCtx, type Violation, MIN_LEGATO_MS, MIN_PICK_MS, unplayable, verify } from './soloverify';
+import { personOf } from './soloperson';
+import { type VCtx, type Violation, MIN_CHUG_MS, MIN_LEGATO_MS, MIN_PICK_MS, unplayable, verify } from './soloverify';
 
 /** How many plans are written; the best as playing is kept. */
 export const EXPRESS_TRIES = 8;
@@ -29,6 +30,13 @@ export const EXPRESS_TRIES = 8;
 export const KEEP_MIN = 0.6;
 /** How much the expression changes the tune (docs/SOLO-AMOUNT.md): 1 = as always, below 1 = lighter, above 1 = fuller. */
 export const AMOUNTS = { light: 0.35, normal: 1, full: 1.5 } as const;
+/** At this tempo (bpm) and under, runs of 32nds are fine. Above it 32nds come only as a pair at the start or the end of a run of 16ths (the hands can't fly through them). */
+export const FREE_32_BPM = 100;
+/** The palm-muted burst of 32nds (a bar or two): how much each genre and mood is up for it. Rare everywhere; in hard rock very rare, never in pop or funk. */
+const BURST_G: Record<string, number> = { metal: 0.9, altmetal: 0.5, hardrock: 0.1, grunge: 0.05, rock: 0.03, pop: 0, funk: 0 };
+const BURST_M: Record<string, number> = { angry: 1, tense: 0.75, dark: 0.6, triumphant: 0.5, happy: 0.15, nostalgic: 0.08, melancholic: 0.04, dreamy: 0.04 };
+/** How fond each genre is of a muted ghost note inside a run (the player's own taste multiplies it). */
+const GHOST_G: Record<string, number> = { funk: 1, rock: 0.6, grunge: 0.6, pop: 0.45, hardrock: 0.3, altmetal: 0.2, metal: 0.12 };
 
 type Genre = 'rock' | 'pop' | 'funk' | 'hardrock' | 'metal' | 'grunge' | 'altmetal';
 const FIRE_G: Record<string, number> = { pop: 0.4, funk: 0.5, rock: 0.52, grunge: 0.46, hardrock: 0.62, metal: 0.74, altmetal: 0.66 };
@@ -64,7 +72,7 @@ export function temperWords(t: Temper): string {
   return w.join(', ');
 }
 
-type RunShape = 'stair' | 'arch' | 'seq' | 'pedal';
+type RunShape = 'stair' | 'arch' | 'seq' | 'pedal' | 'chug';
 interface Part {
   kind: 'hold' | 'run';
   a: number;
@@ -75,6 +83,10 @@ interface Part {
   sub2?: number;
   shape?: RunShape;
   legato?: boolean;
+  /** A run of 16ths with one of its 16ths played as a pair of 32nds, at its start or at its end. */
+  pair?: 'head' | 'tail';
+  /** The palm-muted burst: one pitch chugged in 32nds (16ths when the tempo is too quick for the hand), the tune's own notes ring out on top. */
+  burst?: boolean;
 }
 export interface Win {
   i: number; j: number; t0: number; t1: number; pattern: string; parts: Part[]; heat: number;
@@ -84,9 +96,9 @@ export interface Win {
   dress?: Dress;
 }
 export type Dress = 'pre' | 'late' | 'release' | 'vib' | 'none';
-type Pattern = 'plain' | 'decor' | 'hold+run' | 'run+hold' | 'run' | 'hold' | 'hold+run+hold' | 'run+hold+run';
+type Pattern = 'plain' | 'decor' | 'hold+run' | 'run+hold' | 'run' | 'hold' | 'hold+run+hold' | 'run+hold+run' | 'burst';
 const KINDS: Record<Pattern, ('hold' | 'run')[]> = {
-  plain: [], decor: [], hold: ['hold'], run: ['run'],
+  plain: [], decor: [], hold: ['hold'], run: ['run'], burst: ['run'],
   'hold+run': ['hold', 'run'], 'run+hold': ['run', 'hold'], 'hold+run+hold': ['hold', 'run', 'hold'], 'run+hold+run': ['run', 'hold', 'run'],
 };
 
@@ -102,6 +114,8 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   const keepMin = amt < 1 ? 0.85 : amt > 1 ? 0.5 : KEEP_MIN;
   const genre = song.partGenres.strum as Genre;
   const s16 = 15000 / song.bpm;
+  const free32 = song.bpm <= FREE_32_BPM;
+  const person = personOf(c.band ?? c.seed, c.lead);
   const tuning = (song.tuning ?? TUNINGS.standard).strings;
   const { pcs: scalePcs } = scaleOf(song);
   const energyAt = (t: number) => base.curve?.energy?.[Math.min(song.total - 1, Math.max(0, Math.floor(t)))] ?? 0;
@@ -144,7 +158,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   // ---------------------------------------------------------------- planning
   const planOne = (r: Rng, T: Temper): Win[] => {
     const wins: Win[] = [];
-    let heat = clamp(T.fire, 0.1, 0.9), breath = 0, itch = 0.3;
+    let heat = clamp(T.fire, 0.1, 0.9), breath = 0, itch = 0.3, burstDone = false;
     let i = 0;
     while (i < notes.length) {
       const n = notes[i];
@@ -153,6 +167,26 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       const target = clamp(T.fire + 0.55 * (e01 - 0.5), 0, 1);
       heat = clamp(heat + 0.35 * (target - heat) + gauss(r) * 0.12 * (0.5 + T.contrast), 0, 1);
       if (r.chance(0.07 * (0.4 + T.contrast))) heat = clamp(heat + (r.chance(0.55) ? 1 : -1) * (0.25 + 0.2 * r.next()), 0, 1);
+      // the burst: once in a solo that is up for it, at a hot high-energy spot, a bar or two of palm-muted notes; it stops short of a goal note
+      if (burstOn && !burstDone && !isGoal(n) && i >= 2 && heat >= 0.6 && e01 >= 0.55 && r.chance(0.45)) {
+        const want = (r.chance(0.55) ? 1 : 2) * (song.bars[barIx(n.t)]?.len ?? 16);
+        let jj = i;
+        while (jj + 1 < notes.length && notes[jj].t + notes[jj].len - n.t < want - 1e-6) {
+          const nx = notes[jj + 1];
+          if (isGoal(nx) || nx.t - (notes[jj].t + notes[jj].len) > 0.5) break;
+          jj++;
+        }
+        const tEnd = notes[jj].t + notes[jj].len;
+        if (tEnd - n.t >= 8 && tEnd - n.t <= 40 && jj + 1 < notes.length) {
+          burstDone = true;
+          const part: Part = { kind: 'run', a: n.t, b: tEnd, burst: true, shape: 'chug', legato: false, sub: s16 * 0.5 >= MIN_CHUG_MS + 2 ? 0.5 : 1 };
+          wins.push({ i, j: jj, t0: n.t, t1: tEnd, pattern: 'burst', parts: [part], heat });
+          // (after a burst it wants a held note)
+          breath = 1.2; itch = 0;
+          i = jj + 1;
+          continue;
+        }
+      }
       // how far the window reaches: over the next note or two when it is free to, never over a goal note
       let j = i;
       const reach = isGoal(n) ? 0 : (0.14 + 0.3 * T.free + 0.2 * (heat - 0.5)) * amt;
@@ -183,6 +217,9 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
         const parts = cutParts(r, w, KINDS[pat], T, heat);
         if (parts) w.parts = parts; else { w.pattern = 'plain'; w.j = w.i; w.t1 = n.t + n.len; }
       }
+      // (a pair of 32nds at the start of a run right after a run that ended in one would be four in a row: this one goes without)
+      const prev = wins[wins.length - 1];
+      if (prev && prev.parts.length && w.parts[0]?.pair === 'head' && prev.parts[prev.parts.length - 1].pair === 'tail' && Math.abs(prev.t1 - w.t0) < 1e-6) delete w.parts[0].pair;
       wins.push(w);
       // the pressures: playing fast builds breath, holding builds itch
       const Wn = (w.t1 - w.t0) / 8;
@@ -242,14 +279,17 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     const opts: [number, number][] = [];
     const fits = (sub: number) => Math.abs(L / sub - Math.round(L / sub)) < 1e-6 && L / sub >= 2 && L / sub <= maxNotes;
     for (const sub of [2, 1, 0.5]) {
-      if (!fits(sub) || s16 * sub < MIN_LEGATO_MS + 2) continue;
+      // (above the 32nd tempo no run is all 32nds: they come as a pair, below)
+      if (!fits(sub) || s16 * sub < MIN_LEGATO_MS + 2 || (sub < 1 && !free32)) continue;
       const d = Math.log((s16 * sub) / wantMs);
       opts.push([sub, Math.exp(-(d * d) / (2 * 0.4 * 0.4))]);
     }
     if (!opts.length) return false;
     p.sub = r.weighted(opts);
     // a run that speeds up: a grid, then one twice as quick
-    if (p.sub >= 1 && L >= 4 && L % 2 === 0 && s16 * (p.sub / 2) >= MIN_LEGATO_MS + 2 && L / p.sub + L / p.sub <= maxNotes + 4 && r.chance(0.3 * T.fire * heat)) { p.mid = p.a + L / 2; p.sub2 = p.sub / 2; }
+    if (p.sub >= 1 && L >= 4 && L % 2 === 0 && s16 * (p.sub / 2) >= MIN_LEGATO_MS + 2 && (free32 || p.sub >= 2) && L / p.sub + L / p.sub <= maxNotes + 4 && r.chance(0.3 * T.fire * heat)) { p.mid = p.a + L / 2; p.sub2 = p.sub / 2; }
+    // a pair of 32nds at the start or at the end of a run of 16ths (the hand can hammer or pull the second one at any tempo up to about 175)
+    if (p.sub === 1 && p.mid === undefined && L >= 3 && s16 * 0.5 >= MIN_LEGATO_MS + 2 && r.chance(0.2 + 0.45 * hot)) p.pair = r.chance(0.5) ? 'head' : 'tail';
     const fastest = p.sub2 ?? p.sub;
     const canPick = s16 * fastest >= MIN_PICK_MS + 2;
     p.legato = !canPick || r.chance((0.15 + 0.6 * c.hands.legato) * (s16 * fastest >= 110 ? 0.5 : 1));
@@ -262,6 +302,9 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     const sub = p.sub!;
     for (let t = p.a; t < (p.mid ?? p.b) - 1e-6; t += sub) out.push(snap(t));
     if (p.mid !== undefined) for (let t = p.mid; t < p.b - 1e-6; t += p.sub2!) out.push(snap(t));
+    // (a pair: one 16th at the start or at the end is two 32nds)
+    if (p.pair === 'head') out.splice(1, 0, snap(p.a + 0.5));
+    else if (p.pair === 'tail') out.push(snap(out[out.length - 1] + 0.5));
     return out;
   };
 
@@ -326,21 +369,79 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     return out.map((x) => ladder[x]);
   };
 
+  /** A muted ghost note inside a run: which slot (-1: none). Not in hammered runs, not in a burst, not on the tune's own notes or inside a pair of 32nds. */
+  const ghostSlot = (r: Rng, p: Part, slots: number[], fixed: Map<number, number>): number => {
+    if (p.legato || p.burst || slots.length < 5 || s16 * (p.sub ?? 1) < 80) return -1;
+    if (!r.chance(clamp(0.5 * (GHOST_G[genre] ?? 0.4) * (person.dress.ghost ?? 1), 0, 0.6))) return -1;
+    const ok: number[] = [];
+    for (let k = 2; k < slots.length - 1; k++) if (!fixed.has(k) && !fixed.has(k + 1) && slots[k] - slots[k - 1] > 0.99 && slots[k + 1] - slots[k] > 0.99) ok.push(k);
+    return ok.length ? r.pick(ok) : -1;
+  };
+
+  /**
+   * The palm-muted burst (a bar or two): one pitch chugged in 32nds (16ths when the tempo is too quick for the hand), the tune's own notes
+   * ringing out on top and the chug following them, moving to a chord note when the chord changes, a neighbour now and then, and the last
+   * two notes leaning into the next note of the tune.
+   */
+  const chugRun = (w: Win, p: Part, slots: number[], target: number, vel0: number): PEvent[] | null => {
+    const r = new Rng(`${w.seed ?? c.seed}-chug-${Math.round(p.a * 4)}`);
+    const cix = (t: number) => cSteps.filter((x) => x <= t + 1e-6).length;
+    const pedalFor = (t: number, near: number): number => {
+      const ch = chordAt(t);
+      const tones = ch ? chordTones(song.key, ch) : null;
+      let best = near, bd = 99;
+      for (const m of ladder) {
+        if (m < lo || m > hi || (tones && !tones.includes(((m % 12) + 12) % 12))) continue;
+        const d = Math.abs(m - near);
+        if (d < bd) { bd = d; best = m; }
+      }
+      return best;
+    };
+    let pedal = notes[w.i].midi, chord = cix(p.a);
+    const pitches: number[] = [], isNote: boolean[] = [];
+    slots.forEach((t, s) => {
+      const hit = notes.slice(w.i, w.j + 1).find((x) => Math.abs(x.t - t) <= TOL);
+      if (cix(t) !== chord) { chord = cix(t); pedal = pedalFor(t, pedal); }
+      isNote[s] = !!hit;
+      if (hit) { pedal = hit.midi; pitches[s] = hit.midi; return; }
+      const nb = ladder[ixOf(pedal) + (r.chance(0.5) ? 1 : -1)];
+      pitches[s] = r.chance(0.1) && s > 0 && !isNote[s - 1] && pitches[s - 1] === pedal && nb >= lo && nb <= hi && (t % 1) > 0.01 ? nb : pedal;
+    });
+    // the last two free notes lean into the next note of the tune
+    const free = Math.min(2, slots.length - 1 - Math.max(-1, isNote.lastIndexOf(true)));
+    if (free > 0 && pitches[slots.length - 1 - free] !== undefined) {
+      const from = pitches[slots.length - 1 - free];
+      const got = from !== target ? fillPath(r, from, target, free, 'stair', true) : null;
+      if (got) got.forEach((m, z) => { pitches[slots.length - free + z] = m; });
+    }
+    if (pitches.some((m) => !(m >= lo && m <= hi))) return null;
+    return slots.map((t, s) => {
+      const len = s + 1 < slots.length ? slots[s + 1] - t : p.b - t;
+      const onBeat = Math.abs(t - Math.round(t)) < 1e-6;
+      const guideIx = guide(w, t).i;
+      return mkEv(t, len, pitches[s], vel0 * (isNote[s] ? 1 : onBeat ? 0.85 : 0.7), guideIx, isNote[s] ? { art: 'pick' } : { art: 'pick', chug: true });
+    });
+  };
+
   /** A held note: bends and vibrato by the player's bendiness and the note's place; the pitch it sounds ends on is `pitch`. */
-  const decorOf = (r: Rng, pitch: number, len: number, T: Temper, strong: number, thinTo?: number, force?: Dress): Partial<GuitarHit> => {
+  const decorOf = (r: Rng, pitch: number, len: number, T: Temper, strong: number, thinTo?: number, force?: Dress, canFall = true, lastNote = false): Partial<GuitarHit> => {
     const out: Partial<GuitarHit> = {};
     if (len >= 3 && r.chance(0.8)) out.vib = r.int(22, 48);
     if (thinTo !== undefined) { out.lateBend = thinTo; delete out.vib; return out; }
-    const below = ladder[ixOf(pitch) - 1];
-    const d = pitch - below;
+    const ix = ixOf(pitch);
+    let d = pitch - ladder[ix - 1];
     if (!(d >= 1 && d <= 2) || len < 2) return out;
     const b = T.bendy * strong;
-    let kind = r.weighted<string>([['none', 1.1], ['pre', len >= 2 ? 0.5 * b : 0], ['late', len >= 6 ? 0.9 * b : 0], ['release', len >= 6 ? 0.5 * b : 0]]);
+    let kind = r.weighted<string>([['none', 1.1], ['pre', len >= 2 ? 0.5 * b : 0], ['late', len >= 6 ? 0.9 * b : 0], ['release', len >= 6 && !lastNote ? 0.5 * b : 0], ['prerelease', len >= 4 && canFall ? 0.3 * b : 0]]);
     // (the echo asks for a kind of dress; a note too short for it keeps what it drew)
-    if (force) kind = force === 'pre' || ((force === 'late' || force === 'release') && len >= 6) ? force : force === 'vib' ? 'none' : kind;
+    if (force) kind = force === 'pre' || ((force === 'late' || force === 'release' && !lastNote) && len >= 6) ? force : force === 'vib' ? 'none' : kind;
+    // a whole-step-and-a-half bend (a minor third) for a bendy player on a long note, when the scale has a note that far down
+    if ((kind === 'pre' || kind === 'late') && len >= 6 && T.bendy > 0.6 && ladder[ix - 2] === pitch - 3 && r.chance(0.2 * b)) d = 3;
     if (kind === 'pre') out.bend = d;
     else if (kind === 'late') { out.lateBend = d; delete out.vib; if (r.chance(0.5)) out.vib = r.int(22, 48); }
-    else if (kind === 'release') { out.bend = d; out.unbend = d; }
+    // a bend up and let down again (never on the last note: the section's hand-over bends it its own way), or (a true pre-bend) picked already bent and then let down
+    else if (kind === 'release') { if (canFall && len >= 4 && r.chance(0.4)) out.unbend = d; else { out.bend = d; out.unbend = d; } }
+    else if (kind === 'prerelease') { out.unbend = d; if (r.chance(0.5)) out.vib = r.int(22, 48); }
     return out;
   };
 
@@ -352,10 +453,10 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       return [ev];
     }
     if (w.pattern === 'decor') {
-      const dec = decorOf(r, n0.midi, n0.len, T, strong, undefined, w.dress);
+      const dec = decorOf(r, n0.midi, n0.len, T, strong, undefined, w.dress, n0.anchor !== 'all', n0.frozen);
       w.dress = 'none';
       if (!Object.keys(dec).length) return [ev0[n0.ev]];
-      if (n0.len < 4 && !dec.bend) return [ev0[n0.ev]];
+      if (n0.len < 4 && !dec.bend && !dec.unbend) return [ev0[n0.ev]];
       w.dress = dec.unbend ? 'release' : dec.lateBend ? 'late' : dec.bend ? 'pre' : 'vib';
       return [{ ...ev0[n0.ev], hit: { ...ev0[n0.ev].hit, ...dec } }];
     }
@@ -373,12 +474,13 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
           if (dn >= 1 && dn <= 2 && r.chance(0.7 * (0.4 + T.bendy))) { pitch = notes[w.j].midi; thin = dn; }
         }
         if (!holdsOver(pitch, p.a, p.b)) return null;
-        const dec = decorOf(r, pitch, p.b - p.a, T, strong, thin);
+        const dec = decorOf(r, pitch, p.b - p.a, T, strong, thin, undefined, n0.anchor !== 'all');
         out.push(mkEv(p.a, p.b - p.a, pitch, vel0 + (k === 0 ? 0.02 : 0), g.i, dec));
         prevPitch = pitch;
       } else {
         const slots = slotTimes(p);
         const nx = notes[w.j + 1] ?? notes[w.j];
+        if (p.burst) { const evs = chugRun(w, p, slots, nx.midi, vel0); if (!evs) return null; out.push(...evs); prevPitch = evs[evs.length - 1].hit.notes[0]; continue; }
         // where the run is going: the next part's note, or the melody's next note
         const target = k === w.parts.length - 1 ? nx.midi : guide(w, w.parts[k + 1].a).midi;
         const fixed = new Map<number, number>();
@@ -402,11 +504,16 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
         const gi = (t: number) => guide(w, t).i;
         // the legato groups: one pick, then hammered and pulled; when the pick cannot go that fast, the whole run is one group
         const gsize = p.legato ? (s16 * Math.min(p.sub!, p.sub2 ?? 9) >= MIN_PICK_MS + 2 ? r.pick([2, 3, 4]) : 99) : 1;
+        // a pair of 32nds: when the hand can't pick the second of them, it is hammered or pulled
+        const pairSlot = p.pair === 'head' ? 1 : p.pair === 'tail' ? slots.length - 1 : -1;
+        const ghost = ghostSlot(r, p, slots, fixed);
         slots.forEach((t, s) => {
           const accent = fixed.has(s);
           const len = s + 1 < slots.length ? slots[s + 1] - t : p.b - t;
-          const pickIt = s % gsize === 0;
+          const pickIt = (s % gsize === 0 && !(s === pairSlot && s16 * 0.5 < MIN_PICK_MS + 2)) || s === ghost + 1;
           const rampUp = 1 + 0.1 * (s / Math.max(1, slots.length - 1));
+          // a ghost note: a muted scratch on the beat where a note would be, at the pitch before it
+          if (s === ghost) { out.push(mkEv(t, len, pitches[s - 1], vel0 * 0.55, gi(t), { art: 'pick', mute: 'dead' })); return; }
           out.push(mkEv(t, len, pitches[s], vel0 * (accent ? 1.0 : 0.8) * rampUp, gi(t), { art: pickIt ? 'pick' : 'legato' }));
         });
         prevPitch = pitches[slots.length - 1];
@@ -456,12 +563,14 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     let fl = 0, rel = 0;
     f.forEach((x, k) => { if (x.fast >= 6) { fl++; if (f.slice(k, k + 3).some((y) => y.holdSteps >= 4)) rel++; } });
     const reliefS = fl ? rel / fl : 0.8;
-    const s = 0.25 * contrastS + 0.25 * mixedS + 0.2 * regularS + 0.1 * varietyS + 0.2 * reliefS - (keep < keepMin ? 1 : 0) - (changedShare < 0.25 * Math.min(1, amt * amt) ? 0.5 : 0);
+    const s = 0.25 * contrastS + 0.25 * mixedS + 0.2 * regularS + 0.1 * varietyS + 0.2 * reliefS + (burstOn && wins.some((w) => w.pattern === 'burst') ? 0.15 : 0) - (keep < keepMin ? 1 : 0) - (changedShare < 0.25 * Math.min(1, amt * amt) ? 0.5 : 0);
     return { score: s, keep };
   };
 
   // ------------------------------------------------------------ the tries
   const T = temperOf(new Rng(`${c.seed}-express-temper`), genre, c.mood);
+  // (whether this solo is up for a burst of palm-muted notes: rare, and by genre, mood and the player's fire)
+  const burstOn = new Rng(`${c.seed}-express-burst`).chance(clamp(0.6 * (BURST_G[genre] ?? 0) * (BURST_M[c.mood] ?? 0.3) * (0.4 + 0.9 * T.fire) * Math.min(1.3, amt), 0, 0.6));
   const tries = o.tries ?? EXPRESS_TRIES;
   let best: Try | null = null;
   for (let k = 0; k < Math.max(1, tries); k++) {
@@ -515,6 +624,9 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     chosen.events[q] = Array.from({ length: w.j - w.i + 1 }, (_, z) => ev0[notes[w.i + z].ev]);
   };
   const winAt = (t: number) => { let b = -1; chosen.wins.forEach((w, q) => { if (t >= w.t0 - 1 - 1e-6 && t <= w.t1 + 1e-6 && w.pattern !== 'plain') b = q; }); return b; };
+
+  /** The tune's landings (even the middle ones) between a and b are all still there in these events, at their time on their pitch. */
+  const keepsLandings = (evs: PEvent[], a: number, b: number) => notes.every((n) => !n.role || n.t < a - TOL || n.t >= b - TOL || evs.some((e) => sounding(e.hit) && Math.abs(e.t - n.t) <= TOL && (e.hit.notes[0] === n.midi || e.hit.notes[0] - (e.hit.lateBend ?? 0) === n.midi)));
 
   // ------------------------------------------------ the recast (docs/SOLO-RECAST.md)
   // After the plan is chosen (so the tune and the windows stay as they were), some runs become something with a name: a lick from the
@@ -674,7 +786,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       return null;
     };
     chosen.wins.forEach((w, q) => {
-      if (w.pattern === 'plain') return;
+      if (w.pattern === 'plain' || w.pattern === 'burst') return;
       const r = new Rng(`${c.seed}-express-recast-${castSeed.get(q) ?? q}`);
       const was = chosen.events[q];
       cast = fresh();
@@ -695,8 +807,11 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
           out.push(e, ...slice.slice(1));
           continue;
         }
+        const tally = { ...cast };
         const got = recastRun(r, w, p, slice, out);
-        if (got) { changed = true; out.push(...got); } else out.push(...slice);
+        // (the tune's landings inside the run stay: a recast that would lose one is not made)
+        const lost = !!got && !keepsLandings(got, p.a, p.b);
+        if (got && !lost) { changed = true; out.push(...got); } else { if (lost) Object.assign(cast, tally); out.push(...slice); }
       }
       if (changed) { precast.set(q, was); castOf.set(q, cast); chosen.events[q] = out; }
     });
@@ -712,7 +827,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       const w = cp.win;
       w.seed = cp.own || !src.seed ? `${c.seed}-express-echo-own-${qa}` : src.seed;
       const ev = realize(w, new Rng(w.seed), T);
-      if (!ev) continue;
+      if (!ev || !keepsLandings(ev, w.t0, w.t1)) continue;
       echoed.set(qa, { win: chosen.wins[qa], events: chosen.events[qa], via: cp.via, from: cp.from });
       chosen.wins[qa] = w;
       chosen.events[qa] = ev;
@@ -721,6 +836,20 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   };
   if (o.echo) echo();
   if (o.recast) recast();
+  // (above the 32nd tempo no three 32nds come in a row: where an echo or a copy brought them, the window goes back to the tune's notes)
+  if (!free32) {
+    for (let guard = 0; guard < 6; guard++) {
+      const line = assemble().filter((e) => sounding(e.hit)).sort((a, b) => a.t - b.t);
+      const qs = new Set<number>();
+      let run: PEvent[] = [];
+      for (let k = 0; k <= line.length; k++) {
+        if (k < line.length && line[k].len <= 0.51 && !line[k].hit.chug) run.push(line[k]);
+        else { if (run.length >= 3) run.forEach((e) => { const q = winAt(e.t); if (q >= 0) qs.add(q); }); run = []; }
+      }
+      if (!qs.size) break;
+      for (const q of qs) revert(q);
+    }
+  }
   for (let guard = 0; guard < 8; guard++) {
     const fresh = verify(assemble(), notes, vctx).filter((v) => !baseline.has(vkey(v)));
     if (!fresh.length) break;

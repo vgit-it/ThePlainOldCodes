@@ -195,12 +195,13 @@ export function carrySolo(idea: Idea, next: Idea | undefined, dials = false) {
   if (!next || !lands || !idea.guitar2.length) return;
   const total = idea.song.total;
   const fin = [...lands].reverse().find((l) => l.role !== 'waypoint');
-  const sorted = [...idea.guitar2].sort((a, b) => a.step - b.step);
+  const sorted = [...idea.guitar2].sort((a, b) => a.step + (a.shift ?? 0) - b.step - (b.shift ?? 0));
   const h = sorted.find((x) => fin && x.step === fin.step && !x.mute && x.notes.length) ?? [...sorted].reverse().find((x) => !x.mute && x.notes.length);
   if (!h) return;
   // (pickup notes into the next section would run into it: the carried note wins)
-  idea.guitar2 = idea.guitar2.filter((x) => x === h || x.step < h.step);
-  h.len = total - h.step + next.song.bars[0].len;
+  idea.guitar2 = idea.guitar2.filter((x) => x === h || x.step + (x.shift ?? 0) < h.step + (h.shift ?? 0));
+  // (a note that sounds a little after its step, a 32nd late, ends where the others do all the same)
+  h.len = total - h.step - (h.shift ?? 0) + next.song.bars[0].len;
   // (a double-stop, a trill, a tremolo or a rake just rings on)
   if (h.notes.length !== 1 || h.trill || h.tremolo || h.rake) return;
   const tones = chordTones(next.song.key, next.chords.timeline[0].chord);
