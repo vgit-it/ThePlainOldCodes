@@ -14,10 +14,18 @@ export const runCount = (idea: Idea) => Math.ceil(idea.song.bars.length / 4);
 
 /** Rewrite guitar 2 for a section: forced roles, or picked like an idea (undefined). Returns its description. */
 export function writeGuitar2(idea: Idea, o: G2Options, rng: Rng, force?: Guitar2Style[], lick?: LickKind): string {
+  return writeGuitar2Styles(idea, o, rng, force, lick).note;
+}
+
+/** As `writeGuitar2`, and the role each four-bar run got. */
+export function writeGuitar2Styles(idea: Idea, o: G2Options, rng: Rng, force?: Guitar2Style[], lick?: LickKind): { note: string; styles: Guitar2Style[] } {
   const g2 = generateGuitar2(rng, idea.song, idea.chords, idea.guitar ?? null, force, lick, o);
   idea.guitar2 = g2.hits;
-  return g2.notes[0];
+  return { note: g2.notes[0], styles: g2.styles ?? [] };
 }
+
+/** Whether Guitar 2's runs are mostly a melodic line (a melody or an octave melody), not fills, swells, arpeggios or rhythm. */
+export const isLeadLine = (styles: Guitar2Style[]) => styles.length > 0 && styles.filter((s) => s === 'lead' || s === 'octaves').length * 2 >= styles.length;
 
 /** Figures (docs/LEAD-FIGURES.md): the chance a song's verses have a picked figure on Guitar 2, by genre (real songs: picked figures are 26% of lead bars in pop, 13-15% in rock and grunge). */
 export const FIGURE_SONGS: Record<Genre, number> = { pop: 0.7, rock: 0.5, grunge: 0.5, altmetal: 0.4, hardrock: 0.25, metal: 0.2, funk: 0.3 };

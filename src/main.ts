@@ -429,6 +429,7 @@ const optSel = {
   soloExpress: $<HTMLSelectElement>('t-soloexpress'),
   soloBacking: $<HTMLSelectElement>('t-solobacking'),
   soloVary: $<HTMLSelectElement>('t-solovary'),
+  bridgeLead: $<HTMLSelectElement>('t-bridgelead'),
   soloBends: $<HTMLSelectElement>('t-solobends'),
   soloRecast: $<HTMLSelectElement>('t-solorecast'),
   soloEcho: $<HTMLSelectElement>('t-soloecho'),
@@ -470,6 +471,7 @@ function syncTrackOptions() {
   optSel.soloExpress.value = track.opts.soloExpress === 'on' ? 'on' : 'off';
   optSel.soloBacking.value = track.opts.soloBacking === 'held' ? 'held' : 'written';
   optSel.soloVary.value = track.opts.soloVary === 'on' ? 'on' : 'off';
+  optSel.bridgeLead.value = track.opts.bridgeLead === 'on' ? 'on' : 'off';
   optSel.soloBends.value = track.opts.soloBends === 'dials' ? 'dials' : 'plain';
   optSel.soloRecast.value = track.opts.soloRecast === 'on' ? 'on' : 'off';
   optSel.soloEcho.value = track.opts.soloEcho === 'on' ? 'on' : 'off';
@@ -498,6 +500,7 @@ for (const [k, sel] of Object.entries(optSel)) {
     if (k === 'soloRecast') return rebuildTrack({ ...track.opts, soloRecast: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'soloAmount') return rebuildTrack({ ...track.opts, soloAmount: sel.value === 'light' || sel.value === 'full' ? sel.value : 'normal' }, shown, true);
     if (k === 'soloEcho') return rebuildTrack({ ...track.opts, soloEcho: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'bridgeLead') return rebuildTrack({ ...track.opts, bridgeLead: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'soloVary') return rebuildTrack({ ...track.opts, soloVary: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'soloBacking') return rebuildTrack({ ...track.opts, soloBacking: sel.value === 'held' ? 'held' : 'written' }, shown, true);
     if (k === 'moodSong') return rebuildTrack({ ...track.opts, moodSong: sel.value as TrackOptions['moodSong'] }, shown, true);
