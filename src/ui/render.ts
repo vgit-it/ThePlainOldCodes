@@ -73,7 +73,7 @@ export function renderIdea(
   const hats = drums.hat.map((v, i) => (drums.hatOpen[i] ? 'o' : v ? 'x' : '.'));
   // riff ideas: n = note, C = power chord, p = palm mute, x = dead scratch, a = clean arpeggio note
   const guitar = new Array<string>(song.total).fill('.');
-  const sym = (h: GuitarHit) => (h.clean ? 'a' : h.mute === 'palm' ? 'p' : h.mute === 'dead' ? 'x' : h.notes.length > 1 ? 'C' : 'n');
+  const sym = (h: GuitarHit) => (h.clean ? 'a' : h.mute === 'palm' || h.chug ? 'p' : h.mute === 'dead' ? 'x' : h.notes.length > 1 ? 'C' : 'n');
   for (const h of idea.guitar ?? []) guitar[h.step] = sym(h);
   // strummed parts: picked notes (an arpeggio, a lick between chords) show in the strum lane
   const strum = [...idea.strum] as string[];

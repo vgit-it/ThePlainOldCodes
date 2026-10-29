@@ -53,7 +53,7 @@ for (let j = 0; j < N; j++) {
         if (x.t + x.len > nx.t + 1e-6 + 1 / 12) { T.overlap++; fail(`${on.s}: overlap at ${x.t}`); }
         const beat = Math.min(...(song.bars.find((b: any) => x.t + x.len >= b.start && x.t + x.len < b.start + b.len) ?? lastBar).groups);
         if (nx.t - (x.t + x.len) > beat + 1e-6 && x.t + x.len < lastBar.start) { T.silence++; fail(`${on.s}: silence after ${x.t}`); }
-        const ms = (nx.t - x.t) * s16, min = nx.art === 'legato' || nx.art === 'slide' ? 40 : 60;
+        const ms = (nx.t - x.t) * s16, min = nx.art === 'legato' || nx.art === 'slide' ? 40 : x.chug || nx.chug ? 50 : 60;
         if (!x.tremolo && !x.trill && !nx.tremolo && ms < min - 1e-6) { T.speed++; fail(`${on.s}: ${ms.toFixed(0)} ms between notes at ${nx.t}`); }
       }
     });

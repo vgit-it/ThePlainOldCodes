@@ -181,7 +181,7 @@ function hitNotes(hits: GuitarHit[], base: number, shift: number, open: number[]
     if (h.slide && !n.from) n.from = -h.slide;
     if (h.bend) n.bend = h.bend;
     if (n.bend && n.grip === 'single') n.grip = 'bend';
-    n.unbend = h.unbend; n.trill = h.trill; n.tremolo = h.tremolo; n.mute = h.mute; n.rake = h.rake;
+    n.unbend = h.unbend; n.trill = h.trill; n.tremolo = h.tremolo; n.mute = h.mute ?? (h.chug ? 'palm' : undefined); n.rake = h.rake;
     if (h.vib !== undefined) n.vib = h.vib;
     return n;
   });

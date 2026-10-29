@@ -70,6 +70,7 @@
     "mood-all-check": "rolldown scripts/mood-all-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/mood-all-check.mjs && node node_modules/.cache/mood-all-check.mjs",
     "solo-mood-check": "rolldown scripts/solo-mood-check.ts --platform node --format esm -o node_modules/.cache/solo-mood-check.mjs && node node_modules/.cache/solo-mood-check.mjs",
     "solo-express-check": "rolldown scripts/solo-express-check.ts --platform node --format esm -o node_modules/.cache/solo-express-check.mjs && node node_modules/.cache/solo-express-check.mjs",
+    "solo-feel-check": "rolldown scripts/solo-feel-check.ts --platform node --format esm -o node_modules/.cache/solo-feel-check.mjs && node node_modules/.cache/solo-feel-check.mjs",
     "solo-back-check": "rolldown scripts/solo-back-check.ts --platform node --format esm -o node_modules/.cache/solo-back-check.mjs && node node_modules/.cache/solo-back-check.mjs",
     "solo-bend-check": "rolldown scripts/solo-bend-check.ts --platform node --format esm -o node_modules/.cache/solo-bend-check.mjs && node node_modules/.cache/solo-bend-check.mjs",
     "solo-recast-check": "rolldown scripts/solo-recast-check.ts --platform node --format esm -o node_modules/.cache/solo-recast-check.mjs && node node_modules/.cache/solo-recast-check.mjs",

@@ -1,4 +1,4 @@
-Status: step 1 built (2026-10-28), behind a switch. Paul has not heard it.
+Status: step 1 built (2026-10-28), feel added (2026-10-29), behind a switch. Paul has not heard it.
 
 # Solo expression: the Tune first melody played like a guitarist
 
@@ -30,6 +30,17 @@ Switch: Track options → **Solo expression** → On (`soloExpress: 'on'`). Need
 ## Held notes
 - Vibrato, and by the player's bendiness and the note's place (the climax and the end more): a bend into the note, a late bend (picked a step or two under, pushed up later), a bend let down. A thin window ending a step or two higher is played as one note bent up to it.
 - Slow versus fast bends: done as an extra switch, Solo bends (`SOLO-BENDS.md`).
+
+## Feel: 32nds, the muted burst, ghost notes, pre-bends (2026-10-29, same switch, Paul has not heard it)
+Paul: 4 or 5 32nds in a row came too often, and he wanted muted notes, more pre-bends, and a rare all-out burst.
+- **32nds above 100 bpm** (`FREE_32_BPM`): no run is all 32nds and no run speeds up into 32nds. They come as a **pair** (two 32nds where one 16th would be) at the start or at the end of a run of 16ths. The second of the pair is hammered or pulled when the hand cannot pick it (above about 120 bpm). A pair never follows a pair (no four in a row), and a copy from the echo that would make three in a row goes back to the tune's notes. At 100 bpm and under, 32nd runs are as before.
+- **The burst**: a bar or two (8 to 40 steps) of **palm-muted** notes on one pitch, in 32nds (16ths when the tempo is above about 144 bpm: 32nds are quicker than a hand picks, 50 ms is the limit), the tune's own notes ringing out on top, the chug moving to a chord note when the chord changes, a neighbour now and then, the last two notes leaning into the next note. Once per solo at most, at a hot, high-energy spot, never over a goal note. Whether a solo is up for it is drawn from genre and mood and the player's fire: metal about half the time, angry and tense moods most, alt metal a little, hard rock very rarely, rock and grunge almost never, pop and funk never. A burst is not recast or echoed. Muted notes are `chug` hits: the hands still finger them and the checks still count them.
+- **Ghost notes**: inside a run, now and then one slot is a muted scratch (a dead note at the pitch before it), never on the tune's own notes. By genre (funk most, metal least) times the player's own liking (`dress.ghost` in `soloperson.ts`).
+- **Pre-bends**: a true pre-bend (picked already bent, then let down) joins the bend kinds, on long enough notes that are not the climax, the end or the last note. A minor-third (3 semitone) bend is possible for a bendy player on a long note when the scale has a note that far down. The last note never lets down in the expression (the hand-over bends it its own way).
+- **Slides from note to note**: now and then a note is slid into from the one before it (same string, no new pick, `art: 'slide'`). Needs: both notes plain (no bend, trill, mute), a fret to five apart (a fret or two most), the note before long enough to hear the move (70 ms + 20 ms a fret), the two following on. Goal notes can be slid into (they keep start, pitch and end). Never into the last note. How often follows the player's own liking (`dress.slide`) and hands (`hands.slide`), about 4 a solo. The hands have the last word: a slide they cannot play on one string goes back to a pick (`slidesKept` in `soloverify.ts`).
+- **Bends into the next note**: now and then one held note (3+ steps, not a goal) is bent or let down into the next note of the tune on that note's beat: a step or two up, pushed up to it; a step or two down, picked already bent and let down to it. The next note is then part of the bend (not a note of its own). Chance follows the player's bendiness. Done in the plan (`bendNext`), with the bend timed to the second note's beat (`bendAt`).
+- Fixed on the way: a recast or an echo copy never loses one of the tune's middle landings now; the hand-over note (`carrySolo`) counts a note's `shift`, so a solo that ends on a run of 32nds ends on time.
+- Check: `npm run solo-feel-check`.
 
 ## Kept safe
 - Goal notes, the last note, the key, the range, no overlaps, no silence over a beat, speeds the hands can play, a fingering for every note: the checker (`soloverify.ts`, `loose` on: melody notes may be dissolved, everything else is judged) and the hands have the last word; a window that fails goes back to the tune's own notes.
