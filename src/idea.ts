@@ -549,7 +549,9 @@ export interface SectionInfo {
   /** The previous section pushed this one's first chord early: its downbeat isn't struck again. */
   pushedIn?: boolean;
   /** A solo with held chords under it (src/sections/soloback.ts): the steps where a chord is struck. */
-  soloBack?: { strikes: number[] };
+  soloBack?: { strikes: number[]; /** Only a stretch of the solo is held (docs/SOLO-VARY.md): its steps, from and up to. Missing: the whole section. */ from?: number; to?: number };
+  /** A long solo's stretch that gets another band feel (src/sections/solovary.ts, docs/SOLO-VARY.md): bars from and up to, within the solo. */
+  soloVary?: { from: number; to: number; drums: 'light' | 'half' | 'lift' | 'same'; chords: 'other' | 'held' | 'same' };
   /** Tension per bar (0-1) from the song's arc, and the mix level per bar (dB, 0 at the climax). */
   tension?: number[];
   db?: number[];

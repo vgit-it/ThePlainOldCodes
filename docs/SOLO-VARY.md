@@ -1,0 +1,30 @@
+Status: built (2026-10-29), behind a switch. Paul has not heard it.
+
+# Solo variation: a long solo does not sit on one band feel
+
+Paul: a solo of 16 bars or more is the same eight bars of band played again (24 bars: three times), with one groove for the whole solo. It gets monotonous. For a 16-bar solo, a 4 or 8 bar stretch could have a different drum and chord feel.
+
+Switch: Track options → **Solo variation** → On (`soloVary: 'on'`). Off by default; an old link plays as before. Works with any Solo writer (it changes the band under the solo, and the solo's energy). Check: `npm run solo-vary-check`. Code: `src/sections/solovary.ts`.
+
+## What it does (solos of 16 bars or more; 8-bar solos are left alone)
+- **A stretch**: about 8 solos in 10 get one. 4 or 8 bars, on a four-bar phrase, never the first four bars (the solo enters as it always did). It may run to the end of the solo.
+- **Drums** (one of, by genre and mood; a calm mood eases off, an angry one pushes, a dark one goes half-time):
+  - lighter: closed 8th hats, no crashes, the drummer keeps the hats instead of moving to the ride;
+  - half-time: the snare moves from beats 2 and 4 to beat 3 (4/4 songs not in half-time already; else a lift);
+  - lift: ride on the 8ths and a crash on every bar.
+- **Chords** (one of, or none):
+  - the other section's chords and groove (a verse solo gets the chorus's four or eight bars, and the reverse), same bar of the eight;
+  - the song's chords held for the stretch (as Solo backing, only those bars: the rhythm guitar rings power or full chords, the bass holds the roots). Not offered when Solo backing already holds the whole solo.
+  - With the other section's chords the drums change on top of its groove only half the time.
+- **The solo follows**: the tension over the stretch dips (lighter, half-time) or lifts, so the tune plays sparser and bendier, or busier. Solo expression's heat reads it.
+- **Kept**: the last bar (the hand-over to the next section) and bars with a fill keep their drums. The drummer's own phrase-end fills still come at bars 4, 8, 12... so the edges of a stretch are marked. The first bar of a lighter stretch keeps its crash.
+- The section card says it: "Solo bars 5-8: the drums ease off (closed hats, no crashes)".
+
+## For later
+- Two stretches in a 24-bar solo.
+- A key lift or a relative-minor swap for the stretch (the tune is written over the chords, so it would follow).
+- The mix level over the stretch (the dB per bar follows the arc, not this).
+- Outro solos and lead breaks (short; left alone).
+
+## Next
+1. Paul listens (metal and hard rock 16-bar solos first, then calm moods).
