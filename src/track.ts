@@ -48,7 +48,7 @@ import { crashAt, ensureFill, pickup, shapeDrums, quarterTime, shapeStrum, shape
 import { Plan, MOOD_PLANS, CHORUS_PLANS, JAM_PLANS, RIFF_VERSE_MOVE, isMinor, plansFor, describeChords, planned, chordal, pedalBass, transpose } from './sections/harmony';
 import { layerIntro, longIntro, jamBuild, snareBuild, bandHits } from './sections/arrangement';
 import { turnaround, push, settleIn, ringOut, walkUp, g2Pickup } from './sections/seams';
-import { runCount, writeGuitar2, FIGURE_SONGS, ROOM, makeRoom, NO_LEAD, BREAK, TWIN, TWIN_KINDS, addTwin, playingStyle } from './sections/guitar2';
+import { runCount, writeGuitar2, writeGuitar2Styles, isLeadLine, FIGURE_SONGS, ROOM, makeRoom, NO_LEAD, BREAK, TWIN, TWIN_KINDS, addTwin, playingStyle } from './sections/guitar2';
 
 export type Choice = 'auto' | 'on' | 'off';
 export type IntroChoice = 'auto' | 'alone' | 'layered' | 'long' | 'band';
@@ -116,6 +116,8 @@ export interface TrackOptions {
   soloBacking?: 'held' | 'written';
   /** Solo variation (docs/SOLO-VARY.md): in a solo of 16 bars or more, one stretch of 4 or 8 bars gets another band feel (lighter, half-time or lifted drums; the other section's chords, or held chords). Off (default, and missing in older links): the same band all through. */
   soloVary?: 'on' | 'off';
+  /** Lead in bridges and breakdowns (docs/BRIDGE-LEAD.md): a bridge or breakdown whose Guitar 2 plays a melodic line gets it written like a short lead break (the solo writer and Solo expression, sparse), and the drummer fills under it. Off (default, and missing in older links): the older Guitar 2 line. */
+  bridgeLead?: 'on' | 'off';
   /** Checks only (scripts/solo-*-check.ts), never set by the page: a step of the melody + player writer on its own (the melody, with gap marks, with joins, or read and left as written). */
   soloCheck?: 'melody' | 'marks' | 'joins' | 'player';
   /** When the rhythm guitar plays (src/players/presence.ts): it sits out intros, verses and bridges, comes in late, drops out, as in real songs (missing in older links: off). */
@@ -702,6 +704,22 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     let g2 = 'Guitar 2: same as the idea';
     // (the lines after the first that a solo writer gives: one per gap between the cores, the story)
     let g2more: string[] = [];
+    // A short melodic solo, quoting the hook, lower and sparer than a full one (a lead break, or a lead line in a bridge or breakdown)
+    const writeBreakSolo = (tag: string) => {
+      let sol = tuneFirst
+        ? generateSoloTune(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on' })
+        : melody
+        ? generateSoloMelody(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(isCoreMode(opts.soloCores) ? { cores: opts.soloCores, ...(opts.soloClimax === 'on' ? { climax: 'played' as const } : {}) } : {}) }, melody.mode)
+        : opts.soloPlan === 'on'
+        ? generateSoloPlan(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums })
+        : generateSolo2(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3);
+      if (tuneFirst && opts.soloExpress === 'on') sol = expressTune(sol, `${soloSeed}-${tag}-${si}`, idea, arc.mood, arc.sections[si].tension);
+      else if (melody && (coreOn || tuneFirst ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-${tag}-${si}`, idea, arc.mood, arc.sections[si].tension, melody.play);
+      if (melody && melody.play && coreOn && opts.soloShape === 'on') sol = shapeStory(sol, arc.mood);
+      if (opts.soloSounds === 'on') sol = withSounds(sol, `${soloSeed}-${tag}-${si}`, idea, lead.lick, 0.3, false, notes, si);
+      idea.guitar2 = sol.hits;
+      idea.soloCurve = sol.curve;
+    };
     // the lead player's verse: mostly answering the singer, now and then another part for a change
     const answering = (k: number): Guitar2Style => (r.chance(lead.other) ? playingStyle(r, idea, k) : 'answerMore');
     // Room: a lead line over the band's intro, where the lead keeps out of the verses
@@ -714,8 +732,17 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
       const late = s.g2 === 'drop' && runs > 1 && r.chance(0.5);
       g2 = writeGuitar2(idea, g2o, r, Array.from({ length: runs }, (_, k) => (late && k < runs / 2 ? 'rest' : 'figure')));
     } else if (s.g2 === 'drop') { idea.guitar2 = []; g2 = 'Guitar 2: sits out'; }
-    else if (s.g2 === 'pick') g2 = writeGuitar2(idea, g2o, r);
-    else if (s.g2 === 'build' && leadVerses) {
+    else if (s.g2 === 'pick') {
+      const w = writeGuitar2Styles(idea, g2o, r);
+      g2 = w.note;
+      // Lead in bridges and breakdowns (switch): a melodic line there is written like a short lead break
+      if (opts.bridgeLead === 'on' && (s.kind === 'bridge' || s.kind === 'breakdown') && isLeadLine(w.styles)) {
+        writeBreakSolo('bridge');
+        idea.section!.lead = true;
+        idea.section!.leadSolo = true;
+        g2 = `Guitar 2: a lead line through the ${s.kind}, written like a short solo`;
+      }
+    } else if (s.g2 === 'build' && leadVerses) {
       g2 = writeGuitar2(idea, g2o, r, Array.from({ length: runs }, (_, k) => (k < runs / 2 ? 'answer' : answering(k))), lead.lick);
       notes.push('Plays twice through; Guitar 2 answers the singer more the second time');
     } else if (s.g2 === 'build') {
@@ -751,19 +778,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
       else notes.push('Guitar 2 solos over the outro');
     } else if (s.g2 === 'break') {
       // Breaks: a short melodic solo, quoting the hook, lower and sparer than a full one; the band as it is
-      let sol = tuneFirst
-        ? generateSoloTune(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on' })
-        : melody
-        ? generateSoloMelody(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(isCoreMode(opts.soloCores) ? { cores: opts.soloCores, ...(opts.soloClimax === 'on' ? { climax: 'played' as const } : {}) } : {}) }, melody.mode)
-        : opts.soloPlan === 'on'
-        ? generateSoloPlan(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums })
-        : generateSolo2(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3);
-      if (tuneFirst && opts.soloExpress === 'on') sol = expressTune(sol, `${soloSeed}-break-${si}`, idea, arc.mood, arc.sections[si].tension);
-      else if (melody && (coreOn || tuneFirst ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-break-${si}`, idea, arc.mood, arc.sections[si].tension, melody.play);
-      if (melody && melody.play && coreOn && opts.soloShape === 'on') sol = shapeStory(sol, arc.mood);
-      if (opts.soloSounds === 'on') sol = withSounds(sol, `${soloSeed}-break-${si}`, idea, lead.lick, 0.3, false, notes, si);
-      idea.guitar2 = sol.hits;
-      idea.soloCurve = sol.curve;
+      writeBreakSolo('break');
       idea.section!.lead = true;
       g2 = 'Guitar 2: a lead break, a short melodic solo over the chorus chords';
     } else if (s.g2 === 'play') g2 = writeGuitar2(idea, g2o, r, Array.from({ length: runs }, (_, k) => playingStyle(r, idea, k)));

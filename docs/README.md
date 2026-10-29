@@ -52,6 +52,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `SOLO-AMOUNT.md`: Solo amount (Light / Normal / Full: how much Solo expression changes the tune). Switch: Solo amount. Check: `npm run solo-amount-check`.
 - `SOLO-BACKING.md`: Solo backing, held chords under a solo (chords merged into 2–4 bar holds, the rhythm guitar rings them, the bass holds the root). Switch: Solo backing. Check: `npm run solo-back-check`.
 - `SOLO-VARY.md`: Solo variation, a 4 or 8 bar stretch of a long solo (16+ bars) gets another band feel: lighter, half-time or lifted drums; the other section's chords or held chords; the solo's energy follows. Switch: Solo variation. Check: `npm run solo-vary-check`.
+- `BRIDGE-LEAD.md`: Lead in bridges and breakdowns, a melodic Guitar 2 line there is written like a short lead break (solo writer, Solo expression, sparse) and the drummer fills under it. Switch: Lead in bridges and breakdowns. Check: `npm run bridge-lead-check`.
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.
 - `RIFF-LAB.md`: the riff lab page and the new riff writer (single-note, chug, big chords, gallop, pedal, stabs + lick, picked hook, clean arpeggio, written in layers: rhythm, a few pitches, answer, form, best of many). In songs behind a switch: `RIFF-WIRE.md`.
