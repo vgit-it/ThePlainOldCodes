@@ -1,6 +1,6 @@
 // Solo variation (docs/SOLO-VARY.md): a long solo (16 bars or more) is the same eight bars of band again and again.
 // One stretch of it (4 or 8 bars, on a four-bar phrase, never the first four bars) gets another band feel:
-//  - drums: a breakdown, heavy half-time, or a push (a different groove each, always; see varyDrums);
+//  - drums: a breakdown or heavy half-time (a different groove, always; see varyDrums);
 //  - chords: the other section's chords (and its groove), or the song's chords held (power or full chords).
 // Which one follows the genre and the mood; the solo's energy over the stretch follows it (a dip or a lift).
 
@@ -13,31 +13,31 @@ import { crashAt } from './energy';
 import type { Seg } from './join';
 
 export type SoloVary = NonNullable<SectionInfo['soloVary']>[number];
-type Kind = 'light' | 'half' | 'lift';
+type Kind = 'light' | 'half';
 
 /** How likely each drum change is, by genre. */
 const DRUM_G: Record<Genre, Record<Kind, number>> = {
-  metal: { light: 0.5, half: 1, lift: 2 },
-  hardrock: { light: 1, half: 1.2, lift: 1.2 },
-  rock: { light: 1.2, half: 1, lift: 1 },
-  grunge: { light: 1.2, half: 1.5, lift: 0.8 },
-  altmetal: { light: 1, half: 1.2, lift: 1 },
-  funk: { light: 1.5, half: 0.2, lift: 1 },
-  pop: { light: 1.5, half: 0.4, lift: 1 },
+  metal: { light: 1, half: 1 },
+  hardrock: { light: 1, half: 1.2 },
+  rock: { light: 1.2, half: 1 },
+  grunge: { light: 1.2, half: 1.5 },
+  altmetal: { light: 1, half: 1.2 },
+  funk: { light: 1.5, half: 0.2 },
+  pop: { light: 1.5, half: 0.4 },
 };
-/** And by mood: a calm one eases off, an angry one pushes. */
+/** And by mood: a calm one eases off, an angry one goes heavy. */
 const DRUM_M: Record<Mood, Record<Kind, number>> = {
-  happy: { light: 1, half: 0.7, lift: 1.5 },
-  melancholic: { light: 2, half: 1, lift: 0.4 },
-  nostalgic: { light: 1.8, half: 0.8, lift: 0.6 },
-  tense: { light: 0.7, half: 1, lift: 1.6 },
-  angry: { light: 0.5, half: 1, lift: 2 },
-  dreamy: { light: 2, half: 0.8, lift: 0.5 },
-  triumphant: { light: 0.7, half: 0.7, lift: 1.8 },
-  dark: { light: 0.9, half: 1.8, lift: 1 },
+  happy: { light: 1, half: 0.7 },
+  melancholic: { light: 2, half: 1 },
+  nostalgic: { light: 1.8, half: 0.8 },
+  tense: { light: 0.7, half: 1 },
+  angry: { light: 0.5, half: 1 },
+  dreamy: { light: 2, half: 0.8 },
+  triumphant: { light: 0.7, half: 0.7 },
+  dark: { light: 0.9, half: 1.8 },
 };
 /** What the solo's tension does over the stretch (so the tune follows the band). */
-const DRUM_T: Record<VaryDrumKind, number> = { light: -0.18, half: -0.08, lift: 0.12, same: 0 };
+const DRUM_T: Record<VaryDrumKind, number> = { light: -0.18, half: -0.08, same: 0 };
 type VaryDrumKind = SoloVary['drums'];
 
 /** Where a stretch can sit, by the solo's length (bars from, bars up to). */
@@ -59,9 +59,11 @@ const PAIRS_24: [[number, number], [number, number]][] = [
 export function planVary(seed: string, bars: number, genre: Genre, mood: Mood, halfOk: boolean, heldAll: boolean): SoloVary[] | null {
   if (bars < 16) return null;
   const r = new Rng(seed);
-  const kinds: Kind[] = halfOk ? ['light', 'half', 'lift'] : ['light', 'lift'];
+  const kinds: Kind[] = halfOk ? ['light', 'half'] : ['light'];
   const stretch = ([from, to]: [number, number], held: boolean, not?: VaryDrumKind): SoloVary => {
-    const drums = r.weighted<Kind>(kinds.filter((k) => k !== not).map((k) => [k, DRUM_G[genre][k] * DRUM_M[mood][k]]));
+    // (a second stretch takes the other change; with one change on offer, the same again)
+    const other = kinds.filter((k) => k !== not), pool = other.length ? other : kinds;
+    const drums = r.weighted<Kind>(pool.map((k) => [k, DRUM_G[genre][k] * DRUM_M[mood][k]]));
     const chords = r.weighted<SoloVary['chords']>([['other', 0.45], ['held', held ? 0.25 : 0], ['same', 0.3]]);
     return { from, to, drums, chords };
   };
@@ -116,7 +118,6 @@ const LANES = ['kick', 'snare', 'hat', 'hatOpen', 'ride', 'crash', 'tom'] as con
  * and the bars with a fill stay as they are.
  *  - light, a breakdown: no snare, no cymbals but quiet hats on the beats; the kick on the 1 (kick-led genres keep their kick pattern);
  *  - half, heavy half-time: one snare on the 3rd beat, one kick on the 1, slow hats, a crash or an open hat on the 1;
- *  - lift, a push: the ride on every 8th, the kick on every beat, the snare on the off-beats (pop and funk keep the backbeat), a crash a bar.
  * Returns the note for the section card ('' when nothing changed).
  */
 export function varyDrums(idea: Idea, v: SoloVary, _rng: Rng): string {
@@ -160,29 +161,14 @@ export function varyDrums(idea: Idea, v: SoloVary, _rng: Rng): string {
     }
     return n;
   };
-  const lift = () => {
-    for (const { b } of todo) {
-      const backbeat = genre === 'pop' || genre === 'funk';
-      const bs = beats(b), starts = groupStarts(b.groups);
-      wipe(b);
-      for (let j = 0; j < b.len; j += 2) d.ride[b.start + j] = bs.includes(b.start + j) ? 0.9 : 0.74;
-      bs.forEach((g) => { d.kick[g] = 1; });
-      if (backbeat) { if (four(b)) { d.snare[b.start + 4] = 0.95; d.snare[b.start + 12] = 0.95; } }
-      else b.groups.forEach((gl, k) => { if (gl >= 4) d.snare[b.start + starts[k] + Math.round(gl / 2)] = 0.9; });
-      crashAt(d, b.start);
-    }
-    return todo.length;
-  };
   let kind = v.drums;
   let n = 0;
-  if (kind === 'half') { n = half(); if (!n) kind = 'lift'; }
-  if (kind === 'lift') n = lift();
+  // (half-time needs 4/4 bars with a backbeat; where it finds none, the breakdown)
+  if (kind === 'half') { n = half(); if (!n) kind = 'light'; }
   if (kind === 'light') n = breakdown();
   if (!n) return '';
   const what = kind === 'light'
     ? (HEAVY.has(genre) ? 'a breakdown (the kick leads, no snare, quiet hats)' : 'a breakdown (kick on the 1, no snare, quiet hats on the beats)')
-    : kind === 'half' ? 'heavy half-time (one big kick, one big snare, slow hats)'
-    : genre === 'pop' || genre === 'funk' ? 'a push (ride on the 8ths, kick on every beat, a crash a bar)'
-    : 'a push (ride on the 8ths, kick on every beat, snare on the off-beats, a crash a bar)';
+    : 'heavy half-time (one big kick, one big snare, slow hats)';
   return `Solo bars ${v.from + 1}-${v.to}: the drums go to ${what}`;
 }

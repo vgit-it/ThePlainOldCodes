@@ -559,7 +559,7 @@ export interface SectionInfo {
   /** A bridge or breakdown whose lead line was written like a short solo (docs/BRIDGE-LEAD.md): the drummer fills under it. */
   leadSolo?: boolean;
   /** A long solo's stretches (one; two in 24 bars) that get another band feel (src/sections/solovary.ts, docs/SOLO-VARY.md): bars from and up to, within the solo. */
-  soloVary?: { from: number; to: number; drums: 'light' | 'half' | 'lift' | 'same'; chords: 'other' | 'held' | 'same' }[];
+  soloVary?: { from: number; to: number; drums: 'light' | 'half' | 'same'; chords: 'other' | 'held' | 'same' }[];
   /** Tension per bar (0-1) from the song's arc, and the mix level per bar (dB, 0 at the climax). */
   tension?: number[];
   db?: number[];
