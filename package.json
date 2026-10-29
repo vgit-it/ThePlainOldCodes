@@ -9,6 +9,7 @@
     "guitar-sounds-check": "rolldown scripts/guitar-sounds-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/guitar-sounds-check.mjs && node node_modules/.cache/guitar-sounds-check.mjs",
     "solo-sounds-check": "rolldown scripts/solo-sounds-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/solo-sounds-check.mjs && node node_modules/.cache/solo-sounds-check.mjs",
     "recipe-lab-check": "rolldown scripts/recipe-lab-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/recipe-lab-check.mjs && node node_modules/.cache/recipe-lab-check.mjs",
+    "riff-wire-check": "rolldown scripts/riff-wire-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/riff-wire-check.mjs && node node_modules/.cache/riff-wire-check.mjs",
     "riff-lab-check": "rolldown scripts/riff-lab-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/riff-lab-check.mjs && node node_modules/.cache/riff-lab-check.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
