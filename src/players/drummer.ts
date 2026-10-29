@@ -232,9 +232,13 @@ function playUnderSolo(idea: Idea, dr: Drummer, rng: Rng, endAt: number) {
   });
   const inFill = fillSteps(idea);
 
+  // a lighter stretch (Solo variation) keeps its closed hats: that is the change
+  const lights = (idea.section!.soloVary ?? []).filter((v) => v.drums === 'light').map((v) => [bars[v.from].start, v.to >= n ? song.total : bars[v.to].start] as const);
+  const light = (g: number) => lights.some(([a, b]) => g >= a && g < b);
+  const lightFrom = (g: number) => lights.some(([a]) => g === a);
   // the ride instead of the hi-hat
   for (let g = 0; g < endAt; g++) {
-    if (inFill.has(g) || !d.hat[g]) continue;
+    if (inFill.has(g) || !d.hat[g] || light(g)) continue;
     if (g % 2 === 0) d.ride[g] = Math.min(0.85, d.hat[g] + 0.08);
     d.hat[g] = 0;
   }
@@ -245,12 +249,13 @@ function playUnderSolo(idea: Idea, dr: Drummer, rng: Rng, endAt: number) {
     d.ride[g] = 0; d.hat[g] = 0; d.hatOpen[g] = 0;
   };
   // a crash at the top of every four bars, and landing on the peak
-  for (let bi = 0; bi < n; bi += 4) crash(bars[bi].start);
-  crash(bars[peakBar].start);
+  // (not inside a lighter stretch, past its first bar)
+  for (let bi = 0; bi < n; bi += 4) if (!light(bars[bi].start) || lightFrom(bars[bi].start)) crash(bars[bi].start);
+  if (!light(bars[peakBar].start)) crash(bars[peakBar].start);
   // catching the guitar: its peak note and long held notes (on an 8th), once every two bars at most
   let caught = -Infinity;
   for (const h of g2) {
-    if (h.step % 2 || h.step - caught < 32 || !(h === peakHit || h.len >= 8)) continue;
+    if (h.step % 2 || h.step - caught < 32 || !(h === peakHit || h.len >= 8) || light(h.step)) continue;
     crash(h.step);
     caught = h.step;
   }

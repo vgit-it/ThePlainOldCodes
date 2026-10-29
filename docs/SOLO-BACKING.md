@@ -21,6 +21,9 @@ Switch: Track options → **Solo backing** → Held chords (`soloBacking: 'held'
 ## Tried and dropped
 - Merging the chords into 2–4 bar holds (the first version): the solo ended up on one chord from start to end. Not what Paul wants.
 
+## Used by
+- Solo variation (`SOLO-VARY.md`) holds the chords for one stretch of a long solo only (`soloBack.from` / `to`); the players leave just those steps alone.
+
 ## Next
 1. Paul listens (hard rock, metal, grunge first).
 2. Riff songs: full chords as well as power chords, by the song or the section.

@@ -66,13 +66,14 @@ export function pickup(idea: Idea, rng: Rng) {
 /**
  * Drums get lighter (2: closed 8th hats, no crashes; 3: closed hats, one crash)
  * or bigger (5: ride, crashes every 2 bars). 4 = as written.
+ * `from`/`to` (steps) limit the lighter shapes (1-3) to a stretch of the section (docs/SOLO-VARY.md).
  */
-export function shapeDrums(idea: Idea, e: number, rng: Rng) {
+export function shapeDrums(idea: Idea, e: number, rng: Rng, from = 0, to = idea.song.total) {
   const d = idea.drums, { song } = idea, n = song.total;
   const beat = beatSet(song);
   const barStarts = new Set(song.bars.map((b) => b.start));
   if (e <= 1) {
-    for (let g = 0; g < n; g++) {
+    for (let g = from; g < to; g++) {
       const cym = d.hat[g] || d.ride[g] || d.hatOpen[g] || d.crash[g];
       d.kick[g] = barStarts.has(g) ? 0.7 : 0;
       d.snare[g] = 0; d.tom[g] = 0; d.crash[g] = 0; d.hatOpen[g] = 0; d.ride[g] = 0;
@@ -80,7 +81,7 @@ export function shapeDrums(idea: Idea, e: number, rng: Rng) {
     }
     d.fills = [];
   } else if (e === 2) {
-    for (let g = 0; g < n; g++) {
+    for (let g = from; g < to; g++) {
       const wash = d.hatOpen[g] || d.ride[g] || (g > 0 && d.crash[g]);
       if (wash && !d.hat[g]) d.hat[g] = beat.has(g) ? 0.55 : 0.42;
       d.hatOpen[g] = 0; d.ride[g] = 0;
@@ -94,7 +95,7 @@ export function shapeDrums(idea: Idea, e: number, rng: Rng) {
     }
   } else if (e === 3) {
     // verses: closed hi-hat instead of ride, one crash at the top only
-    for (let g = 0; g < n; g++) {
+    for (let g = from; g < to; g++) {
       if (d.ride[g] && !d.hat[g]) d.hat[g] = beat.has(g) ? 0.6 : 0.45;
       d.ride[g] = 0;
       if (g > 0 && d.crash[g]) { d.crash[g] = 0; d.hat[g] = 0.6; }

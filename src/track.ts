@@ -24,6 +24,7 @@ import { addLeadSounds } from './parts/solosounds';
 import { shapeStory } from './parts/solodynamics';
 import { expressSolo } from './parts/soloexpress';
 import { heldBacking } from './sections/soloback';
+import { planVary, varySegs, varyTension, varyDrums } from './sections/solovary';
 import { LIVE_RULES, NO_RULES } from './parts/solorules-live';
 import { singLead } from './parts/leadvocal';
 import { emoOn, setsOf } from './verse/emotion';
@@ -113,6 +114,8 @@ export interface TrackOptions {
   soloAmount?: 'light' | 'normal' | 'full';
   /** What the band plays under a solo (docs/SOLO-BACKING.md): 'held' = the song's chords kept, the rhythm guitar ringing each one held (power chords or full chords) instead of its riff; otherwise as written (missing in older links: as written). */
   soloBacking?: 'held' | 'written';
+  /** Solo variation (docs/SOLO-VARY.md): in a solo of 16 bars or more, one stretch of 4 or 8 bars gets another band feel (lighter, half-time or lifted drums; the other section's chords, or held chords). Off (default, and missing in older links): the same band all through. */
+  soloVary?: 'on' | 'off';
   /** Checks only (scripts/solo-*-check.ts), never set by the page: a step of the melody + player writer on its own (the melody, with gap marks, with joins, or read and left as written). */
   soloCheck?: 'melody' | 'marks' | 'joins' | 'player';
   /** When the rhythm guitar plays (src/players/presence.ts): it sits out intros, verses and bridges, comes in late, drops out, as in real songs (missing in older links: off). */
@@ -648,7 +651,14 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
   const sections = slots.map((s, si) => {
     const r = new Rng(`${S.structure}-${si}-${s.kind}`);
     const label = s.n ? `${KIND_LABEL[s.kind]} ${s.n}` : KIND_LABEL[s.kind];
-    const idea = join(s.segs, { kind: s.kind, label, energy: s.energy, sound: sounds[si] });
+    // a long solo: one stretch gets another band feel (docs/SOLO-VARY.md)
+    const first = s.segs[0]?.idea;
+    const soloBarsNow = s.segs.reduce((a, g) => a + g.n, 0);
+    const vary = opts.soloVary === 'on' && s.kind === 'solo' && s.g2 === 'solo' && !s.intro && first
+      ? planVary(`${S.structure}-${si}-solo-vary`, soloBarsNow, genre, arc.mood, !(first.song.forceHalf ?? first.drums.halfTime) && first.song.bars.every((b) => b.len === 16 && b.groups.length === 4), opts.soloBacking === 'held')
+      : null;
+    const idea = join(vary ? varySegs(s.segs, take(soloOverChorus ? verse : chorus, 8), vary) : s.segs, { kind: s.kind, label, energy: s.energy, sound: sounds[si] });
+    if (vary) idea.section!.soloVary = vary;
     // (an outro that is a jam or a guitar solo is the guitar's: nobody sings)
     if (s.kind === 'outro' && (jam || s.g2 === 'solo')) idea.section!.lead = true;
     const notes: string[] = [];
@@ -678,6 +688,14 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     }
     // (under a solo the rhythm guitar backs off a little)
     if (!riff && !held) shapeStrum(idea, s.g2 === 'solo' ? Math.min(3, s.energy) : s.energy);
+    // (a long solo's stretch: the drums, and the chords held or the other section's)
+    for (const v of vary ?? []) {
+      const bars = idea.song.bars, at = bars[v.from].start, end = v.to >= bars.length ? idea.song.total : bars[v.to].start;
+      const dn = varyDrums(idea, v, r);
+      if (dn) notes.push(dn);
+      if (v.chords === 'held') notes.push(`Solo bars ${v.from + 1}-${v.to}: ${heldBacking(idea, at, end)}`);
+      else if (v.chords === 'other') notes.push(`Solo bars ${v.from + 1}-${v.to}: the ${soloOverChorus ? 'verse' : 'chorus'}'s chords and groove`);
+    }
 
     // guitar 2
     const runs = runCount(idea);
@@ -710,7 +728,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
       g2 = writeGuitar2(idea, g2o, r, Array.from({ length: runs }, (_, k) => (k === runs - 1 ? 'climb' : 'answer')), lead.lick);
     } else if (s.g2 === 'solo') {
       // (how far it goes: where it sits on the song's curve; the climax goes highest)
-      const tt = arc.sections[si].tension;
+      const tt = vary ? varyTension(arc.sections[si].tension, vary) : arc.sections[si].tension;
       const intensity = si === arc.climax ? 1 : Math.max(0, Math.min(1, (tt.reduce((a, b) => a + b, 0) / tt.length - MP.base) / Math.max(0.1, MP.peak - MP.base)));
       const soloHook = s.kind === 'solo' && soloOverChorus && hook.length ? hook : null;
       let sol = tuneFirst
