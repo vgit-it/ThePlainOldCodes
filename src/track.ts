@@ -81,6 +81,8 @@ export interface TrackOptions {
   moodSong?: 'off' | 'tempo' | 'mode' | 'both';
   /** Mood riff (docs/MOOD-RIFF.md): the mood picks the riff styles (sad: single notes, arpeggios, low pedal; bold: gallops, big chords) and a major key's riff takes the major 3rd. Missing in older links: off. */
   moodRiff?: 'on' | 'off';
+  /** Riff genres (docs/RIFF-WIRE.md): 'new' = the riffs are written by the riff writer (src/parts/riffwriter.ts) where it can (4/4, styles it writes); otherwise, and in older links, the classic riffs. */
+  riffWriter?: 'new' | 'classic';
   /** Mood: all the way (docs/MOOD-ALL.md): Tune first solos with Solo mood and Mood scale, Mood song and Mood riff, in one switch. On Auto it uses the mood Auto picks for the song. Missing in older links: off. */
   moodAll?: 'on' | 'off';
   /** Melody + player only (docs/SOLO-MELODY.md, step 0f): a phrase repeats its first beat or two of rhythm (missing in older links: off). */
@@ -267,7 +269,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
   const riff = !!src.song.sections;
   const P = plansFor(mode);
   // the idea again, but the drums never wait out its first bars (it gets sliced and repeated)
-  const baseSong = { ...src.song, noTacet: true };
+  const baseSong = { ...src.song, noTacet: true, ...(opts.riffWriter === 'new' ? { newRiff: true } : {}) };
   // (the idea as written: the rhythm player's performance of it is redone section by section)
   const written = asWritten(src);
   const base = riff ? buildIdea(src.opts, src.seeds, baseSong, withSheet(src.opts, src.seeds, baseSong)) : written;

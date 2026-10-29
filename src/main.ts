@@ -417,6 +417,7 @@ const optSel = {
   outro: $<HTMLSelectElement>('t-outro'),
   solo: $<HTMLSelectElement>('t-solo'),
   riffVerse: $<HTMLSelectElement>('t-riff'),
+  riffWriter: $<HTMLSelectElement>('t-riffwriter'),
   band: $<HTMLSelectElement>('t-band'),
   soloPlan: $<HTMLSelectElement>('t-soloplan'),
   soloMotif: $<HTMLSelectElement>('t-solomotif'),
@@ -456,6 +457,7 @@ function syncTrackOptions() {
   optSel.outro.value = track.opts.outro ?? 'auto';
   optSel.solo.value = track.opts.solo ?? 'auto';
   optSel.riffVerse.value = track.opts.riffVerse ?? 'auto';
+  optSel.riffWriter.value = track.opts.riffWriter === 'new' ? 'new' : 'classic';
   optSel.band.value = track.opts.band ?? 'on';
   optSel.soloPlan.value = track.opts.soloPlan ?? 'off';
   optSel.soloMotif.value = track.opts.soloMotif === 'on' ? 'on' : 'off';
@@ -476,6 +478,7 @@ function syncTrackOptions() {
   optSel.soloCores.value = isCoreMode(track.opts.soloCores) ? track.opts.soloCores : 'off';
   // only riff genres have a riff to carry through the verses
   optSel.riffVerse.closest('label')!.style.display = track.source.guitar ? '' : 'none';
+  optSel.riffWriter.closest('label')!.style.display = track.source.guitar ? '' : 'none';
 }
 for (const [k, sel] of Object.entries(optSel)) {
   sel.onchange = () => {
@@ -487,6 +490,7 @@ for (const [k, sel] of Object.entries(optSel)) {
     if (k === 'soloCores') return rebuildTrack({ ...track.opts, soloCores: isCoreMode(sel.value) ? sel.value : 'off' }, shown, true);
     // (the same song written again for the mood: stay where you are)
     if (k === 'moodAll') return rebuildTrack({ ...track.opts, moodAll: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'riffWriter') return rebuildTrack({ ...track.opts, riffWriter: sel.value === 'new' ? 'new' : 'classic' }, shown, true);
     if (k === 'moodRiff') return rebuildTrack({ ...track.opts, moodRiff: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'soloBends') return rebuildTrack({ ...track.opts, soloBends: sel.value === 'dials' ? 'dials' : 'plain' }, shown, true);
     if (k === 'soloRecast') return rebuildTrack({ ...track.opts, soloRecast: sel.value === 'on' ? 'on' : 'off' }, shown, true);

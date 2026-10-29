@@ -53,7 +53,8 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `SOLO-BACKING.md`: Solo backing, held chords under a solo (chords merged into 2–4 bar holds, the rhythm guitar rings them, the bass holds the root). Switch: Solo backing. Check: `npm run solo-back-check`.
 - `NECK-VIEW.md`: solo on the fretboard.
 - `LICK-LAB.md`: the lick lab page.
-- `RIFF-LAB.md`: the riff lab page and the new riff writer (single-note, chug, big chords, gallop, pedal, stabs + lick, written in layers: rhythm, a few pitches, answer, form, best of many). Not in songs yet.
+- `RIFF-LAB.md`: the riff lab page and the new riff writer (single-note, chug, big chords, gallop, pedal, stabs + lick, written in layers: rhythm, a few pitches, answer, form, best of many). In songs behind a switch: `RIFF-WIRE.md`.
+- `RIFF-WIRE.md`: Track options → Riff writer (Classic / New): the riff writer plays the riffs of a track in the four riff genres, where it can (4/4, no picked or arp half); best of 24.
 - `GUITAR-SOUNDS.md`: the lead's new sounds (pinch and natural harmonics, whammy dive, feedback, pick scrape), made in code.
 - `SOLO-SOUNDS.md`: solos and lead breaks use those sounds, by genre and player. Behind a switch (Lead guitar sounds).
 - `RECIPE-LAB.md`: the lick library as data (`src/recipes/licks.json`) and the recipe lab (PC only, `npm run recipe-lab`): write licks as tab, mark them, hear them, save.

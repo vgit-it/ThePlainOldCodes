@@ -123,6 +123,8 @@ export interface Song {
   forceHalf?: boolean;
   /** Mood riff (docs/MOOD-RIFF.md): the riff's notes follow the mode's 3rd. */
   moodRiff?: boolean;
+  /** Tracks: the riff is written by the new riff writer (docs/RIFF-WIRE.md) where it can; else the old one. */
+  newRiff?: boolean;
   /** Tracks: drums never wait out the first bars of a quiet intro. */
   noTacet?: boolean;
   /** Tracks: a groove the drums shouldn't pick (the verse plays a different groove from the chorus). */

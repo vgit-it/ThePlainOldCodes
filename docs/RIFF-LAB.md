@@ -1,4 +1,4 @@
-Status: experiment — the riff lab page (`riff-lab.html`, built and deployed, not linked) and the new riff writer (`src/parts/riffwriter.ts`). The app's own riffs (`riff.ts`) are unchanged; nothing in a song uses the new writer yet.
+Status: experiment — the riff lab page (`riff-lab.html`, built and deployed, not linked) and the new riff writer (`src/parts/riffwriter.ts`). The app's own riffs (`riff.ts`) are unchanged; songs use it only behind the Riff writer switch (`docs/RIFF-WIRE.md`).
 
 # Riff lab
 
