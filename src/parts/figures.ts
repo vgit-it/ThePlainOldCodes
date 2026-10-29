@@ -29,7 +29,7 @@ interface Ctx {
 }
 
 /** A single note on the string whose fret is closest to the hand position. */
-function fretNear(midi: number, t: Tuning, pos: number): Fretted {
+export function fretNear(midi: number, t: Tuning, pos: number): Fretted {
   let m = midi;
   while (m < t.strings[0]) m += 12;
   while (m > t.strings[5] + 19) m -= 12;
@@ -70,8 +70,8 @@ function plans(rng: Rng, form: Form, n: number): BarPlan[] {
 /* ------------------------------------------------------------ picked */
 
 // L low root, O octave, F fifth, I inner (4th), T top note (the moving melody)
-const PICK_TEMPLATES = ['LOFITFTF', 'LFOTOFTF', 'LFTFOFTF', 'LOTOFOTO', 'LFOFTFOF', 'LOFTOFTF'];
-const PICK_STEPS: Record<string, number> = { L: 0, O: 7, F: 4, I: 3 };
+export const PICK_TEMPLATES = ['LOFITFTF', 'LFOTOFTF', 'LFTFOFTF', 'LOTOFOTO', 'LFOFTFOF', 'LOFTOFTF'];
+export const PICK_STEPS: Record<string, number> = { L: 0, O: 7, F: 4, I: 3 };
 
 interface PickedCell { tpl: string; tops: number[]; pos: number; sixteenths: boolean; form: Form }
 

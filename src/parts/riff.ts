@@ -176,7 +176,7 @@ function answerCell(rng: Rng, cell: Ev[], bar: Bar, style: RiffStyle, fresh: () 
   return { cell: [...first, ...(second.length ? second : [{ pos: half, len: bar.len - half, kind: 'chord' as const, deg: 0, vel: 0.92 }])], tie: false };
 }
 
-const ARP_PATTERNS = [
+export const ARP_PATTERNS = [
   [0, 0.6, 0.8, 1, 0.8, 0.6, 0.8, 1],
   [0, 0.8, 0.6, 1, 0.3, 0.8, 0.6, 1],
   [0, 0.4, 0.6, 0.8, 1, 0.8, 0.6, 0.4],

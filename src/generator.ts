@@ -208,7 +208,7 @@ export function buildIdea(opts: GenOptions, seeds: Seeds, song: Song, b: BuildOp
   return { seeds, opts, song, chords, drums, strum, bass, bassLen, bassLine, guitar2: clearFills(song, drums, g2.hits), notes };
 }
 
-/** The new riff writer's riff (docs/RIFF-WIRE.md), when the track asks for it and it can write this one: 4/4, both halves in styles it writes. Else null: the classic riff. */
+/** The new riff writer's riff (docs/RIFF-WIRE.md), when the track asks for it and it can write this one: 4/4, both halves in a style it writes (all eight now). Else null: the classic riff. */
 function writtenRiff(seed: string, song: Song, chords: ChordPart) {
   const s = song.sections!;
   if (!song.newRiff || !canWriteRiff(song) || !writes(s[0]) || !writes(s[4])) return null;
