@@ -7,7 +7,7 @@ Paul: a solo of 16 bars or more is the same eight bars of band played again (24 
 Switch: Track options → **Solo variation** → On (`soloVary: 'on'`). Off by default; an old link plays as before. Works with any Solo writer (it changes the band under the solo, and the solo's energy). Check: `npm run solo-vary-check`. Code: `src/sections/solovary.ts`.
 
 ## What it does (solos of 16 bars or more; 8-bar solos are left alone)
-- **A stretch**: about 8 solos in 10 get one. A solo of 24 bars gets two about 7 times in 10 (four bars or more apart, the second a different drum change; at most one of them held chords). 4 or 8 bars, on a four-bar phrase, never the first four bars (the solo enters as it always did). It may run to the end of the solo.
+- **A stretch**: every solo of 16 bars or more gets one (was 8 in 10). A solo of 24 bars gets two about 7 times in 10 (four bars or more apart, the second a different drum change; at most one of them held chords). 4 or 8 bars, on a four-bar phrase, never the first four bars (the solo enters as it always did). It may run to the end of the solo.
 - **Drums** (one of, by genre and mood; a calm mood eases off, an angry one pushes, a dark one goes half-time):
   - lighter: closed 8th hats, no crashes, the drummer keeps the hats instead of moving to the ride;
   - half-time: the snare moves from beats 2 and 4 to beat 3 (4/4 songs not in half-time already; else a lift);

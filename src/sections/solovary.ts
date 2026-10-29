@@ -58,7 +58,6 @@ const PAIRS_24: [[number, number], [number, number]][] = [
 export function planVary(seed: string, bars: number, genre: Genre, mood: Mood, halfOk: boolean, heldAll: boolean): SoloVary[] | null {
   if (bars < 16) return null;
   const r = new Rng(seed);
-  if (!r.chance(0.8)) return null;
   const kinds: Kind[] = halfOk ? ['light', 'half', 'lift'] : ['light', 'lift'];
   const stretch = ([from, to]: [number, number], held: boolean, not?: VaryDrumKind): SoloVary => {
     const drums = r.weighted<Kind>(kinds.filter((k) => k !== not).map((k) => [k, DRUM_G[genre][k] * DRUM_M[mood][k]]));
