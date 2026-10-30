@@ -20,6 +20,9 @@ No downloads. They're made in code, like the finger squeaks (`src/audio/guitarfx
 - **Chime**: almost a pure tone, a soft tick at the start, a long ring. Used for natural harmonics and the pinch's squeal.
 - **Drone**: a steady tone with a slow wobble in level. Used for feedback.
 - **Scrape**: a knock for each string winding the pick passes, each one a bit harder or softer and early or late (that roughness is the growl), with a little hiss on top, slowing from about 650 to 170 knocks a second. The first version was mostly high hiss, and Paul found it weak (2026-10-27). The slowest knocks go in softer, and the fall stops at 170 a second: lower than that, a driven amp turned them into a roar 9 dB over the note, and turning the level down didn't help (the amp is flat out).
+- **Pitch of dives and scrapes** (2026-10-30, Paul: too high sounds weird, low sounds nice). Real dive bombs fall from the middle of the neck into a low flutter, and a scrape rasps the wound (low) strings, so:
+  - A big dive (a fourth or more) starts on a note no higher than C5 (`DIVE_TOP`), or E4 when pinched (`DIVE_TOP_PINCH`: the squeal sits 19 above). A two-octave dive lands no lower than the low E (`DIVE_FLOOR`). Small dips (a half or whole step) can be anywhere.
+  - The scrape is never sped up to fit its time (that made a quick tempo zing at 1.5-2 kHz). A short scrape plays only the end of the sound, the low growl; a long one is slowed (`scrapeFit` in `guitarfx.ts`).
 - The pitch moves (bends, vibrato, the dive) come from the sample player (`src/audio/multisampler.ts`, `dive`). The guitar plays the sounds in `Guitar.strumTake` (`src/audio/instruments.ts`).
 
 ## Levels (measured, an A4 held 2.5 s)

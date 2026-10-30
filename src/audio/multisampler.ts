@@ -260,8 +260,9 @@ export class MultiSampler {
   }
 
   /** Play any one-shot (e.g. a finger squeak) through this instrument; `rate` plays it faster (shorter, higher). */
-  shot(buf: AudioBuffer, time: number, gain: number, rate = 1) {
-    this.start(buf, time, buf.duration / rate, gain, rate, 0.02);
+  shot(buf: AudioBuffer, time: number, gain: number, rate = 1, offset = 0) {
+    // (from part way in: a short fade-in instead of the sound's own start)
+    this.start(buf, time, (buf.duration - offset) / rate, gain, rate, 0.02, offset ? 0.03 : 0, offset);
   }
 
   /** String-damping noise when a ringing chord is stopped. */

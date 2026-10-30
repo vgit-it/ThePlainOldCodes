@@ -8,7 +8,7 @@
 //   npm run solo-sounds-check        (N=60 songs a genre)
 import { MAIN_GUITARS, generate } from '../src/generator';
 import type { GuitarHit } from '../src/idea';
-import { HARMONIC_NOTES, type LeadSound, MOST } from '../src/parts/solosounds';
+import { DIVE_FLOOR, DIVE_TOP, DIVE_TOP_PINCH, HARMONIC_NOTES, type LeadSound, MOST } from '../src/parts/solosounds';
 import { buildTrack, defaultTrackOptions } from '../src/track';
 
 const N = Number(process.env.N ?? 60);
@@ -63,6 +63,12 @@ for (const g of GENRES) {
           if (!heldOne || h.bend || (!carried && (h.unbend || h.lateBend)) || !HARMONIC_NOTES.has(h.notes[0] - (carried ? h.lateBend ?? 0 : 0))) fail(`${at}: a natural harmonic that can't be one at ${h.step} (${h.notes[0]})`);
         }
         if (h.dive) { n.dive++; if (h.mute || h.trill || h.tremolo || ![1, 2, 5, 7, 12, 24].includes(h.dive)) fail(`${at}: a dive of ${h.dive} on a note that can't take it at ${h.step}`); }
+        // a real dive starts mid-neck and doesn't fall below the low E (a small dip can be anywhere).
+        // (the notes are read after a key change has moved them up, a whole step at most)
+        if (h.dive && h.dive > 2) {
+          const t = Math.max(...h.notes);
+          if (t > (h.harm === 'pinch' ? DIVE_TOP_PINCH : DIVE_TOP) + 2 || t - h.dive < DIVE_FLOOR) fail(`${at}: a dive of ${h.dive} from note ${t} (too high or too low) at ${h.step}`);
+        }
         if (h.feedback) { n.feedback++; if ((h !== last && (h.notes.length !== 1 || h.len < 12)) || ![12, 19].includes(h.feedback)) fail(`${at}: feedback not on the last note or a long one`); }
         if (h.scrape) {
           n.scrape++;

@@ -60,6 +60,11 @@ export const HARMONIC_NOTES = new Set(OPEN.flatMap((m) => [m + 12, m + 19, m + 2
 
 /** The heavy genres: an octave or two on the bar, and a dive straight after a pinch. */
 const HEAVY: Genre[] = ['metal', 'altmetal', 'hardrock'];
+/** A whammy dive starts on a note no higher than this (C5), or this when the note is pinched (E4: the squeal sits 19 above),
+ *  and a big drop lands no lower than the low E. Real dives come from the middle of the neck and fall into a low flutter. */
+export const DIVE_TOP = 72;
+export const DIVE_TOP_PINCH = 64;
+export const DIVE_FLOOR = 40;
 /** The genres that dip the bar a half or whole step at the end of a long note. */
 const DIPS: Genre[] = ['rock', 'grunge', 'hardrock', 'altmetal'];
 
@@ -163,12 +168,15 @@ export function addLeadSounds(rng: Rng, hits: GuitarHit[], c: SoundsCtx): { hits
 
   // whammy dives: the last note (more so when the band drops after it), straight after a pinch (the metal classic),
   // at the end of a phrase (a held note with a beat or more of rest after it)
-  const dive = (h: GuitarHit) => { h.dive = diveSize(rng, c.genre); done.push('dive'); };
-  if (held(last) && !last.feedback && rng.chance(Math.min(0.9, chance('dive') * (c.dropAfter ? 1.3 : 1)))) dive(last);
+  // (only from the middle of the range: a dive from a high note thins out and sounds fake, as real ones do. A pinched
+  // note squeals an octave and a fifth over it, so it must start lower)
+  const diveFrom = (h: GuitarHit) => top(h) + (c.keyUp ?? 0) <= (h.harm === 'pinch' ? DIVE_TOP_PINCH : DIVE_TOP);
+  const dive = (h: GuitarHit) => { h.dive = diveSize(rng, c.genre, top(h)); done.push('dive'); };
+  if (held(last) && !last.feedback && diveFrom(last) && rng.chance(Math.min(0.9, chance('dive') * (c.dropAfter ? 1.3 : 1)))) dive(last);
   for (const h of pinched) {
-    if (room('dive') && !h.dive && h.len >= 6 && rng.chance(chance('dive') * (HEAVY.includes(c.genre) ? 0.6 : 0.25))) dive(h);
+    if (room('dive') && !h.dive && diveFrom(h) && h.len >= 6 && rng.chance(chance('dive') * (HEAVY.includes(c.genre) ? 0.6 : 0.25))) dive(h);
   }
-  const ends = seq.slice(0, -1).filter((h, k) => held(h) && !h.dive && !h.feedback && rest(k) >= 4);
+  const ends = seq.slice(0, -1).filter((h, k) => held(h) && !h.dive && !h.feedback && diveFrom(h) && rest(k) >= 4);
   if (room('dive') && ends.length && rng.chance(chance('dive') * 0.4)) dive(rng.pick(ends));
   // a small dip: the bar let down a half or whole step at the end of a long note
   const dips = DIPS.includes(c.genre) ? seq.filter((h) => single(h) && h.len >= 8 && !h.dive && !h.feedback) : [];
@@ -206,9 +214,11 @@ export function addLeadSounds(rng: Rng, hits: GuitarHit[], c: SoundsCtx): { hits
   return { hits: out, done };
 }
 
-/** How far a dive goes: the heavy genres take it an octave or two, the others a fourth to an octave. */
-function diveSize(rng: Rng, genre: Genre): number {
-  return HEAVY.includes(genre)
+/** How far a dive goes: the heavy genres take it an octave or two, the others a fourth to an octave. Never below the
+ *  low E (a two-octave dive needs a note to start from). */
+function diveSize(rng: Rng, genre: Genre, from: number): number {
+  const size = HEAVY.includes(genre)
     ? rng.weighted([[12, 3], [24, 1]])
     : rng.weighted([[5, 1], [7, 1], [12, 2]]);
+  return size === 24 && from - 24 < DIVE_FLOOR ? 12 : size;
 }

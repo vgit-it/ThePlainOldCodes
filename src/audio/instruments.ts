@@ -8,7 +8,7 @@ import { type DrumPiece, DRUM_PIECES, RoundRobin, loadCab, loadDrums, loadPitche
 import { captureAmp, resample } from './realamp';
 import { inContext } from './context';
 import { squeaks } from './squeak';
-import { fxSets, SCRAPE_LEN } from './guitarfx';
+import { fxSets, SCRAPE_LEN, scrapeFit } from './guitarfx';
 import { SampleVoice } from './voice';
 
 const midiNote = (m: number) => Tone.Frequency(m, 'midi').toNote();
@@ -510,10 +510,10 @@ export class Guitar implements ChordInstrument {
     const quiet = clean && this.type === 'electric' && this.tone !== 'clean';
     const driven = this.type === 'electric' && this.tone !== 'clean' && !quiet;
     const takes = quiet ? [this.takes[this.cleanIdx]] : this.takes.slice(0, this.doubled ? 2 : 1);
-    // squeezed or stretched to the time it has (within reason), and always ending on the note
-    const rate = Math.min(3, Math.max(0.6, SCRAPE_LEN / Math.max(0.05, dur)));
-    const len = SCRAPE_LEN / rate;
-    takes.forEach((take) => take.ring.shot(fxSets(this.ctx.sampleRate).scrape, Math.max(0, time + dur - len), Math.min(1, vel) * (driven ? FX.scrapeDriven : FX.scrape), rate));
+    // cut short or stretched to the time it has, and always ending on the note (never sped up: that squealed)
+    const { rate, offset } = scrapeFit(dur);
+    const len = (SCRAPE_LEN - offset) / rate;
+    takes.forEach((take) => take.ring.shot(fxSets(this.ctx.sampleRate).scrape, Math.max(0, time + dur - len), Math.min(1, vel) * (driven ? FX.scrapeDriven : FX.scrape), rate, offset));
   }
 
   private squeakTake(take: Take, time: number, vel: number, up: boolean, driven: boolean) {
