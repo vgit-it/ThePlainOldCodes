@@ -17,10 +17,10 @@ import { stepAt } from '../rhythm';
 import { inContext } from './context';
 import { lagFor, perform } from './feel';
 import { feelFor, feelSung, inhale } from '../guide/feel';
-import { FOF_RATE } from './fof';
+import { FOF_RATE, type FofVoice } from './fof';
 import { type PolishOpts, type VocalComp, type VocalFx, polishVoice } from './polish';
 import { Rng } from '../rng';
-import { CHARACTERS, type Character, VOICES, fofFor, fofHighVoice } from './voices';
+import { CHARACTERS, type Character, VOICES, autoLow, fofFor, fofHighVoice } from './voices';
 import { SING_RATE, type SungNote } from './sing';
 import { type RenderJob, renderNow, singPool } from './singPool';
 
@@ -99,7 +99,7 @@ export class Singer {
   choice: VocalChoice = 'auto';
   /** The lead singer's choice (the backing singer picks its voice around the lead's). */
   leadChoice: VocalChoice = 'auto';
-  /** The lead's voice (the backing singer's is always clear). */
+  /** The lead's voice (the backing singer sings in the same one, as another person). */
   timbre: TimbreChoice = 'auto';
   private hp!: Tone.BiquadFilter;
   private ctx = Tone.getContext();
@@ -171,7 +171,8 @@ export class Singer {
   }
 
   private timbreOf(idea: Idea): Sung {
-    if (this.role === 'backing') return 'clear';
+    // (the backing singers: the same voice as the lead's low one, as other people; the clear voice stays clear)
+    if (this.role === 'backing') return this.timbre === 'clear' ? 'clear' : this.timbre === 'auto' || this.timbre === 'woman' || this.timbre === 'scream' ? autoLow(idea) : this.timbre;
     const h = this.highOf(idea);
     if (h) return h === 'chester' ? 'scream' : h;
     return this.timbre === 'auto' ? idea.vocalTimbre ?? 'clear' : this.timbre;
@@ -327,11 +328,17 @@ export class Singer {
     const person = this.role === 'backing' ? BACKING_PERSON : undefined;
     // (a genre's voice: the FOF singer; the clear voice and the backing singer: the formant synth, as they were)
     const v = (seed + job.variant * 13) % 97;
-    const fof = job.timbre !== 'clear' && this.role === 'lead';
+    const fof = job.timbre !== 'clear';
     const base = { key: job.key, notes: job.notes, pre: PRE, rate: fof ? FOF_RATE : SING_RATE, ...(this.polish ? { polish: this.polOpts.get(job.key) } : {}) };
     return fof
-      ? { ...base, kind: 'fof', fof: { ...(job.timbre === 'tenor' ? fofHighVoice('tenor', job.base, v) : isCharacter(job.timbre) ? fofFor(job.base, v, job.voice === 'high', job.timbre) : fofFor(job.timbre as Genre, v, job.voice === 'high')), energy: job.energy } }
+      ? { ...base, kind: 'fof', fof: this.personal({ ...(job.timbre === 'tenor' ? fofHighVoice('tenor', job.base, v) : isCharacter(job.timbre) ? fofFor(job.base, v, job.voice === 'high', job.timbre) : fofFor(job.timbre as Genre, v, job.voice === 'high')), energy: job.energy }) }
       : { ...base, kind: 'line', shape: { high: job.voice === 'high', slides: job.slides, seed: v, person } };
+  }
+
+  /** A backing singer is another person from the lead: a smaller vocal tract, breathier, less vibrato (BACKING_PERSON). */
+  private personal(f: FofVoice): FofVoice {
+    if (this.role !== 'backing') return f;
+    return { ...f, tract: (f.tract ?? 1) * BACKING_PERSON.tract, breath: (f.breath ?? -34) + BACKING_PERSON.breath, ...(f.vib !== undefined ? { vib: f.vib * BACKING_PERSON.vibrato } : {}) };
   }
 
   /** Start the lines that begin at step `g` of `idea` (the tick's audio time `time`). */

@@ -9,7 +9,7 @@ import type { Idea } from '../idea';
 import type { Genre } from '../genres';
 import { type Timbre, leadHigh } from '../parts/singers';
 import { FOF_RATE } from './fof';
-import { CHARACTERS, type Character, fofFor, fofHighVoice } from './voices';
+import { CHARACTERS, type Character, autoLow, fofFor, fofHighVoice } from './voices';
 import { polishFor, type TimbreChoice, type VocalChoice } from './singer';
 import { SING_RATE, type SungNote } from './sing';
 import { type RenderJob, singPool } from './singPool';
@@ -97,7 +97,7 @@ export class LeadVoice {
     // (the verse melody writer's lead is sung as the experiment sang it: its high voices, at a middling energy, laid back behind the beat)
     const verse = idea.opts?.vocalWriter !== 'classic';
     // (Auto: the song's own genre voice, or the high singer's when the singer sings high)
-    const sung: Voice = this.timbre !== 'auto' ? this.timbre : high === 'woman' ? 'woman' : verse && high === 'chester' ? 'scream' : verse && high === 'tenor' ? 'tenor' : idea.song.genre;
+    const sung: Voice = this.timbre !== 'auto' ? this.timbre : high === 'woman' ? 'woman' : verse && high === 'chester' ? 'scream' : verse && high === 'tenor' ? 'tenor' : autoLow(idea);
     // (the woman sings the line an octave up, in her own range, unless the song's line is already up there)
     const shift = sung === 'woman' && (idea.sungTop ?? 0) + DOWN <= WOMAN_TOP ? DOWN : 0;
     const six = 15 / idea.song.bpm;

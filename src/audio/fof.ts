@@ -162,6 +162,8 @@ export interface FofVoice {
   /** Deep notes (under `lowTop`, with `lowBuzz`): dB an octave flatter in the source, and dB less in the fundamental's hump (left out: 0). */
   lowFlat?: number;
   lowHump?: number;
+  /** Front vowels (ee, ih, eh, ae) up past the break, 0-1 (left out: 0): the vowel eased toward a rounder, more open one and the 3-4 kHz ring cut, as singers do, so they don't go nasal. */
+  frontMod?: number;
   /** The most roughness (jitter, shimmer, rasp noise) a loud note gets, 0-1 (left out: 1, no cap). */
   roughMax?: number;
   /** dB less breath noise at full effort, so a loud note isn't hissy (left out: 0). */
@@ -492,7 +494,7 @@ export function renderFof(notes0: SungNote[], v: FofVoice, pre: number): Float32
   // the control values (per CT samples)
   let f0 = 110, vT = 0, nasalT = 0, barT = 0, aspT = 0, effort = 0.5;
   // (the register: how far up past the break, 0-1; how deep below it, 0-1)
-  let upW = 0, lowW = 0, edgeW = 0, lowK = 0, closeW = 0, closeV = 0, erW = 0, latW = 0;
+  let frontK = 0, upW = 0, lowW = 0, edgeW = 0, lowK = 0, closeW = 0, closeV = 0, erW = 0, latW = 0;
   const lowBuzz = v.lowBuzz ?? 0, lowTop = v.lowTop ?? 58 + shift, closeFill = v.closeFill ?? 0, falFill = fal ? v.falFill ?? 0 : 0;
   // (heft: a baritone's weight kept up high; fry: the creak at the line's ends and on the deepest notes, 0-1 now)
   const heft = v.heft ?? 0, fry = v.fry ?? 0;
@@ -672,6 +674,13 @@ export function renderFof(notes0: SungNote[], v: FofVoice, pre: number): Float32
         const nw = life * 0.35 * smooth01((place + 3) / 8);
         f3[0] = lerp(f3[0], 600 * fscale, nw); f3[1] = lerp(f3[1], 1400 * fscale, nw); f3[2] = lerp(f3[2], 2500 * fscale, nw);
       }
+      // (front vowels up high: eased toward a more open, less bright vowel, singers' own modification)
+      frontK = 0;
+      if (v.frontMod) {
+        frontK = v.frontMod * clamp01((f3[1] / fscale - 1250) / 400) * upW;
+        f3[0] = lerp(f3[0], Math.max(f3[0], 460 * fscale), Math.min(1, 0.7 * frontK));
+        f3[1] = lerp(f3[1], Math.min(f3[1], 1750 * fscale), Math.min(1, 0.6 * frontK));
+      }
       // (covered: the front vowels' F2 pulled back most, every vowel a little rounder and darker)
       if (spread) {
         const fr = clamp01((f3[1] - 900) / 1300);
@@ -730,7 +739,7 @@ export function renderFof(notes0: SungNote[], v: FofVoice, pre: number): Float32
         const amps = F.map((_, k) => {
           let a = formantLevel(F, B, k, tiltX);
           if (k > 0) a *= db(-16 * vNasal) * db(-28 * vBar);
-          if (k === 2 || k === 3) a *= twang * db(4 * edgeW + 7 * (v.twang ?? 0));
+          if (k === 2 || k === 3) a *= twang * db(4 * edgeW + 7 * (v.twang ?? 0) - 5 * frontK);
           if (k === 0) a *= db(-3 * (v.twang ?? 0) + 6 * closeW + 5 * closeV);
           if (k === 1) a *= db(-3 * closeV);
           if (latW) a *= db(k === 0 ? -3 * latW : k === 2 ? 5 * latW : k === 3 ? 4 * latW : 0);
