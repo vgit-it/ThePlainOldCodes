@@ -5,6 +5,8 @@
 // git tag voices-v2-voicebox), kept for the voice lab. The clear voice (the first one) has neither.
 
 import type { Genre } from '../genres';
+import type { Idea } from '../idea';
+import { Rng } from '../rng';
 import type { Vowel } from '../parts/lyrics';
 import { HIGH_VOICES, type HighVoice, VOICE_DOWN } from '../parts/singers';
 import type { FofVoice } from './fof';
@@ -184,3 +186,14 @@ export function fofHigh(g: Genre, seed: number, who: HighSinger, character?: Cha
   };
 }
 
+
+/**
+ * Auto, the low voice (Paul, 2026-10-30): the genre's own voice in 80% of songs, a character in the other 20%.
+ * Rock keeps its own voice. The backing singers sing in the same voice, as other people (singer.ts).
+ */
+const AUTO_CHARACTER: Partial<Record<Genre, Character>> = { pop: 'onyx', funk: 'onyx', hardrock: 'cornell', metal: 'deep', grunge: 'deep', altmetal: 'cornell' };
+const OWN_VOICE_SHARE = 0.8;
+export function autoLow(idea: Idea): Genre | Character {
+  const c = AUTO_CHARACTER[idea.song.genre];
+  return c && !new Rng(`${idea.seeds.song}-lowvoice`).chance(OWN_VOICE_SHARE) ? c : idea.song.genre;
+}
