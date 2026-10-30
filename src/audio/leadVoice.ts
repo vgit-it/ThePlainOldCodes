@@ -8,6 +8,7 @@ import * as Tone from 'tone';
 import type { Idea } from '../idea';
 import type { Genre } from '../genres';
 import { type Timbre, leadHigh } from '../parts/singers';
+import { Rng } from '../rng';
 import { FOF_RATE } from './fof';
 import { CHARACTERS, type Character, fofFor, fofHighVoice } from './voices';
 import { polishFor, type TimbreChoice, type VocalChoice } from './singer';
@@ -17,6 +18,17 @@ import { DOWN } from '../guide/line';
 import { feelFor, feelSung } from '../guide/feel';
 import { lagFor, perform } from './feel';
 import { inContext } from './context';
+
+/**
+ * Auto, the low voice (Paul, 2026-10-30): a character per genre in 92% of songs, the genre's own voice in the
+ * other 8%. Rock keeps its own voice.
+ */
+const AUTO_CHARACTER: Partial<Record<Genre, Character>> = { pop: 'onyx', funk: 'onyx', hardrock: 'cornell', metal: 'deep', grunge: 'deep', altmetal: 'cornell' };
+const OWN_VOICE_SHARE = 0.08;
+export function autoLow(idea: Idea): Genre | Character {
+  const c = AUTO_CHARACTER[idea.song.genre];
+  return c && !new Rng(`${idea.seeds.song}-lowvoice`).chance(OWN_VOICE_SHARE) ? c : idea.song.genre;
+}
 
 /** Seconds of lead-in before a line's first note (onset consonants, a breath). */
 const PRE = 0.3;
@@ -97,7 +109,7 @@ export class LeadVoice {
     // (the verse melody writer's lead is sung as the experiment sang it: its high voices, at a middling energy, laid back behind the beat)
     const verse = idea.opts?.vocalWriter !== 'classic';
     // (Auto: the song's own genre voice, or the high singer's when the singer sings high)
-    const sung: Voice = this.timbre !== 'auto' ? this.timbre : high === 'woman' ? 'woman' : verse && high === 'chester' ? 'scream' : verse && high === 'tenor' ? 'tenor' : idea.song.genre;
+    const sung: Voice = this.timbre !== 'auto' ? this.timbre : high === 'woman' ? 'woman' : verse && high === 'chester' ? 'scream' : verse && high === 'tenor' ? 'tenor' : autoLow(idea);
     // (the woman sings the line an octave up, in her own range, unless the song's line is already up there)
     const shift = sung === 'woman' && (idea.sungTop ?? 0) + DOWN <= WOMAN_TOP ? DOWN : 0;
     const six = 15 / idea.song.bpm;

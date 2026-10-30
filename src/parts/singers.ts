@@ -233,14 +233,15 @@ export const HIGH_VOICES: Record<HighVoice, { label: string; lift: number; octav
   woman: { label: 'a woman (soaring)', lift: -3, octave: true, top: 72, beltTop: 75 },
 };
 /** Who sings high in each genre, by how well they fit it. */
+// (the woman is left out for now, Paul 2026-10-30: still there in the Voice menu)
 const HIGH_BY_GENRE: Record<Genre, W<HighVoice>> = {
-  rock: [['tenor', 3], ['chester', 2], ['woman', 2]],
-  pop: [['woman', 3], ['tenor', 2], ['chester', 0.5]],
-  funk: [['woman', 3], ['tenor', 2]],
-  hardrock: [['tenor', 3], ['chester', 2], ['woman', 1]],
-  metal: [['chester', 3], ['tenor', 2], ['woman', 0.5]],
-  grunge: [['tenor', 3], ['chester', 1], ['woman', 1]],
-  altmetal: [['chester', 4], ['tenor', 1], ['woman', 0.5]],
+  rock: [['tenor', 3], ['chester', 2]],
+  pop: [['tenor', 2], ['chester', 0.5]],
+  funk: [['tenor', 2]],
+  hardrock: [['tenor', 3], ['chester', 2]],
+  metal: [['chester', 3], ['tenor', 2]],
+  grunge: [['tenor', 3], ['chester', 1]],
+  altmetal: [['chester', 4], ['tenor', 1]],
 };
 /** A song's high singer (used when it's sung high), at random by its genre. */
 export function pickHigh(seed: string, genre: Genre): HighVoice {
