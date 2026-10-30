@@ -155,6 +155,13 @@ export interface FofVoice {
    * F1 let up toward the 2nd harmonic, a gentler tilt, a smaller fundamental hump and less breath, the loss won back.
    */
   falFill?: number;
+  /** How far a belt opens the vowel up high: F1 at most this times its own (left out: 1.5). */
+  openMax?: number;
+  /** Same for a falsetto (left out: 1.8). */
+  falMax?: number;
+  /** Deep notes (under `lowTop`, with `lowBuzz`): dB an octave flatter in the source, and dB less in the fundamental's hump (left out: 0). */
+  lowFlat?: number;
+  lowHump?: number;
   /** Their break (MIDI, about E4) and their way up past it. */
   brk?: number;
   up?: 'belt' | 'falsetto' | 'scream' | 'squeal';
@@ -676,9 +683,9 @@ export function renderFof(notes0: SungNote[], v: FofVoice, pre: number): Float32
       let f1 = Math.max(f3[0] * (1 + 0.08 * effort), f0 * 1.15);
       // (up past the break: a belt opens the vowel so F1 rides the 2nd harmonic, the larynx up a touch;
       // falsetto keeps F1 clear above the pitch)
-      if (!fal && f3[0] > 450) f1 = lerp(f1, Math.min(Math.max(2.04 * f0, f1), f1 * 1.5), upW);
+      if (!fal && f3[0] > 450) f1 = lerp(f1, Math.min(Math.max(2.04 * f0, f1), f1 * (v.openMax ?? 1.5)), upW);
       if (fal) f1 = Math.max(f1, f0 * 1.3);
-      if (falFill) f1 = lerp(f1, Math.min(Math.max(f1, 2 * f0), f1 * 1.8), Math.min(1, 0.6 * falFill * upW));
+      if (falFill) f1 = lerp(f1, Math.min(Math.max(f1, 2 * f0), f1 * (v.falMax ?? 1.8)), Math.min(1, 0.6 * falFill * upW));
       // (close vowels: F1 let up toward the 2nd harmonic, so the pitch isn't alone on the resonance)
       if (closeW) f1 = lerp(f1, Math.min(Math.max(f1, 2 * f0), f1 * 1.8), Math.min(1, 0.25 * closeW));
       const lx = fal ? 1 : 1 + 0.04 * upW;
@@ -711,7 +718,7 @@ export function renderFof(notes0: SungNote[], v: FofVoice, pre: number): Float32
         const shimmer = (1 + (0.04 + 0.03 * hu) * (1 - 0.6 * lowK) * gauss() + 0.2 * rough * gauss()) * (1 - 0.18 * rough * (alt > 0 ? 1 : 0)) * (1 - 0.65 * fryW * (alt > 0 ? 1 : 0));
         // the source: about -6 dB an octave (the folds and the lips together), brighter when louder
         // (falsetto: soft-edged pulses, a steep tilt; belt and scream: sharp ones, flat; the deep notes a touch darker)
-        const tiltX = (lerp(1.5, -2.5, effort) + (fal ? 6 - 1 * falFill : -1.5) * upW + 1.5 * lowW * (1 - 0.8 * lowBuzz) - bright - 4 * edgeW - 0.5 * lowK - 0.5 * closeW) / 6.02;
+        const tiltX = (lerp(1.5, -2.5, effort) + (fal ? 6 - 1 * falFill : -1.5) * upW + 1.5 * lowW * (1 - 0.8 * lowBuzz) - bright - 4 * edgeW - (0.5 + (v.lowFlat ?? 0)) * lowK - 0.5 * closeW) / 6.02;
         const tex = Math.round(lerp(lerp(0.0035, 0.0016, effort), fal ? 0.005 : way === 'scream' ? 0.0012 : 0.0014, upW) * (1 - 0.35 * edgeW) * (1 + 0.8 * softK) * fs);
         // (a twang up past the break: the 3-4 kHz ring of a belt)
         const twang = db(upW * (fal ? 0 : way === 'squeal' ? 7 : way === 'scream' ? 4 : 3));
@@ -752,7 +759,7 @@ export function renderFof(notes0: SungNote[], v: FofVoice, pre: number): Float32
         // tract's formants leave out: the voice's low end and its 2nd harmonic (weaker when pressed)
         {
           const fg = Math.min(f0 * 1.15, F[0] * 0.7), bg = 0.8 * f0;
-          const a = 2.5 * (bg / 1000) * (fg / 1000) ** (-1 - tiltX) * db((v.body ?? 5) - 6 * effort * (1 - 0.6 * heft) + (fal ? 6 - 2 * falFill : -3 + 9 * heft) * upW + 4 * lowW * (1 - 0.8 * lowBuzz) - 3 * edgeW - 6 * fryW - 8 * lowK - 8 * closeW) * comp * lowG * vA * shimmer;
+          const a = 2.5 * (bg / 1000) * (fg / 1000) ** (-1 - tiltX) * db((v.body ?? 5) - 6 * effort * (1 - 0.6 * heft) + (fal ? 6 - 2 * falFill : -3 + 9 * heft) * upW + 4 * lowW * (1 - 0.8 * lowBuzz) - 3 * edgeW - 6 * fryW - (8 + (v.lowHump ?? 0)) * lowK - 8 * closeW) * comp * lowG * vA * shimmer;
           const alpha = (Math.PI * bg) / fs, w = (2 * Math.PI * fg) / fs, m = Math.exp(-alpha * d);
           const durS = Math.min(0.035 * fs, (5.3 / (Math.PI * bg)) * fs) + tex;
           grains.push({ re: a * m * Math.cos(w * d), im: a * m * Math.sin(w * d), cr: Math.exp(-alpha) * Math.cos(w), ci: Math.exp(-alpha) * Math.sin(w), n: d, tex, dur: durS, rel: durS * 0.25 });
