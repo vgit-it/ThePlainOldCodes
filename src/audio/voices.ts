@@ -49,7 +49,7 @@ export const VOICES: Record<Genre, GenreVoice> = {
       vib: 60, vibHz: 5.6, drift: 10.5, brk: 64, shift: 12, size: 0.99, brkUp: 4, up: 'belt',
     } } },
   pop: { label: 'Pop', recipe: { grit: 0.1, drive: 0, airy: -17, air: 4, tilt: -2, speech: 0.6, vib: 0.3, attack: 0.02 }, brk: 65, up: 'falsetto', three: false,
-    fof: { grit: 0.12, breath: -28, bw: 1.15, bright: 1, brk: 65, up: 'falsetto', vib: 25 } },
+    fof: { grit: 0.12, breath: -28, bw: 1.15, bright: 1, brk: 65, up: 'falsetto', vib: 25, openMax: 1.3, falMax: 1.4 } },
   funk: { label: 'Funk', recipe: { grit: 0.25, drive: 0.1, pressed: 0.2, tilt: -2, speech: 0.6, attack: 0.01, vib: 0.25 }, brk: 64, up: 'falsetto', three: false,
     // (Paul: "the funk voice breaks at the pushed parts": its pushed notes sat right on its break, flipping
     // into falsetto and back, a high note dropping 11 dB; now chest voice up to G4 and a mix past it)
@@ -116,7 +116,8 @@ export const CHARACTERS: Record<Character, { label: string; fof: Partial<FofVoic
   } },
   // Onyx (Paul: "Onyx clean is a good voice"): a real man's vowels, measured from Kokoro's Onyx (prints.ts),
   // as measured (his own size: tract and size 1); clean: little rasp and breath
-  onyx: { label: 'Onyx (clean)', fof: { print: ONYX, tract: 1, size: 1, grit: 0.08, breath: -42 } },
+  // (the vowel opens less up high, Paul's pick of the nasal clips, 2026-10-30)
+  onyx: { label: 'Onyx (clean)', fof: { print: ONYX, tract: 1, size: 1, grit: 0.08, breath: -42, openMax: 1.3, falMax: 1.4 } },
   nasal: { label: 'Dark & nasal', fof: {
     tract: 0.86, body: 0, heft: 0.45, bw: 1.3, grit: 0.3, fry: 0.15, breath: -29, twang: 0.5, edge: 0.25, nasal: 0.16, bright: -1.25,
     cover: 1, spread: 0.65, raw: 0.5, plain: 1, scoop: 0.9, sag: 0.7, vib: 12, vibHz: 6, brk: 65,
