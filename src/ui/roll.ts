@@ -6,7 +6,7 @@
 // playhead (a moving element) and the lit note change, so it costs the phone almost nothing.
 
 import * as Tone from 'tone';
-import type { Idea, NoteRead, ReadTag, SoloMove, SoloRead } from '../idea';
+import type { Idea, NoteRead, ReadTag, SoloMove, SoloRead, StoryGap } from '../idea';
 import { NOTE_NAMES, QUALITIES, SCALES, chordName } from '../theory';
 import { voiceOf } from '../verse/sing';
 import type { Rule } from '../verse/form';
@@ -48,6 +48,12 @@ const READ_FAMILY: Record<ReadTag['family'], string> = { shape: 'The note and ho
 const READ_PRI = ['held-peak', 'climax-note', 'call-hanging', 'answer-landing', 'final-landing', 'under-fill', 'into-crash', 'long-over-chord-change', 'long-before-rest', 'long-with-room', 'leap-up', 'leap-down', 'before-leap',
   'into-snare', 'on-crash', 'on-kick', 'on-snare', 'crest', 'trough', 'static-repeat', 'pre-climax', 'post-climax', 'rising-energy', 'falling-energy', 'closing', 'phrase-start', 'long-note', 'short-note'];
 const READ_H = 46;
+/** The story of a solo (docs/SOLO-STORY.md, SOLO-RECIPES.md): a row for each part and, under it, the pieces it was played in. */
+const STORY_H = 34;
+const STORY_COL: Record<StoryGap['role'], string> = {
+  statement: '#5b8cff', answer: '#c07bff', build: '#ffa94d', ramp: '#ff5b6e', release: '#4ad6c8', return: '#5b8cff', link: '#8b93a7',
+};
+const PEAK_COL = '#ffd24d';
 /** The solo player's choices (docs/SOLO-PLAYER.md, step 3): the colour of a note played another way. */
 const PLAYED_COL = '#ff7ab6';
 const FILL_WORD = { bend: 'bend', release: 'let down', passing: 'between', neighbour: 'neighbour' } as const;
@@ -168,7 +174,13 @@ export function buildRoll(root: HTMLElement) {
     const showForm = lay_('form'), showPh = lay_('phrases'), showSh = lay_('shapes'), showCmp = lay_('compare') && built!.leaves.some((l) => l.source !== null);
     const yForm = 0, yPh = showForm ? FORM_H : 0, ySh = yPh + (showPh ? PHRASE_H : 0);
     const yRd = ySh + (showSh ? SHAPE_H : 0);
-    const T0 = yRd + (rd ? READ_H : 0);
+    const yStory = yRd + (rd ? READ_H : 0);
+    // the story of a solo: the parts as played (story told in licks), or as planned (story plan only)
+    const curve = lv ? idea!.soloCurve : undefined;
+    const storyBand: { from: number; to: number; role: StoryGap['role']; label: string; bits: { from: number; to: number; what: string }[] }[] =
+      curve?.parts?.map((p) => ({ from: p.from, to: p.to, role: p.role, label: p.label, bits: p.bits })) ?? curve?.story?.filter((g) => g.role !== 'link').map((g) => ({ from: g.from, to: g.to, role: g.role, label: g.label, bits: [] })) ?? [];
+    const peak = curve?.landings?.find((l) => l.role === 'climax');
+    const T0 = yStory + (storyBand.length ? STORY_H : 0);
     const top = T0 + TOP;
     const spans: LeafSpan[] = built ? leafSpans(built.leaves, (b) => song.bars[b].start, song.bars.length, total) : [];
     const spanOf = (id: number | null) => spans.find((x) => x.leaf.id === id);
@@ -206,6 +218,7 @@ export function buildRoll(root: HTMLElement) {
     if (showPh) gx.fillText('Phrases', 4, yPh + PHRASE_H / 2);
     if (showSh) gx.fillText('Shapes', 4, ySh + SHAPE_H / 2);
     if (rd) { gx.fillText('Phrases', 4, yRd + 6); gx.fillText('Read', 4, yRd + 23); if (idea!.soloCurve?.moves?.some((m) => m.rule !== 'plain')) gx.fillText('Played', 4, yRd + 40); }
+    if (storyBand.length) { gx.fillText('Story', 4, yStory + 8); if (storyBand.some((b) => b.bits.length)) gx.fillText('Played', 4, yStory + 25); }
     for (let m = lo; m <= hi; m++) {
       const k = inKey(m), tonic = mod(m - key, 12) === 0;
       gx.fillStyle = k ? (tonic ? '#ff7a45' : '#e8eaf0') : '#4b5263';
@@ -403,6 +416,27 @@ export function buildRoll(root: HTMLElement) {
         }
         if (k === sel) { x.strokeStyle = '#fff'; x.lineWidth = 1.5; x.strokeRect(x0 - 0.5, yRd + 1, w + 1.5, H - yRd - 3); }
       });
+    }
+    // the story: a row with the part of every stretch (A, A′, build, ramp, release...), under it the pieces it was played in
+    if (storyBand.length) {
+      x.font = '600 9px system-ui, sans-serif'; x.textBaseline = 'middle'; x.textAlign = 'left';
+      const clipText = (t: string, x0: number, x1: number, y: number) => { x.save(); x.beginPath(); x.rect(x0, y - 7, Math.max(0, x1 - x0), 14); x.clip(); x.fillText(t, x0 + 2, y); x.restore(); };
+      for (const b of storyBand) {
+        const x0 = X(b.from), x1 = X(b.to) - 1;
+        x.fillStyle = STORY_COL[b.role]; x.globalAlpha = 0.28; x.fillRect(x0, yStory + 1, x1 - x0, 14); x.globalAlpha = 1;
+        x.fillRect(x0, yStory + 1, 2, 14);
+        clipText(b.label, x0 + 3, x1, yStory + 8.5);
+        for (const bit of b.bits) {
+          const y0 = X(bit.from), y1 = X(bit.to) - 1;
+          x.globalAlpha = 0.18; x.fillRect(y0, yStory + 17, y1 - y0, 14); x.globalAlpha = 1;
+          clipText(bit.what, y0 + 1, y1, yStory + 24.5);
+        }
+      }
+      if (peak) {
+        const x0 = X(peak.step), x1 = X(peak.step + peak.len) - 1;
+        x.fillStyle = PEAK_COL; x.globalAlpha = 0.35; x.fillRect(x0, yStory + 1, Math.max(3, x1 - x0), 14); x.globalAlpha = 1;
+        clipText('PEAK', x0 + 1, Math.max(x1, x0 + 30), yStory + 8.5);
+      }
     }
     // the pitch curve: scoops up into a note, bends from the last note, falls off the end
     x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 1.5; x.lineJoin = 'round';

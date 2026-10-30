@@ -5,7 +5,8 @@ import type { Idea } from '../idea';
 import { autoMood, type Mood } from '../tension';
 import { buildVerse, type Built } from './build';
 import { BarGrid } from './grid';
-import { leafSeeds, planForm, type Rule, type Variation } from './form';
+import { leafSeeds, planForm, PITCH_RULES, type Rule, type Variation } from './form';
+import { withVariant } from './tune';
 import { emoDials, type EmoCtx, type EmoOptions } from './emotion';
 import { dialsFor, drawPersonality, paced, type Personality } from './personality';
 import { bandAccents, type BendAmount, type Range } from './verse';
@@ -70,28 +71,32 @@ function borrowedFrom(verse: Idea, o: SectionOptions): Partial<Record<Rule, stri
 
 /** The rules an interlude or an outro takes from the chorus: its phrasing, chord notes and long notes, so it is the chorus heard again, shorter and sparser. */
 const ECHOED: Rule[] = ['phrases', 'tones', 'holds'];
-function echoedFrom(chorus: Idea, o: SectionOptions): Partial<Record<Rule, string>> {
+function echoedFrom(chorus: Idea, o: SectionOptions, variant = 0): Partial<Record<Rule, string>> {
   const seed = hookSig(chorus, o);
   const leaves = planForm(chorus.song.bars.length, o.meta, personalityOf(chorus, o.seed, moodOf(chorus, o)).chorusVariation, seed, true);
   const seeds = leafSeeds(leaves, seed).get(leaves[0].id)!;
-  return Object.fromEntries(ECHOED.map((r) => [r, seeds[r]]));
+  // (the chorus written as a tune version: its pitch dice carry the version too, so the echo is still the chorus heard again)
+  return Object.fromEntries(ECHOED.map((r) => [r, PITCH_RULES.includes(r) ? withVariant(seeds[r], variant) : seeds[r]]));
 }
+
+/** The tune versions (tune.ts) a section is written with: its own, and the song's chorus's (an interlude or an outro echoes it). */
+export interface Versions { self?: number; chorus?: number }
 
 /**
  * The melody over a section; `accents` are the band's (computed when left out). A chorus built `like` another (its master, with the
  * master's accents) writes with the master's seed, energy and accents, so its rhythm and shape are the master's, over its own chords.
  */
-export function buildSection(idea: Idea, o: SectionOptions, accents: number[] = accentsOf(idea, !!o.bass), like?: Idea, verse?: Idea, chorusIdea?: Idea): Built {
+export function buildSection(idea: Idea, o: SectionOptions, accents: number[] = accentsOf(idea, !!o.bass), like?: Idea, verse?: Idea, chorusIdea?: Idea, ver: Versions = {}): Built {
   const chorus = isShared(idea), p = personalityOf(idea, o.seed, moodOf(idea, o)), kind = kindOf(idea);
   // (the mood notes: a chorus built like its master takes the master's view of the song, as it takes its energy)
   const src = chorus && like ? like : idea;
   const emo: EmoCtx | undefined = o.emo && {
     mood: o.emo.mood, on: o.emo.on, kind, key: idea.song.key, mode: idea.song.mode, bpm: idea.song.bpm, energy: src.section?.energy ?? 3,
-    tension: src.section?.tension, climax: !!o.emo.climax && src === o.emo.climax, ending: !!src.section?.ending, maxSets: o.emo.maxSets,
+    tension: src.section?.tension, climax: !!o.emo.climax && src === o.emo.climax, ending: !!src.section?.ending, maxSets: o.emo.maxSets, skeleton: o.emo.skeleton, cells: o.emo.cells,
   };
   const dials0 = o.pace ? paced(dialsFor(kind, p), idea.song.bpm) : dialsFor(kind, p);
   // (the master's tries: each leaf starts on the dice the master's ended on, so the choruses match)
-  const tries = chorus && like ? buildSection(like, o, accents, undefined, verse, chorusIdea).tries : undefined;
+  const tries = chorus && like ? buildSection(like, o, accents, undefined, verse, chorusIdea, ver).tries : undefined;
   return buildVerse({
     key: idea.song.key, mode: idea.song.mode, genre: idea.song.genre, energy: (chorus && like ? like : idea).section?.energy ?? 3,
     chordAt: chordsOf(idea), acc: accents, changes: idea.chords.timeline.map((e) => e.step),
@@ -99,6 +104,7 @@ export function buildSection(idea: Idea, o: SectionOptions, accents: number[] = 
     thirds: idea.song.bars.some((b) => b.len % 3 === 0), pentatonic: o.pentatonic,
     seed: chorus ? hookSig(idea, o) : verseSeed(idea, o), dials: emo ? emoDials(dials0, emo) : dials0, emo, tries,
     // (the bass-led vocal: a chorus built like its master takes the master's bass, as it takes its accents)
-    bass: o.bass ? { share: o.bass, skel: bassSkeleton(src.bass, chordsOf(src), src.song.key) } : undefined, borrow: kind === 'prechorus' && verse ? borrowedFrom(verse, o) : (kind === 'interlude' || kind === 'outro') && chorusIdea ? echoedFrom(chorusIdea, o) : undefined,
+    bass: o.bass ? { share: o.bass, skel: bassSkeleton(src.bass, chordsOf(src), src.song.key) } : undefined, borrow: kind === 'prechorus' && verse ? borrowedFrom(verse, o) : (kind === 'interlude' || kind === 'outro') && chorusIdea ? echoedFrom(chorusIdea, o, ver.chorus) : undefined,
+    variant: ver.self,
   });
 }

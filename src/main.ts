@@ -1,15 +1,13 @@
 import './audio/live';
 import './style.css';
-import { TIMBRE_CHOICES, type TimbreChoice, type VocalChoice } from './audio/singer';
+import { TIMBRE_CHOICES } from './audio/singer';
 import { HIGH_VOICES, type HighVoice, leadHigh } from './parts/singers';
 import { MOOD_LABEL, type MoodChoice } from './tension';
 import * as Tone from 'tone';
-import { Engine, type LayerSettings } from './audio/engine';
+import { Engine } from './audio/engine';
 import { CHORD_INSTRUMENTS } from './audio/instruments';
 import type { GenreSel } from './genres';
-import { LAYER_PARTS, type LayerPart, type MixPart } from './audio/mixer';
-import { type Rendered, encodeMp3, encodeWav, isSilent, renderAudio, zipFiles } from './export/audio';
-import { exportBaseName, toMidi } from './export/midi';
+import { LAYER_PARTS, type LayerPart } from './audio/mixer';
 import { generate as generateIdea, MAIN_METHOD, randomSeeds } from './generator';
 import type { ChordSheet, GenOptions, Idea, Seeds, SectionKind } from './idea';
 import { METER_CHOICES } from './rhythm';
@@ -21,7 +19,7 @@ import {
 import { type PartKey, buildLockPanel } from './ui/locks';
 import { buildPartsPanel } from './ui/parts';
 import { buildVocalFxPanel } from './ui/vocalfx';
-import { cleanFxState, fxAnyOn } from './audio/vocalfx';
+import { cleanFxState } from './audio/vocalfx';
 import { buildChordEditor } from './ui/chordedit';
 import { buildRoll } from './ui/roll';
 import { buildNeck } from './ui/neck';
@@ -29,12 +27,16 @@ import { buildVersePanel } from './verse/panel';
 import { SETS_DEFAULT, setsOf } from './verse/emotion';
 import { BASS_SHARE_DEFAULT } from './verse/bassline';
 import { hasPins } from './parts/sheet';
+import { isCoreMode } from './parts/soloplan';
 import { highlightBar, markSection, renderIdea, renderTrack } from './ui/render';
+import { $ } from './page/dom';
+import { readLink, setupShare } from './page/share';
+import { setupExport } from './page/exporter';
+import { setupReal } from './page/real';
+import { setupBackground } from './page/background';
 
 // every idea made the main way (the lead and rhythm guitar's ways of playing, the vocal's writers: MAIN_METHOD)
 const generate = (o: GenOptions, s?: Seeds) => generateIdea({ ...o, ...MAIN_METHOD }, s);
-
-const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 const genreSel = $<HTMLSelectElement>('genre');
 const meterSel = $<HTMLSelectElement>('meter');
@@ -61,10 +63,12 @@ const locks = new Set<PartKey>();
 let baseStatus = 'Loading sounds…';
 const setStatus = (msg: string) => { status.textContent = msg || baseStatus; };
 engine.onStatus = setStatus;
+// the link, export and real-sound buttons live in src/page/ (they see the song through these)
+const page = { engine, idea: () => idea, track: () => track, setStatus, setPlaying };
+const updateLink = setupShare(page);
+const buildExport = setupExport(page);
+const showReal = setupReal(page);
 // real amps (see showReal)
-const realBtn = $<HTMLButtonElement>('realamps');
-const realHint = $('realhint');
-let preparing = false;
 engine.onBar = highlightBar;
 // the melody view: the sung line over the chords, with a playhead
 const roll = buildRoll($('roll'));
@@ -92,6 +96,24 @@ const verse = buildVersePanel($('verse'), {
     if (!idea) return;
     // (the same song with another bass share: only the lead vocal changes)
     showIdea(generate({ ...idea.opts, vocalBassShare: n === BASS_SHARE_DEFAULT ? undefined : n }, idea.seeds), true);
+  },
+  tune: () => idea?.opts.vocalTune ?? 0,
+  setTune(n) {
+    if (!idea) return;
+    // (the same song with a tune pick: only the lead vocal changes)
+    showIdea(generate({ ...idea.opts, vocalTune: n || undefined }, idea.seeds), true);
+  },
+  skeleton: () => !!idea?.opts.vocalSkeleton,
+  setSkeleton(on) {
+    if (!idea) return;
+    // (the same song with strong notes planned first: only the lead vocal changes)
+    showIdea(generate({ ...idea.opts, vocalSkeleton: on || undefined }, idea.seeds), true);
+  },
+  cells: () => !!idea?.opts.vocalCells,
+  setCells(on) {
+    if (!idea) return;
+    // (the same song with phrases built from cells: only the lead vocal changes)
+    showIdea(generate({ ...idea.opts, vocalCells: on || undefined }, idea.seeds), true);
   },
   maxSets: () => setsOf(idea?.opts.vocalMaxSets),
   setMaxSets(n) {
@@ -132,6 +154,7 @@ function render() {
 function setPlaying(on: boolean) {
   playBtn.textContent = on ? 'Stop' : 'Play';
   playBtn.classList.toggle('on', on);
+  background.setPlaying(on);
 }
 
 /* ---- chords you set: tap a bar to open the editor; the band is rewritten around them */
@@ -202,149 +225,6 @@ chordReset.onclick = () => {
   setStatus('Chords back to the generator\'s.');
   setTimeout(() => setStatus(''), 3000);
 };
-
-/* ---- shareable link: the address always holds the current idea (and track) */
-
-interface Shared { o: GenOptions; s: Seeds; t?: TrackOptions; l?: LayerSettings; v?: VocalChoice; b?: VocalChoice; w?: TimbreChoice; x?: ReturnType<typeof cleanFxState> }
-
-function updateLink() {
-  if (!idea) return;
-  const layers = engine.layerSettings;
-  const data: Shared = { o: idea.opts, s: idea.seeds, ...(track ? { t: track.opts } : {}), ...(Object.keys(layers).length ? { l: layers } : {}), ...(engine.vocal !== 'off' ? { v: engine.vocal } : {}), ...(engine.vocal !== 'off' && engine.backingVocal !== 'auto' ? { b: engine.backingVocal } : {}), ...(engine.vocal !== 'off' && engine.vocalTimbre !== 'auto' ? { w: engine.vocalTimbre } : {}), ...(fxAnyOn(engine.vocalFx) ? { x: engine.vocalFx } : {}) };
-  try {
-    history.replaceState(null, '', `#${btoa(encodeURIComponent(JSON.stringify(data)))}`);
-  } catch { /* history blocked: no link */ }
-}
-
-function readLink(): Shared | null {
-  try {
-    const h = location.hash.slice(1);
-    if (!h) return null;
-    const d = JSON.parse(decodeURIComponent(atob(h))) as Shared;
-    return d.o && d.s?.song ? d : null;
-  } catch {
-    return null;
-  }
-}
-
-$('copylink').onclick = async () => {
-  updateLink();
-  try {
-    await navigator.clipboard.writeText(location.href);
-    setStatus('Link copied: it opens this exact idea (and track).');
-  } catch {
-    setStatus('Copy the address from the address bar to share this idea.');
-  }
-  setTimeout(() => setStatus(''), 3000);
-};
-
-// the band view plays this same song (idea, track, parts and singer travel in the link)
-$('openband').onclick = () => {
-  updateLink();
-  const url = new URL('band.html', location.href);
-  url.searchParams.set('art', '');
-  url.hash = location.hash;
-  window.open(url, '_blank');
-};
-
-/* ---- export: the idea, or the whole track in track mode */
-
-type ExportKind = 'midi' | 'mp3' | 'wav' | 'stems';
-interface ExportFile { bytes: Uint8Array; name: string; type: string }
-
-const STEM_NAMES: Record<MixPart, string> = {
-  vocal: 'vocal', backing: 'backing-vocals', chords: 'rhythm-guitar', guitar2: 'guitar-2', bass: 'bass', drums: 'drums', keys: 'piano', pad: 'pad', strings: 'strings', perc: 'percussion',
-};
-const exportButtons = ['ex-mp3', 'ex-wav', 'ex-stems', 'ex-midi'].map((id) => $<HTMLButtonElement>(id));
-let exporting = false;
-
-/** Build an export file (no download): MIDI straight away, audio rendered offline first. */
-async function buildExport(kind: ExportKind, progress: (msg: string) => void = () => {}): Promise<ExportFile | null> {
-  if (!idea) return null;
-  const list = track ? track.sections : [idea];
-  const base = exportBaseName(idea, !!track);
-  if (kind === 'midi') {
-    const bytes = toMidi(list, {
-      timbre: engine.vocalTimbre,
-      chordIdFor: (i) => engine.chordIdFor(i), guitar2IdFor: (i) => engine.guitar2IdFor(i),
-      keysFor: (i) => engine.layerFor(i, 'keys'), padFor: (i) => engine.layerFor(i, 'pad'),
-      stringsFor: (i) => engine.layerFor(i, 'strings'), percFor: (i) => engine.layerFor(i, 'perc'),
-      vocal: engine.vocal, backing: engine.backingVocal,
-    });
-    return { bytes, name: `${base}.mid`, type: 'audio/midi' };
-  }
-  const t0 = performance.now();
-  let pct = -1;
-  // a percentage when the browser reports progress, otherwise the time so far
-  const tick = setInterval(() => {
-    if (pct < 0) progress(`Rendering audio… ${Math.round((performance.now() - t0) / 1000)} s`);
-  }, 500);
-  progress('Rendering audio…');
-  let r: Rendered;
-  try {
-    // real amps: the electric guitars (and a driven bass) first (those already prepared while playing are reused)
-    const prepared = await engine.prepareFor(list, (p) => {
-      pct = Math.round(p * 100);
-      progress(`Preparing real amps… ${pct}%`);
-    });
-    pct = -1;
-    r = await renderAudio(list, engine.settings(), kind === 'stems', (p) => {
-      pct = Math.round(p * 100);
-      progress(`Rendering audio… ${pct}%`);
-    }, prepared);
-  } finally {
-    clearInterval(tick);
-  }
-  if (kind === 'wav') return { bytes: encodeWav(r.mix, r.sampleRate), name: `${base}.wav`, type: 'audio/wav' };
-  if (kind === 'mp3') {
-    const bytes = await encodeMp3(r.mix, r.sampleRate, 320, (p) => progress(`Encoding MP3… ${Math.round(p * 100)}%`));
-    return { bytes, name: `${base}.mp3`, type: 'audio/mpeg' };
-  }
-  progress('Packing stems…');
-  const files: Record<string, Uint8Array> = { [`${base}-mix.wav`]: encodeWav(r.mix, r.sampleRate) };
-  for (const [part, chs] of Object.entries(r.stems!) as [MixPart, Float32Array[]][]) {
-    if (!isSilent(chs)) files[`${base}-${STEM_NAMES[part]}.wav`] = encodeWav(chs, r.sampleRate);
-  }
-  return { bytes: await zipFiles(files), name: `${base}-stems.zip`, type: 'application/zip' };
-}
-
-function download(f: ExportFile) {
-  const url = URL.createObjectURL(new Blob([new Uint8Array(f.bytes)], { type: f.type }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = f.name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
-
-async function exportFile(kind: ExportKind) {
-  if (exporting || !idea) return;
-  exporting = true;
-  exportButtons.forEach((b) => { b.disabled = true; });
-  // rendering takes the computer's full attention: stop playback first
-  if (kind !== 'midi' && engine.playing) { engine.stop(); setPlaying(false); }
-  const t0 = performance.now();
-  try {
-    const f = await buildExport(kind, setStatus);
-    if (f) {
-      download(f);
-      const mb = f.bytes.length / 1048576;
-      const secs = Math.round((performance.now() - t0) / 1000);
-      setStatus(`Saved ${f.name} (${mb < 1 ? `${Math.max(1, Math.round(mb * 1024))} KB` : `${mb.toFixed(1)} MB`}${kind === 'midi' ? '' : `, made in ${secs} s`})`);
-    }
-  } catch (e) {
-    setStatus(`Couldn't export: ${e instanceof Error ? e.message : String(e)}`);
-  } finally {
-    exporting = false;
-    exportButtons.forEach((b) => { b.disabled = false; });
-    setTimeout(() => { if (!exporting) setStatus(''); }, 6000);
-  }
-}
-
-$('ex-mp3').onclick = () => exportFile('mp3');
-$('ex-wav').onclick = () => exportFile('wav');
-$('ex-stems').onclick = () => exportFile('stems');
-$('ex-midi').onclick = () => exportFile('midi');
 
 /* ---- playback follows the track */
 
@@ -440,7 +320,7 @@ function newIdea() {
   const chords = idea && hasPins(idea.opts.chords) ? idea.opts.chords : undefined;
   // (the vocal's rhythm and the singer's lift carry over to the new idea; the lift then set for its own
   // singer: the new song may sing in the other voice)
-  const opts: GenOptions = { genre: genreSel.value as GenreSel, meter: meterSel.value, weirdness: +weird.value / 100, bpm: readTempo(), chords, vocalLift: idea?.opts.vocalLift, vocalSinger: idea?.opts.vocalSinger, vocalRhythm: idea?.opts.vocalRhythm, vocalMelody: idea?.opts.vocalMelody, vocalMove: idea?.opts.vocalMove, vocalEnergy: idea?.opts.vocalEnergy, vocalReal: idea?.opts.vocalReal, vocalPatterns: idea?.opts.vocalPatterns, vocalWriter: idea?.opts.vocalWriter, vocalBassShare: idea?.opts.vocalBassShare, vocalMoodOff: idea?.opts.vocalMoodOff, vocalMaxSets: idea?.opts.vocalMaxSets };
+  const opts: GenOptions = { genre: genreSel.value as GenreSel, meter: meterSel.value, weirdness: +weird.value / 100, bpm: readTempo(), chords, vocalLift: idea?.opts.vocalLift, vocalSinger: idea?.opts.vocalSinger, vocalRhythm: idea?.opts.vocalRhythm, vocalMelody: idea?.opts.vocalMelody, vocalMove: idea?.opts.vocalMove, vocalEnergy: idea?.opts.vocalEnergy, vocalReal: idea?.opts.vocalReal, vocalPatterns: idea?.opts.vocalPatterns, vocalWriter: idea?.opts.vocalWriter, vocalBassShare: idea?.opts.vocalBassShare, vocalMoodOff: idea?.opts.vocalMoodOff, vocalMaxSets: idea?.opts.vocalMaxSets, vocalTune: idea?.opts.vocalTune, vocalSkeleton: idea?.opts.vocalSkeleton, vocalCells: idea?.opts.vocalCells };
   let next = generate(opts, seeds);
   const h = singerFor(next);
   if ((next.opts.vocalLift ?? 0) !== (h ? HIGH_VOICES[h].lift : 0) || next.opts.vocalSinger !== (h ?? undefined)) next = generate({ ...opts, ...singerOpts(h) }, seeds);
@@ -469,7 +349,7 @@ function retempo(bpm: number | undefined) {
   if (!idea) return;
   idea.opts = { ...idea.opts, bpm };
   // Auto: same seeds give the same idea, so this recovers its own tempo
-  idea.song.bpm = bpm ?? generate(idea.opts, idea.seeds).song.bpm;
+  idea.song.bpm = bpm ?? generate({ ...idea.opts, moodSong: track?.source.opts.moodSong }, idea.seeds).song.bpm;
   if (track) {
     for (const s of track.sections) s.song.bpm = idea.song.bpm;
     drawTrack(track);
@@ -549,6 +429,9 @@ $('sections').onclick = async (e) => {
 // structure options (changing one goes back to the automatic order)
 const optSel = {
   mood: $<HTMLSelectElement>('t-mood'),
+  moodAll: $<HTMLSelectElement>('t-moodall'),
+  moodSong: $<HTMLSelectElement>('t-moodsong'),
+  moodRiff: $<HTMLSelectElement>('t-moodriff'),
   intro: $<HTMLSelectElement>('t-intro'),
   pre: $<HTMLSelectElement>('t-pre'),
   interlude: $<HTMLSelectElement>('t-interlude'),
@@ -556,12 +439,39 @@ const optSel = {
   outro: $<HTMLSelectElement>('t-outro'),
   solo: $<HTMLSelectElement>('t-solo'),
   riffVerse: $<HTMLSelectElement>('t-riff'),
+  riffWriter: $<HTMLSelectElement>('t-riffwriter'),
   band: $<HTMLSelectElement>('t-band'),
   soloPlan: $<HTMLSelectElement>('t-soloplan'),
+  soloMotif: $<HTMLSelectElement>('t-solomotif'),
+  soloBreath: $<HTMLSelectElement>('t-solobreath'),
+  soloGrid: $<HTMLSelectElement>('t-sologrid'),
+  soloClimax: $<HTMLSelectElement>('t-soloclimax'),
+  soloPolish: $<HTMLSelectElement>('t-solopolish'),
+  soloShape: $<HTMLSelectElement>('t-soloshape'),
+  soloExpress: $<HTMLSelectElement>('t-soloexpress'),
+  soloBacking: $<HTMLSelectElement>('t-solobacking'),
+  soloVary: $<HTMLSelectElement>('t-solovary'),
+  bridgeLead: $<HTMLSelectElement>('t-bridgelead'),
+  soloBends: $<HTMLSelectElement>('t-solobends'),
+  soloRecast: $<HTMLSelectElement>('t-solorecast'),
+  soloEcho: $<HTMLSelectElement>('t-soloecho'),
+  soloAmount: $<HTMLSelectElement>('t-soloamount'),
+  soloMood: $<HTMLSelectElement>('t-solomood'),
+  soloMoodScale: $<HTMLSelectElement>('t-solomoodscale'),
+  soloSounds: $<HTMLSelectElement>('t-solosounds'),
+  soloCores: $<HTMLSelectElement>('t-solocores'),
 };
 function syncTrackOptions() {
   if (!track) return;
   optSel.mood.value = track.opts.mood ?? 'auto';
+  optSel.moodAll.value = track.opts.moodAll === 'on' ? 'on' : 'off';
+  // (Mood: all the way sets these five itself)
+  for (const k of ['soloPlan', 'soloMood', 'soloMoodScale', 'moodSong', 'moodRiff'] as const) {
+    optSel[k].disabled = track.opts.moodAll === 'on';
+    optSel[k].title = track.opts.moodAll === 'on' ? 'Set by Mood: all the way' : '';
+  }
+  optSel.moodRiff.value = track.opts.moodRiff === 'on' ? 'on' : 'off';
+  optSel.moodSong.value = ['both', 'mode', 'tempo'].includes(track.opts.moodSong ?? '') ? track.opts.moodSong! : 'off';
   // Auto says which mood it chose
   optSel.mood.options[0].textContent = `Auto (${MOOD_LABEL[track.mood]})`;
   optSel.intro.value = track.opts.intro;
@@ -571,10 +481,30 @@ function syncTrackOptions() {
   optSel.outro.value = track.opts.outro ?? 'auto';
   optSel.solo.value = track.opts.solo ?? 'auto';
   optSel.riffVerse.value = track.opts.riffVerse ?? 'auto';
+  optSel.riffWriter.value = track.opts.riffWriter === 'new' ? 'new' : 'classic';
   optSel.band.value = track.opts.band ?? 'on';
   optSel.soloPlan.value = track.opts.soloPlan ?? 'off';
+  optSel.soloMotif.value = track.opts.soloMotif === 'on' ? 'on' : 'off';
+  optSel.soloBreath.value = track.opts.soloBreath === 'on' ? 'on' : 'off';
+  optSel.soloGrid.value = track.opts.soloGrid === 'on' ? 'on' : 'off';
+  optSel.soloClimax.value = track.opts.soloClimax === 'on' ? 'on' : 'off';
+  optSel.soloPolish.value = track.opts.soloPolish === 'on' ? 'on' : 'off';
+  optSel.soloShape.value = track.opts.soloShape === 'on' ? 'on' : 'off';
+  optSel.soloExpress.value = track.opts.soloExpress === 'on' ? 'on' : 'off';
+  optSel.soloBacking.value = track.opts.soloBacking === 'held' ? 'held' : 'written';
+  optSel.soloVary.value = track.opts.soloVary === 'on' ? 'on' : 'off';
+  optSel.bridgeLead.value = track.opts.bridgeLead === 'on' ? 'on' : 'off';
+  optSel.soloBends.value = track.opts.soloBends === 'dials' ? 'dials' : 'plain';
+  optSel.soloRecast.value = track.opts.soloRecast === 'on' ? 'on' : 'off';
+  optSel.soloEcho.value = track.opts.soloEcho === 'on' ? 'on' : 'off';
+  optSel.soloAmount.value = track.opts.soloAmount === 'light' || track.opts.soloAmount === 'full' ? track.opts.soloAmount : 'normal';
+  optSel.soloMood.value = track.opts.soloMood === 'on' ? 'on' : 'off';
+  optSel.soloMoodScale.value = track.opts.soloMoodScale === 'on' ? 'on' : 'off';
+  optSel.soloSounds.value = track.opts.soloSounds === 'on' ? 'on' : 'off';
+  optSel.soloCores.value = isCoreMode(track.opts.soloCores) ? track.opts.soloCores : 'off';
   // only riff genres have a riff to carry through the verses
   optSel.riffVerse.closest('label')!.style.display = track.source.guitar ? '' : 'none';
+  optSel.riffWriter.closest('label')!.style.display = track.source.guitar ? '' : 'none';
 }
 for (const [k, sel] of Object.entries(optSel)) {
   sel.onchange = () => {
@@ -582,7 +512,21 @@ for (const [k, sel] of Object.entries(optSel)) {
     // the band playing it (or not) changes how it's played, not the song: stay where you are
     if (k === 'band') return rebuildTrack({ ...track.opts, band: sel.value as 'on' | 'off' }, shown, true);
     // (the same song with its solos written another way: stay where you are)
-    if (k === 'soloPlan') return rebuildTrack({ ...track.opts, soloPlan: sel.value as 'on' | 'off' | 'melody' | 'marks' | 'joins' | 'player' | 'perform' }, shown, true);
+    if (k === 'soloPlan') return rebuildTrack({ ...track.opts, soloPlan: sel.value as 'on' | 'off' | 'perform' | 'tune' }, shown, true);
+    if (k === 'soloCores') return rebuildTrack({ ...track.opts, soloCores: isCoreMode(sel.value) ? sel.value : 'off' }, shown, true);
+    // (the same song written again for the mood: stay where you are)
+    if (k === 'moodAll') return rebuildTrack({ ...track.opts, moodAll: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'riffWriter') return rebuildTrack({ ...track.opts, riffWriter: sel.value === 'new' ? 'new' : 'classic' }, shown, true);
+    if (k === 'moodRiff') return rebuildTrack({ ...track.opts, moodRiff: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'soloBends') return rebuildTrack({ ...track.opts, soloBends: sel.value === 'dials' ? 'dials' : 'plain' }, shown, true);
+    if (k === 'soloRecast') return rebuildTrack({ ...track.opts, soloRecast: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'soloAmount') return rebuildTrack({ ...track.opts, soloAmount: sel.value === 'light' || sel.value === 'full' ? sel.value : 'normal' }, shown, true);
+    if (k === 'soloEcho') return rebuildTrack({ ...track.opts, soloEcho: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'bridgeLead') return rebuildTrack({ ...track.opts, bridgeLead: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'soloVary') return rebuildTrack({ ...track.opts, soloVary: sel.value === 'on' ? 'on' : 'off' }, shown, true);
+    if (k === 'soloBacking') return rebuildTrack({ ...track.opts, soloBacking: sel.value === 'held' ? 'held' : 'written' }, shown, true);
+    if (k === 'moodSong') return rebuildTrack({ ...track.opts, moodSong: sel.value as TrackOptions['moodSong'] }, shown, true);
+    if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax' || k === 'soloPolish' || k === 'soloShape' || k === 'soloExpress' || k === 'soloMood' || k === 'soloMoodScale' || k === 'soloSounds') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
     const opts: TrackOptions = { ...track.opts, order: undefined };
     if (k === 'mood') opts.mood = sel.value as MoodChoice;
     else if (k === 'intro') opts.intro = sel.value as IntroChoice;
@@ -684,61 +628,29 @@ master.oninput = () => {
   try { localStorage.setItem('mig.volume', master.value); } catch { /* storage blocked */ }
 };
 
-// the real sound, prepared on request (all at once, so playback stays smooth), then used when playing:
-// the guitars through real amps, and the singer's lines polished (cleaned up, through a vocal chain)
-const realList = () => (track ? track.sections : idea ? [idea] : []);
-function showReal() {
-  if (preparing) return;
-  const list = realList();
-  const st = list.length ? engine.realStateFor(list) : 'none';
-  const amps = list.length ? engine.ampStateFor(list) : 'none';
-  const voice = list.length && engine.singsIn(list);
-  const on = engine.realAmpsOn && st === 'ready';
-  // what it does here: the amps (if this has driven guitars and they can run), the voice (if someone sings)
-  const what = [amps !== 'none' && amps !== 'failed' ? 'guitars through real amps (Marshall, Fender for clean, a dUg for driven bass)' : '', voice ? 'the voice cleaned up and through a vocal chain (tube preamp, opto compressor)' : ''].filter(Boolean).join('; ');
-  realBtn.disabled = st === 'none' || st === 'failed';
-  realBtn.textContent = on ? 'Real sound on ✓' : st === 'todo' ? 'Prepare real sound' : st === 'ready' ? 'Use real sound' : 'Real sound';
-  realHint.textContent = st === 'failed' ? 'Real amps can\'t run on this device.'
-    : st === 'none' ? 'For electric guitars, driven bass and the singer (none in this one).'
-    : on ? `On: ${what}. Tap to go back.`
-    : st === 'ready' ? 'Prepared: tap to use it.'
-    : engine.realAmpsOn ? 'Changed since: prepare again for the real sound.'
-    : `Real sound: ${what}. Takes a moment, then plays smoothly.`;
-}
-engine.onRealChange = showReal;
-realBtn.onclick = async () => {
-  // tap while preparing: cancel; tap when on: back to the simple sound
-  if (preparing) { engine.setRealAmps(false); return; }
-  const list = realList();
-  if (!list.length) return;
-  if (engine.realAmpsOn && engine.realStateFor(list) === 'ready') { engine.setRealAmps(false); return; }
-  // preparing takes the computer's full attention: stop playback first
-  if (engine.playing) { engine.stop(); setPlaying(false); }
-  preparing = true;
-  const label = (p: number) => { realBtn.textContent = `Preparing… ${Math.round(p * 100)}% · tap to cancel`; };
-  label(0);
-  realHint.textContent = 'Polishing the voice, and running the guitars through the amps, section by section.';
-  const st = await engine.prepareRealAmps(list, label);
-  preparing = false;
-  showReal();
-  if (st === 'ready' && engine.realAmpsOn) setStatus('Real sound ready — tap Play.');
-  else if (st === 'failed') setStatus('Real amps didn\'t work here — playing the simple amp.');
-};
-
 $('gen').onclick = async () => {
   await Tone.start();
   newIdea();
 };
 
-playBtn.onclick = async () => {
-  if (!engine.playing) {
-    await engine.start();
-    setPlaying(true);
-  } else {
-    engine.stop();
-    setPlaying(false);
-  }
-};
+async function startPlaying() {
+  if (engine.playing) return;
+  await engine.start();
+  setPlaying(true);
+}
+function stopPlaying() {
+  engine.stop();
+  setPlaying(false);
+}
+playBtn.onclick = () => (engine.playing ? stopPlaying() : startPlaying());
+
+// Android: keep playing with the screen off, behind a switch (docs/BACKGROUND.md)
+const background = setupBackground({
+  engine,
+  play: startPlaying,
+  stop: stopPlaying,
+  title: () => `${genreSel.selectedOptions[0]?.text ?? 'Song'} ${track ? 'track' : 'idea'}`,
+});
 
 // boot: open a shared link, or show a new idea right away; enable Play once drums + bass are in
 // piano and strings on by default (Paul), each by section (Auto); a shared link can add more

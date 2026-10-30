@@ -28,6 +28,8 @@ button { border: 0; border-radius: 12px; padding: 14px; font-size: 16px; font-we
 button:disabled { opacity: .5; cursor: default; }
 .master { flex-direction: row; align-items: center; gap: 12px; margin-top: 14px; }
 .master input { flex: 1; }
+.bgrow { flex-direction: row; align-items: center; gap: 10px; margin-top: 12px; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text); }
+.bgrow[hidden] { display: none; }
 #status { font-size: 13px; color: var(--mute); margin-top: 10px; min-height: 1.4em; }
 
 /* track: section strip */

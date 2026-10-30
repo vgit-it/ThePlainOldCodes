@@ -73,14 +73,16 @@ export function playGuitars(sections: Idea[], seed: string, drummer: Feel = 'on'
     }
 
     // the rhythm guitar's touches (strummed genres, once the band's in)
-    if (!idea.guitar && e >= 3 && strum.some((s) => s !== '.')) {
+    // (held chords under a solo are left as planned: src/sections/soloback.ts; a held stretch only, those bars)
+    const sb = info.soloBack, heldAll = !!sb && sb.from === undefined;
+    if (!idea.guitar && !heldAll && e >= 3 && strum.some((s) => s !== '.')) {
       const inFill = fillSteps(idea);
       const from = info.bandFrom ?? 0;
       const lastBar = song.bars[song.bars.length - 1];
       const changes = new Set(chords.timeline.map((t) => t.step));
       // (never in the steps where the guitar sits out: Guitar plan)
       const out = idea.guitarOut;
-      const ok = (g: number) => g >= from && g < lastBar.start && !inFill.has(g) && !(out && g >= out.from && g < out.until);
+      const ok = (g: number) => g >= from && g < lastBar.start && !inFill.has(g) && !(out && g >= out.from && g < out.until) && !(sb && g >= sb.from! && g < sb.to!);
 
       if (round === 0 && kind === 'verse') {
         let n = 0;

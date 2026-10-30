@@ -16,6 +16,7 @@ import { LIBRARY, type LibLick, type PlacedNote, lickFit, placeLibLick, placedHi
 import { RHYTHMS, type Rhythm, realLick } from '../parts/reallicks';
 import { moodFit, rhythmTags, shapeTags } from '../parts/solotags';
 import { Rng } from '../rng';
+import { TRY_SOUNDS, type TrySound, trySound } from './trySound';
 import { MOODS, MOOD_LABEL, type Mood } from '../tension';
 import { NOTE_NAMES, QUALITIES, SCALES, chordName, degreeChord, type Mode } from '../theory';
 import * as Tone from 'tone';
@@ -188,7 +189,7 @@ function lead(idea: Idea): Played {
     if (!notes) continue;
     played++;
     prev = notes[notes.length - 1].midi;
-    for (const n of notes) hits.push(placedHit(n, t, 9, false));
+    for (const n of trySound(notes, $<HTMLSelectElement>('try').value as TrySound)) hits.push(placedHit(n, t, 9, false));
   }
   return { hits, slots, played, why };
 }
@@ -379,7 +380,8 @@ document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) => {
 });
 
 $('mood').addEventListener('change', () => { fillList(); refresh(false); });
-for (const id of ['key', 'bpm', 'genre', 'slot', 'who', 'rhy']) $(id).addEventListener('change', () => refresh(false));
+$('try').innerHTML = TRY_SOUNDS.map((s) => `<option value="${s.id}">${s.label}</option>`).join('');
+for (const id of ['key', 'bpm', 'genre', 'slot', 'who', 'rhy', 'try']) $(id).addEventListener('change', () => refresh(false));
 modeSel.addEventListener('change', () => { fillProgs(); fillList(); refresh(true); });
 progSel.addEventListener('change', () => refresh(true));
 $('fitOnly').addEventListener('change', () => { fillList(); refresh(false); });

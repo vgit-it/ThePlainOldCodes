@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0f1115">
-  <title>Music Idea Generator</title>
+  <title>The Plain Old Codes</title>
 </head>
 <body>
 <main>
-  <h1>Music Idea Generator</h1>
-  <p class="sub">8-bar ideas · chords, strumming, drums, bass · grow one into a full track</p>
+  <h1>The Plain Old Codes</h1>
+  <p class="sub">Songs by Plain Old Codes · write a song, hear the band play it</p>
 
   <section class="card">
     <div class="controls">
@@ -58,6 +58,10 @@
     <label class="master">Volume
       <input type="range" id="master" min="0" max="100" value="80" aria-label="Master volume">
     </label>
+    <label class="bgrow" id="bgrow" hidden>
+      <input type="checkbox" id="bgswitch">
+      <span>Keep playing with the screen off <span class="hint">(Android)</span></span>
+    </label>
     <div class="exportrow">
       <span class="lt">Amps</span>
       <button id="realamps" class="small">Prepare real sound</button>
@@ -76,6 +80,18 @@
     <div class="trackopts">
       <label>Mood
         <select id="t-mood"><option value="auto">Auto</option><option value="happy">Happy</option><option value="melancholic">Melancholic</option><option value="nostalgic">Nostalgic</option><option value="tense">Tense</option><option value="angry">Angry</option><option value="dreamy">Dreamy</option><option value="triumphant">Triumphant</option><option value="dark">Dark</option></select>
+      </label>
+      <label>Mood: all the way (Tune first solos, Solo mood, Mood scale, Mood song and Mood riff in one switch; on Auto it uses the mood Auto picks)
+        <select id="t-moodall"><option value="off">Off (set each one below yourself)</option><option value="on">On (the whole song follows the mood)</option></select>
+      </label>
+      <label>Mood song (the mood chooses the song's mode, tempo and drum feel; needs a Mood, not Auto)
+        <select id="t-moodsong"><option value="off">Off (the genre's own)</option><option value="both">Mode, tempo and feel</option><option value="mode">Mode only (a sad mood gets a minor key)</option><option value="tempo">Tempo and feel only (a sad mood slows down)</option></select>
+      </label>
+      <label>Mood riff (hard rock, metal, grunge: the mood picks the riff styles; needs a Mood, not Auto)
+        <select id="t-moodriff"><option value="off">Off (the genre's own riffs)</option><option value="on">On (sad moods: single notes, arpeggios, low pedal; bold moods: gallops, big chords; a major key's riff takes the major 3rd)</option></select>
+      </label>
+      <label>Riff writer (hard rock, metal, grunge, alt-metal; docs/RIFF-WIRE.md)
+        <select id="t-riffwriter"><option value="classic">Classic (as before)</option><option value="new">New (the riff lab's writer: layered riffs, best of 24 by its rules; odd meters stay classic)</option></select>
       </label>
       <label>Intro
         <select id="t-intro"><option value="auto">Auto</option><option value="alone">Short</option><option value="layered">Layered</option><option value="long">Long build</option><option value="band">Full band</option></select>
@@ -99,7 +115,61 @@
         <select id="t-key"><option value="auto">Auto</option><option value="on">On</option><option value="off">Off</option></select>
       </label>
       <label>Solo writer
-        <select id="t-soloplan"><option value="off">As before</option><option value="on">Planned (landings first)</option><option value="melody">Melody only (chord notes, plain)</option><option value="marks">Melody + gap marks (scratches)</option><option value="joins">Melody + joins (bends, notes between)</option><option value="player">Melody + read (nothing changed; the reading on the roll)</option><option value="perform">Melody + player (long notes become licks that come back to the note)</option></select>
+        <select id="t-soloplan"><option value="off">As before</option><option value="on">Planned (landings first)</option><option value="perform">Melody + player (long notes become licks that come back to the note)</option><option value="tune">Tune first (a melody of 2 to 4 bar phrases that answer each other)</option></select>
+      </label>
+      <label>Solo rhythm motif (Melody + player)
+        <select id="t-solomotif"><option value="off">Off</option><option value="on">On (a phrase repeats its first beats of rhythm)</option></select>
+      </label>
+      <label>Solo breaths (Melody + player)
+        <select id="t-solobreath"><option value="off">Off</option><option value="on">On (after a busy stretch of quick notes, the next note is left plain)</option></select>
+      </label>
+      <label>Solo figures on the 8th grid (Melody + player)
+        <select id="t-sologrid"><option value="off">Off</option><option value="on">On (in a straight groove: no odd 16ths, no triplets at the start or the landing)</option></select>
+      </label>
+      <label>Solo core notes (Melody + player)
+        <select id="t-solocores"><option value="off">Every phrase (as before)</option><option value="only">Chosen bars, cores only (about half the bars, the notes that stand out)</option><option value="travel">Chosen bars, with moves between (step 2)</option><option value="story">Chosen bars, story plan only (step 2b: no licks yet, read the card)</option><option value="recipes">Chosen bars, story told in licks (step 2c: ramp, sung phrase + bend and pull-offs)</option><option value="library">Chosen bars, story told in licks + the lick library, no rest over a beat (step 2d)</option></select>
+      </label>
+      <label>Solo climax played (core notes)
+        <select id="t-soloclimax"><option value="off">Off (held plain)</option><option value="on">On (the climax note is bent and held with vibrato, bent again, or a pedal lick)</option></select>
+      </label>
+      <label>Lead guitar sounds (every solo writer)
+        <select id="t-solosounds"><option value="off">Off</option><option value="on">On (pinch and natural harmonics, whammy dives, feedback, a pick scrape into the solo, by genre)</option></select>
+      </label>
+      <label>Solo polish (core notes: the player dresses the story)
+        <select id="t-solopolish"><option value="off">Off (the story as written)</option><option value="on">On (step 2e: vibrato, bends, pickups and figures like Melody + player; the cores stay)</option></select>
+      </label>
+      <label>Solo shape (core notes: the story's dynamics)
+        <select id="t-soloshape"><option value="off">Off (as written)</option><option value="on">On (step 2f: loudness follows the arc, a laid-back start in soft moods, the last note rings)</option></select>
+      </label>
+      <label>Solo mood (Tune first: the mood in the intervals, jumps, pace and colour notes)
+        <select id="t-solomood"><option value="off">Off (Tune first as it was)</option><option value="on">On (each mood has its own jumps, quick and slow parts, colour notes and rough edges)</option></select>
+      </label>
+      <label>Mood scale (Tune first + Solo mood: over power chords the mood picks the 3rd and 6th)
+        <select id="t-solomoodscale"><option value="off">Off (the song's own scale)</option><option value="on">On (bright moods play major notes, dark moods minor notes, whatever the key)</option></select>
+      </label>
+      <label>Solo expression (Tune first: bends, runs, 32nd pairs, muted bursts and breaths in windows of any length)
+        <select id="t-soloexpress"><option value="off">Off (the tune as written; Solo polish if on)</option><option value="on">On (held bent notes, quick runs, flurries and breaths; the tune's goal notes stay; replaces Solo polish)</option></select>
+      </label>
+      <label>Solo amount (needs Solo expression on)
+        <select id="t-soloamount"><option value="normal">Normal (as before)</option><option value="light">Light (most of the tune left as written; fewer, shorter changes)</option><option value="full">Full (more windows played another way)</option></select>
+      </label>
+      <label>Solo bends (needs Solo expression on)
+        <select id="t-solobends"><option value="plain">Plain (every bend at the engine's one speed)</option><option value="dials">Dials (each bend its own speed, shape and timing: a snap, a lean, a slow singing crawl; the climax and the last note sing)</option></select>
+      </label>
+      <label>Solo recast (needs Solo expression on)
+        <select id="t-solorecast"><option value="off">Off (the runs as they were)</option><option value="on">On (some runs become a library lick, a legato roll, a pedal figure or a trill climb; held notes slide in or trill)</option></select>
+      </label>
+      <label>Solo echo (needs Solo expression on)
+        <select id="t-soloecho"><option value="off">Off (every window on its own)</option><option value="on">On (an answer plays its call's figure again on its own notes; one signature figure comes back near the climax and the end)</option></select>
+      </label>
+      <label>Solo backing (what the band plays under a solo)
+        <select id="t-solobacking"><option value="written">As written (the section's own chords)</option><option value="held">Held chords (the song's chords kept; the rhythm guitar rings each one, power or full chords, instead of its riff; the bass holds the root)</option></select>
+      </label>
+      <label>Solo variation (solos of 16 bars or more)
+        <select id="t-solovary"><option value="off">Off (the same band all through)</option><option value="on">On (one stretch of 4 or 8 bars changes: lighter, half-time or lifted drums; the other section's chords, or held chords; the solo's energy follows)</option></select>
+      </label>
+      <label>Lead in bridges and breakdowns
+        <select id="t-bridgelead"><option value="off">Off (as before)</option><option value="on">On (a melodic lead line there is written like a short lead break, with Solo expression; the drummer fills under it)</option></select>
       </label>
       <label>Band feel
         <select id="t-band"><option value="on">On</option><option value="off">Off (as written)</option></select>

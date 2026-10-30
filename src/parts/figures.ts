@@ -7,6 +7,7 @@
 // Each style writes one motif and develops it over the four bars (repeat, move it onto the
 // chord, vary, end), instead of picking fresh notes every bar.
 
+import { riffPent } from '../moodsong';
 import type { RiffGenre, RiffStyle } from '../genres';
 import type { ChordPart, GuitarHit, Song } from '../idea';
 import type { Rng } from '../rng';
@@ -28,7 +29,7 @@ interface Ctx {
 }
 
 /** A single note on the string whose fret is closest to the hand position. */
-function fretNear(midi: number, t: Tuning, pos: number): Fretted {
+export function fretNear(midi: number, t: Tuning, pos: number): Fretted {
   let m = midi;
   while (m < t.strings[0]) m += 12;
   while (m > t.strings[5] + 19) m -= 12;
@@ -69,8 +70,8 @@ function plans(rng: Rng, form: Form, n: number): BarPlan[] {
 /* ------------------------------------------------------------ picked */
 
 // L low root, O octave, F fifth, I inner (4th), T top note (the moving melody)
-const PICK_TEMPLATES = ['LOFITFTF', 'LFOTOFTF', 'LFTFOFTF', 'LOTOFOTO', 'LFOFTFOF', 'LOFTOFTF'];
-const PICK_STEPS: Record<string, number> = { L: 0, O: 7, F: 4, I: 3 };
+export const PICK_TEMPLATES = ['LOFITFTF', 'LFOTOFTF', 'LFTFOFTF', 'LOTOFOTO', 'LFOFTFOF', 'LOFTOFTF'];
+export const PICK_STEPS: Record<string, number> = { L: 0, O: 7, F: 4, I: 3 };
 
 interface PickedCell { tpl: string; tops: number[]; pos: number; sixteenths: boolean; form: Form }
 
@@ -149,7 +150,8 @@ function lickRun(c: Ctx, bars: Bar[], cache: Record<string, unknown>): GuitarHit
   const chordAt = chordAtFn(chords, song.total);
   // open-position chord shapes for the stabs (the hard rock sound), else power chords
   const shapes = cell.open ? voicingsInTuning(song.key, chords.timeline.map((e) => e.chord), t, { preferOpen: true }) : null;
-  const pent = cell.blue ? [0, 3, 5, 6, 7, 10] : [0, 3, 5, 7, 10];
+  // (Mood riff: a major key's lick takes the major 3rd)
+  const pent = song.moodRiff ? riffPent(song.mode, cell.blue) : cell.blue ? [0, 3, 5, 6, 7, 10] : [0, 3, 5, 7, 10];
   const tonic = lowestOf(song.key, t);
   const hits: GuitarHit[] = [];
   const barPlans = plans(rng, cell.form, bars.length);

@@ -12,13 +12,14 @@ import { EMO_IDS, EMO_INFO, SETS_MAX, SETS_MIN, emoSummary, type EmoId } from '.
 import { isSung, voiceOf } from './sing';
 import { MOOD_LABEL } from '../tension';
 import { shapeName } from './shapes';
+import { TUNE_CHOICES } from './tune';
 
 export interface VersePanel {
   /** Show the song's vocal melody again after new music. */
   update(list: Idea[]): void;
 }
 
-export function buildVersePanel(root: HTMLElement, ctl: { writer(): 'verse' | 'classic' | 'bass'; setWriter(w: 'verse' | 'classic' | 'bass'): void; bassShare(): number; setBassShare(n: number): void; moodOff(): string[]; setMoodOff(off: string[]): void; maxSets(): number; setMaxSets(n: number): void }): VersePanel {
+export function buildVersePanel(root: HTMLElement, ctl: { writer(): 'verse' | 'classic' | 'bass'; setWriter(w: 'verse' | 'classic' | 'bass'): void; bassShare(): number; setBassShare(n: number): void; moodOff(): string[]; setMoodOff(off: string[]): void; maxSets(): number; setMaxSets(n: number): void; tune(): number; setTune(n: number): void; skeleton(): boolean; setSkeleton(on: boolean): void; cells(): boolean; setCells(on: boolean): void }): VersePanel {
   root.innerHTML = `
     <h2>Vocal melody</h2>
     <p class="hint">The lead vocal is written by the verse melody writer, section by section: phrases with breaks, 16th runs, long notes and bent ones, and rules for the pre-chorus climb, the bridge's dwell, the interlude and outro echoing the chorus. A song's choruses (and pre-choruses, bridges, interludes, outros) are one melody over their own chords, and every song draws its own personality. Below: the words and what was written.</p>
@@ -30,6 +31,11 @@ export function buildVersePanel(root: HTMLElement, ctl: { writer(): 'verse' | 'c
     <div class="guiderow" id="v-emo"></div>
     <div class="guiderow">
       <label title="The most sets of notes in 4 bars. A set is notes with no rest between them; a rest of a 16th or more ends it. Smaller gaps are closed (the note before is held on), lone short notes dropped. Phrase breaks stay. Off: as written">Sets of notes per 4 bars <input type="range" id="v-sets" min="${SETS_MIN}" max="${SETS_MAX + 1}" step="1" style="width:140px;vertical-align:middle"> <output id="v-sets-out"></output></label>
+    </div>
+    <div class="guiderow">
+      <label title="Tune pick: the verse and the chorus are each written in several versions (same phrasing, the notes rolled again) and the one that scores best as a tune is sung: a cell of notes that comes back, mostly steps, leaps that step back, phrases that end on a held chord note, chord notes on the bar's first beat, arcs not wiggles, a range a voice can sing. Off: one version, as before (docs/VOCAL-TUNE.md)">Tune pick <select id="v-tune" class="gsing">${TUNE_CHOICES.map((n) => `<option value="${n}">${n ? `Best of ${n}` : 'Off'}</option>`).join('')}</select></label>
+      <label title="Strong notes: the strong note of every phrase of a verse and a chorus is planned first, as one path through the chords' notes (a verse falls slowly, a chorus peaks early and comes home; a call ends a little higher, an answer lower and on the root), and the line is written toward it. Off: as before (docs/VOCAL-TUNE.md)"><input type="checkbox" id="v-skel"> Strong notes planned first</label>
+      <label title="Cell motifs: a phrase is built from a small motif (3 or 4 notes) in scale steps: stated, then sung again moved up or down the scale, the same, changed at its last note or turned upside down, wherever the phrase has the same rhythm; the notes before a held ending run up to it by scale steps, and an answer plays its call's cells again. Replaces the copied shapes of rule 39. Off: as before (docs/VOCAL-TUNE.md)"><input type="checkbox" id="v-cells"> Phrases built from cells</label>
     </div>
     <p class="hint" id="v-lyrics" style="white-space:pre-line"></p>
     <p class="hint" id="v-info" style="white-space:pre-line"></p>`;
@@ -68,6 +74,16 @@ export function buildVersePanel(root: HTMLElement, ctl: { writer(): 'verse' | 'c
   setsIn.addEventListener('input', showSets);
   setsIn.addEventListener('change', () => ctl.setMaxSets(+setsIn.value > SETS_MAX ? 0 : +setsIn.value));
   syncSets();
+  // the tune pick: how many versions of a verse and a chorus are written; a change regenerates the vocal
+  const tuneSel = $('v-tune') as HTMLSelectElement;
+  tuneSel.value = String(ctl.tune());
+  tuneSel.addEventListener('change', () => ctl.setTune(+tuneSel.value));
+  const skelIn = $('v-skel') as HTMLInputElement;
+  skelIn.checked = ctl.skeleton();
+  skelIn.addEventListener('change', () => ctl.setSkeleton(skelIn.checked));
+  const cellIn = $('v-cells') as HTMLInputElement;
+  cellIn.checked = ctl.cells();
+  cellIn.addEventListener('change', () => ctl.setCells(cellIn.checked));
   let list: Idea[] = [];
   const noteName = (m: number) => NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
   const accents = new WeakMap<Idea, number[]>();
@@ -140,6 +156,9 @@ export function buildVersePanel(root: HTMLElement, ctl: { writer(): 'verse' | 'c
       syncBass();
       syncEmo();
       syncSets();
+      tuneSel.value = String(ctl.tune());
+      skelIn.checked = ctl.skeleton();
+      cellIn.checked = ctl.cells();
       info();
     },
   };

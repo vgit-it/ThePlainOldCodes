@@ -1,3 +1,5 @@
+Status: live — scope and decisions for the lead guitar (Guitar 2) and solos.
+
 # Lead guitar and solos (scope)
 
 Guitar 2 becomes the band's lead player: it answers the singer through the verses, builds into
@@ -51,7 +53,7 @@ The section:
 - Track option "Solo: Auto / On / Off"; shown as "Solo" in the sections (and in Add after…), with its own
   "New solo" reroll.
 
-As built (`src/parts/solo.ts`, rules in `docs/SOLO-THEORY.md`; placement in `src/track.ts`):
+As built (the classic writer in `src/parts/solo.ts` is gone since the clean-up, see `docs/ARCHIVE.md`; the notes are still played by `playSolo` there, rules in `docs/SOLO-THEORY.md`; placement in `src/track.ts`):
 - Where: after the 2nd chorus (70%), else after the 1st (taking the interlude's place); 20% of songs
   also solo over the outro. Hand-edited orders keep what you set.
 - 8 bars over the verse (60%) or chorus (40%) chords; metal and hard rock 16 bars half the time (back
@@ -111,7 +113,7 @@ Tags: [M] stated by a source; [P] what teachers agree on; [R] a rule of thumb tu
 - ✓ Rakes: the pick dragged across two or three muted strings into a bent note (blues, Gilmour,
   Prince) [M], by player 5-30% of bent licks [R].
 - ✓ Ghost notes: muted 16ths between the notes of a funk lick [M].
-- · Pinch harmonics, whammy dives, feedback (no samples for them yet).
+- ✓ Pinch and natural harmonics, whammy dives, feedback, pick scrape: made in code, heard in the labs only so far (`GUITAR-SOUNDS.md`).
 
 ### What each player plays (`src/parts/licks.ts`)
 Licks written over the chord (so they fit wherever they're put), moved to the chord under them and
@@ -158,6 +160,6 @@ players' style, not copied from songs. All checked to fit minor, Dorian, major a
   (the lick grid is 16ths), country chicken pickin' (no country genre).
 
 ## 6. Later
-- Pinch harmonics, whammy dives, feedback (need their own sounds).
+- Pinch harmonics, whammy dives, feedback: the sounds exist (`GUITAR-SOUNDS.md`); the writers don't use them yet.
 - A tab view; locking a solo.
 - Lead guitar vs real songs: `docs/STUDY-LEAD.md` (1,967 real lead guitar parts measured against Guitar 2: longer lines, more steps, picked figures, heavy leads out of the singer's way).

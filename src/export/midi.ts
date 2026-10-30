@@ -158,7 +158,7 @@ export function toMidi(list: Idea[], o: MidiOptions): Uint8Array {
     const hit = (t: MidiTrack, h: GuitarHit, v: number, ending: boolean, late = 0) => {
       let dur = ending ? 6 : Math.min(h.len * sixSec * 0.97, 4);
       let hv = v;
-      if (h.mute === 'palm') { dur = Math.min(dur, 0.2); hv *= 0.9; }
+      if (h.mute === 'palm' || h.chug) { dur = Math.min(dur, 0.2); hv *= 0.9; }
       if (h.mute === 'dead') { dur = 0.05; hv *= 0.6; }
       if (h.swell) hv *= 0.8;
       h.notes.forEach((m, i) => note(t, m, Math.max(0, at(h.step + (h.shift ?? 0)) + secToTicks(late / 1000)) + i * 6, secToTicks(dur), hv));

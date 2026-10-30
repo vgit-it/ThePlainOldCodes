@@ -1,3 +1,5 @@
+Status: always on — picked figures on the lead guitar; always on since 2026-10-17, no switch.
+
 # Lead figures (switch)
 
 From `docs/STUDY-LEAD.md`, item 3: real lead guitar parts are often a picked figure over the chords, the same bar after bar (16% of real lead bars, pop 26%; the app 2%), and real lead parts repeat their figures (45% of 2-bar stretches come back; the app 29%). A switch in the Guitar 2 row: **Figures: Off / On**. Off: exactly as before (checked note for note over 126 songs, 4/4, 6/8, 3/4; Lines alone also unchanged). Kept with the idea and in shared links (`leadFigures`).

@@ -1,3 +1,5 @@
+Status: live — the verse melody writer (`src/verse/`), the lead vocal's melody, rule by rule.
+
 # Verse melody writer: sections and variety
 
 The verse melody writer (`src/verse/`) writes the song's lead vocal, one rule at a time (the main voice since 2026-10-19, `docs/VOCAL.md`; `sing.ts` hooks it into the song builder, the card is now a report). Goal: great songs that don't sound alike.

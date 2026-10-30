@@ -1,4 +1,8 @@
+Status: experiment — Melody + player: the melody handed to a guitarist (`solomelody.ts`, `soloplayer.ts`); Paul is listening.
+
 # Solo player: the melody handed to a guitarist (scope, version 2)
+
+> **Menu (2026-10-25):** only **Melody + player** is in the Solo writer menu now (with As before and Planned). Melody + read and the earlier steps live on inside it; the checks reach them through `soloCheck`. See `docs/CLEANUP-PLAN.md` Phase 2.
 
 Paul (2026-10-24): take everything built up to Melody + joins and treat it as if it were handed to a guitarist: work out how to play it well and add flourishes like a pro. Built from single **skills**, arranged in meaningful ways.
 
@@ -137,7 +141,7 @@ Each is a building block the rules use; a rule is a short arrangement of these.
 - **Re-divide** (the new part, the time inside a note): same-note repeats in 8ths, triplets, 16ths, 32nds, gallop (8th + 2 x 16th), reverse gallop, stutter (a few repeats then a hold), pulse with crescendo, ghosted repeats.
 - **Runs**: legato run, picked run, pull-off flurry, pentatonic burst, tremolo run, rake run, wide leap, (sweep, string skip, tapping later).
 - **Rhythm colours**: ghost notes, triplet push, dead stop, pickup.
-Almost all are played by the engine today (`GuitarHit`: `bend`, `art`, `slide`, `vib`, `lateBend`, `unbend`, `trill`, `tremolo`, `rake`, `mute`, `shift`, `swell`, `dyad`). Not yet: pinch and natural harmonics, whammy (new sounds); sweep and tapping (a hands rule).
+Almost all are played by the engine today (`GuitarHit`: `bend`, `art`, `slide`, `vib`, `lateBend`, `unbend`, `trill`, `tremolo`, `rake`, `mute`, `shift`, `swell`, `dyad`). Pinch and natural harmonics, whammy, feedback and pick scrape have sounds now (`harm`, `dive`, `feedback`, `scrape`; `GUITAR-SOUNDS.md`), not yet used by a rule. Not yet: sweep and tapping (a hands rule).
 
 ## 7. Robustness (how it stays safe)
 

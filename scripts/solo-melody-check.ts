@@ -2,12 +2,14 @@
 // every note a chord note (over every chord it is held across), no silence over a beat, no note shorter than an 8th or longer than a bar,
 // no overlaps, one highest note (the climax), the last bar one held note, and the mood in the intervals (the stats per mood).
 //   npm run solo-melody-check        (N=140 songs)
+//   SW=1 npm run solo-melody-check   the same, with the rhythm motif switch on (step 0f)
 import { MAIN_GUITARS, generate } from '../src/generator';
 import { chordTones } from '../src/parts/guitar2';
 import { QUALITIES, SCALES, chordPc } from '../src/theory';
 import { buildTrack, defaultTrackOptions } from '../src/track';
 
 const N = Number(process.env.N ?? 140);
+const SW = process.env.SW ? 'on' : 'off';
 const GENRES = ['rock', 'pop', 'funk', 'hardrock', 'metal', 'grunge', 'altmetal'];
 const MOODS = ['happy', 'melancholic', 'nostalgic', 'tense', 'angry', 'dreamy', 'triumphant', 'dark'] as const;
 const METERS = ['4/4', '4/4', '4/4', '3/4', '6/8', '7/8', '5/4', 'mixed'];
@@ -39,7 +41,7 @@ for (const m of MOODS) M[m] = { moves: [], up: 0, rough: 0, same: 0, leaps: 0 };
 for (let i = 0; i < N; i++) {
   const genre = GENRES[i % 7], meter = METERS[i % METERS.length], mood = MOODS[i % MOODS.length], s = `sm-${i}-${genre}`;
   const idea = generate({ genre, meter, weirdness: 0.3, ...MAIN_GUITARS } as never, { song: s, chords: s + 'c', drums: s + 'd', strum: s + 's', bass: s + 'b', vocal: s + 'v' } as never);
-  const sections = buildTrack(idea, { ...defaultTrackOptions(idea), soloPlan: 'melody', mood } as never).sections as any[];
+  const sections = buildTrack(idea, { ...defaultTrackOptions(idea), soloCheck: 'melody', mood, soloMotif: SW } as never).sections as any[];
   for (const sec of sections) {
     if (!sec.section?.solo) continue;
     const total = sec.song.total, bars = sec.song.bars;
@@ -134,5 +136,23 @@ if (!(leapHi > leapLo + 0.1)) fail(`moods: leaps ${leapHi.toFixed(2)} not above 
 if (T.sixteenths) fail('notes under an 8th');
 if (!(avg(NECK.pitch) > 0.75)) fail(`the pitch follows the energy only ${avg(NECK.pitch).toFixed(2)}`);
 if (!(avg(NECK.fret) > 0.6)) fail(`the frets follow the energy only ${avg(NECK.fret).toFixed(2)}`);
+// the rhythm motif switch (step 0f), side by side on the same songs: how much of the rhythm repeats (the breath switch is checked in solo-player-check)
+{
+  const rep: Record<string, number[]> = { off: [], on: [] };
+  for (const sw of ['off', 'on'] as const) {
+    for (let i = 0; i < N; i++) {
+      const genre = GENRES[i % 7], meter = METERS[i % METERS.length], mood = MOODS[i % MOODS.length], s = `sm-${i}-${genre}`;
+      const idea = generate({ genre, meter, weirdness: 0.3, ...MAIN_GUITARS } as never, { song: s, chords: s + 'c', drums: s + 'd', strum: s + 's', bass: s + 'b', vocal: s + 'v' } as never);
+      for (const sec of buildTrack(idea, { ...defaultTrackOptions(idea), soloCheck: 'melody', mood, soloMotif: sw } as never).sections as any[]) {
+        if (!sec.section?.solo) continue;
+        const lens = sec.guitar2.filter((h: any) => !h.mute && h.notes.length).sort((x: any, y: any) => x.step - y.step).map((h: any) => h.len);
+        const tri = lens.slice(2).map((_: number, k: number) => lens.slice(k, k + 3).join(','));
+        if (tri.length) rep[sw].push(1 - new Set(tri).size / tri.length);
+      }
+    }
+  }
+  console.log(`rhythm repeated (3-note patterns that come again): ${pct(Math.round(avg(rep.off) * 1000), 1000)} off, ${pct(Math.round(avg(rep.on) * 1000), 1000)} with the motif switch`);
+  if (!(avg(rep.on) > avg(rep.off) + 0.03)) fail(`motif: rhythm repeated ${avg(rep.on).toFixed(2)} against ${avg(rep.off).toFixed(2)} without it`);
+}
 console.log(bad ? `${bad} FAIL` : '0 FAIL');
 if (bad) process.exitCode = 1;

@@ -1,3 +1,5 @@
+Status: research — melodies and rhythms in the POP909 collection.
+
 # Study: melodies in POP909
 
 Goal (Paul): study the melodies and rhythms of real songs, to later write similar ones by algorithm.

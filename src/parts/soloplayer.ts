@@ -41,7 +41,16 @@ export interface PlayerCtx {
   /** The section's energy level and kind. */
   energy: number;
   kind: SectionKind;
+  /** Breath switch (docs/SOLO-MELODY.md, step 0f): after a busy stretch of quick notes, the next note (and the rest before it) is left as written. */
+  breath?: boolean;
+  /** Grid switch (step 0f): in a straight groove the player's figures start and land on the 8th (no odd 16ths, no triplets). */
+  grid?: boolean;
+  /** Polish for a story solo (docs/SOLO-POLISH.md): the recipes are already full of notes, so the player dresses them lightly: figures only on the longer holds and half the time, fewer touches on short notes, fewer pickups in the rests. */
+  light?: boolean;
 }
+
+/** Breath switch: this many quick events (under a beat) in a row count as a busy stretch. */
+const BREATH_AFTER = 6;
 
 export interface PlayerOpts {
   /** For checks: always try this rule first where it applies. */
@@ -95,6 +104,13 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
   });
   /** Notes already played as part of a run begun on an earlier note. */
   const claimed = new Set<number>();
+  /** Breath switch: how many quick sounding events in a row end just before note `i` (what its earlier notes, and the fills before them, play now). */
+  const quickBefore = (i: number): number => {
+    const evs = [...groups.slice(0, i).flat(), ...[...extras].filter(([k]) => k < i).flatMap(([, v]) => v)].filter((e) => !e.hit.mute).sort((a, b) => a.t - b.t);
+    let n = 0;
+    for (let k = evs.length - 1; k >= 0 && evs[k].len < 4; k--) n++;
+    return n;
+  };
 
   notes.forEach((note, i) => {
     if (claimed.has(i)) return;
@@ -107,6 +123,7 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     for (const k of Object.keys(nr.feel) as (keyof Feel)[]) want[k] = Math.max(-1, Math.min(1, nr.feel[k] + person.lean[k]));
     const rng = new Rng(`${c.seed}-player-${note.t}-${note.midi}`);
     if (note.frozen) { moves[i].note = 'the last note is carried into the next section'; return; }
+    if (c.breath && !o.force && quickBefore(i) >= BREATH_AFTER) { moves[i].note = 'a breath after a busy stretch'; return; }
 
     // the rules that play the note itself (held with expression, or struck again and again), scored: fit x taste x a pet move x not the same again
     const scored = rules
@@ -177,7 +194,7 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
         const busy = !!prevC && (prevC.intent === 'dress' || prevC.contour === 'trill' || !!prevC.contour?.startsWith('bend-'));
         if (busy) { moves[i].note = 'short: a breath after a busy note'; return; }
         if ((dressedIn.get(barOf(note.t)) ?? 0) >= 2) { moves[i].note = 'short: the bar is busy enough'; return; }
-        if (!only && !rng.chance(clamp(0.58 * person.density * (0.65 + 0.7 * e01), 0, 0.65))) { moves[i].note = 'short: left plain'; return; }
+        if (!only && !rng.chance(clamp(0.58 * person.density * (0.65 + 0.7 * e01), 0, 0.65) * (c.light ? 0.5 : 1))) { moves[i].note = 'short: left plain'; return; }
       }
       const profile = profileFor(c.mood, 'solo', c.tension[barOf(note.t)]);
 
@@ -238,6 +255,8 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
     const canBridge = figuresOn && note.anchor !== 'all' && !!span.next && span.after <= 2;
     const weights = intentWeights({ mood: c.mood, e01, tag: tagw, person, canBridge });
     if (!figuresOn) weights.return = 0;
+    // (a story solo: a figure only on a hold of two beats or more, and then half the time; the rest are held or decorated)
+    if (c.light && !o.force && (note.len < 8 || rng.chance(0.5))) { weights.return = 0; weights.bridge = 0; }
     if (o.force) {
       // (for the checks: the named rule, or every figure of a named intention)
       if (rules.some((r) => r.name === o.force)) { for (const k of Object.keys(weights) as Intent[]) weights[k] = 0; weights.stay = 1; }
@@ -306,11 +325,12 @@ export function performSolo(base: Guitar2Part, c: PlayerCtx, rules: Rule[] = LIV
       if (note.frozen) return;
       const span = spanFor(i);
       if (span.before < 2 - 1e-6) return;
+      if (c.breath && !o.force && quickBefore(i) >= BREATH_AFTER) { moves[i].note = moves[i].note ?? 'the rest before it stays silent: a breath after a busy stretch'; return; }
       const rng = new Rng(`${c.seed}-rest-${note.t}-${note.midi}`);
       const nr = read.notes[i];
       const e01 = (Number(nr.facts.energy ?? 0) + 1) / 2;
       // (most rests stay the breath they are)
-      if (!o.force && !rng.chance(clamp(0.75 * person.density * (0.6 + 0.8 * e01), 0, 0.75))) { moves[i].note = moves[i].note ?? 'the rest before it stays silent'; return; }
+      if (!o.force && !rng.chance(clamp(0.75 * person.density * (0.6 + 0.8 * e01), 0, 0.75) * (c.light ? 0.4 : 1))) { moves[i].note = moves[i].note ?? 'the rest before it stays silent'; return; }
       const want = {} as Feel;
       for (const k of Object.keys(nr.feel) as (keyof Feel)[]) want[k] = Math.max(-1, Math.min(1, nr.feel[k] + person.lean[k]));
       const prev = i ? lastSounding(groups[i - 1]) : null;

@@ -85,6 +85,10 @@ function pickCost<T>(rng: Rng, items: { v: T; cost: number }[]): T | null {
   return rng.weighted(items.map((x) => [x.v, Math.exp(-(x.cost - lo) / PICK_T)] as [T, number]));
 }
 
+/** The ways of writing a solo from core notes (docs/SOLO-CORE.md, SOLO-STORY.md, SOLO-RECIPES.md); anything else is not one. */
+export const CORE_MODES = ['only', 'travel', 'story', 'recipes', 'library'] as const;
+export const isCoreMode = (x: unknown): x is (typeof CORE_MODES)[number] => (CORE_MODES as readonly unknown[]).includes(x);
+
 export interface PlanOpts {
   /** The song's mood (the track's): the intervals, the height of the call and the answer, and how much it breathes. */
   mood?: Mood;
@@ -92,6 +96,12 @@ export interface PlanOpts {
   tension?: number[];
   /** The drums of the section (kick and snare lanes): long notes and landings are pulled onto the beat or a hit (round 4). */
   drums?: { kick: number[]; snare: number[] };
+  /** Melody writer only (docs/SOLO-MELODY.md, step 0f): a phrase repeats its first beat or two of rhythm, so the tune can be followed. */
+  rhythmMotif?: boolean;
+  /** Melody writer only (docs/SOLO-CORE.md): only the core notes of the chosen bars are written, so they can be heard alone ('only'); or with moves between them (step 2, 'travel'). */
+  cores?: 'only' | 'travel' | 'story' | 'recipes' | 'library';
+  /** With cores (docs/SOLO-CLIMAX.md): the climax core is played (bent and held with vibrato, bent again and again, or a pedal lick) instead of held plain. */
+  climax?: 'played';
 }
 
 export function generateSoloPlan(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, hook: GuitarHit[] | null, intensity = 0.7, o: PlanOpts = {}): Guitar2Part {

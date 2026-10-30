@@ -1,3 +1,5 @@
+Status: always on — lead breaks and twin leads; always on since 2026-10-17, no switch.
+
 # Lead breaks and twin leads (switches)
 
 From `docs/STUDY-LEAD.md`, items 5 and 6. Two switches in the Guitar 2 row, both off by default; off: exactly as before (checked note for note over 126 songs, 4/4, 6/8, 3/4, with and without the other switches). Tracks only. Kept with the idea and in shared links (`leadBreaks`, `leadTwin`).

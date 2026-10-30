@@ -9,10 +9,10 @@
 //   home chord (carried into the next section: src/track.ts, carrySolo).
 // Played plain (no bends, slides or vibrato), so the tune can be heard alone. Next step: its notes become the planner's landings.
 
-import type { ChordPart, GuitarHit, Song, SoloCurve, SoloGap } from '../idea';
+import type { ChordPart, GuitarHit, Song, SoloCurve, SoloGap, StoryPart, TravelMove } from '../idea';
 import { type GapNote, findGaps, pickGaps } from './solomelody-gaps';
 import type { LickKind } from '../players/lead';
-import type { Rng } from '../rng';
+import { Rng } from '../rng';
 import { QUALITIES, SCALES, chordPc } from '../theory';
 import type { Mood } from '../tension';
 import { TUNINGS } from '../theory/fretboard';
@@ -22,6 +22,10 @@ import type { Guitar2Part } from './guitar2';
 import { type PlacedNote, lickFit, placedHit } from './licks';
 import type { LandingRole, PlanOpts } from './soloplan';
 import { BUSY, DENSITY, ENERGY_WORDS, energyAt, pickEnergy } from './solo2';
+import { coreLine, pickCores } from './solocore';
+import { gapPattern, planStory, storyGapLine, storyLine } from './solostory';
+import { storyParts, writeStory } from './solorecipes';
+import { CLIMAX_WORDS, type MoveCtx, moveLine, planMoves, playClimax, writeMoves } from './solomoves';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
@@ -30,6 +34,9 @@ const PICK_T = 1.5;
 
 /** The chance an answer plays its call's rhythm again. */
 const ECHO_RHYTHM = 0.55;
+/** Rhythm motif switch: the first cell of a phrase is this many beats (then to the next beat), and each time round it comes back with this chance. */
+const MOTIF_BEATS = 2;
+const MOTIF_KEEP = 0.8;
 /** How much the mood's liking of an interval counts against the height and the rest (chord notes are few, so the moods need a push to be heard). */
 const MOOD_K = 1.6;
 /** How hard a note is pulled toward the height the energy and the phrase want (per semitone). */
@@ -100,6 +107,67 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
   const busy = (DENSITY[genre] * BUSY[lick]) / 5.4;
   const vel0 = 0.8 + 0.08 * intensity;
 
+  // ---- cores only (docs/SOLO-CORE.md, step 1): about half the bars get one note that stands out, and nothing else is written;
+  // 'travel' (step 2) fills the gaps between the cores with moves
+  if (o.cores === 'only' || o.cores === 'travel' || o.cores === 'story' || o.cores === 'recipes' || o.cores === 'library') {
+    const cores = pickCores({ rng, song, chords, fit, mood, tension: (b) => (o.tension?.length ? o.tension[Math.min(o.tension.length - 1, b)] : 0.5), E, centerAt, window: rawWindow, profile: prof, drums: o.drums });
+    const pos = rng.int(5, 12);
+    const hits = cores.map((k) => placedHit({ step: k.step, midi: k.midi, len: k.len, vel: Math.min(1, vel0 + VEL_SWING * E(k.step) + 0.05 * Math.min(2, k.noteScore) + (k.role === 'climax' ? 0.1 : 0)), bend: 0, art: 'pick' }, t, pos));
+    const r2 = (v: number) => Math.round(v * 100) / 100;
+    // (the moves have their own dice, drawn after the cores, so the cores are the same as in 'only')
+    const lines: string[] = [];
+    let travel: TravelMove[] | undefined;
+    const mc: MoveCtx = { rng: new Rng('moves-' + rng.next()), song, chords, fit, mood, E, window: rawWindow, profile: prof, vel: (g) => vel0 + VEL_SWING * E(g) - 0.03, drums: o.drums };
+    if (o.cores === 'travel') {
+      const plans = planMoves(mc, cores), outs = writeMoves(mc, plans, cores);
+      travel = outs.map((x) => x.rec);
+      for (const x of outs) for (const n of x.notes) hits.push(placedHit(n, t, pos));
+      hits.sort((a, b) => a.step - b.step);
+      for (let g = 0; g <= Math.max(-1, ...plans.map((p) => p.gap)); g++) {
+        const recs = outs.filter((x) => x.rec.gap === g).map((x) => x.rec).filter((r) => r.move !== 'grace');
+        if (recs.length) lines.push(moveLine(song, fit, cores[recs[0].into], recs));
+      }
+    }
+    // (the story: the part of every gap, planned from the cores alone; no dice and no notes)
+    const story = o.cores === 'story' || o.cores === 'recipes' || o.cores === 'library' ? planStory(song, cores, E) : undefined;
+    let told: StoryPart[] | undefined;
+    if (story && o.cores === 'story') {
+      lines.push(`story (planned, no licks yet): ${storyLine(story, cores)}; ${gapPattern(story)}`);
+      for (const g of story) lines.push(storyGapLine(song, g, cores[g.into]));
+    }
+    // (the story told in licks, docs/SOLO-RECIPES.md: a recipe for every part, drawn after the cores and the plan)
+    if (story && (o.cores === 'recipes' || o.cores === 'library')) {
+      const w = writeStory(mc, storyParts(story), cores, o.cores === 'library');
+      for (const n of w.notes) hits.push(placedHit(n, t, pos));
+      hits.sort((a, b) => a.step - b.step);
+      told = w.parts;
+      lines.push(`story (told in licks${o.cores === 'library' ? ', with the lick library' : ''}): ${storyLine(story, cores)}; ${gapPattern(story)}`, ...w.lines);
+    }
+    // (the climax played: drawn after the moves, so the moves are the same with it on or off; its first note is the core's)
+    const climaxCore = o.climax === 'played' ? cores.find((k) => k.role === 'climax') : undefined;
+    if (climaxCore) {
+      const { notes, way } = playClimax(mc, climaxCore);
+      const at = hits.findIndex((h) => h.step === climaxCore.step);
+      if (at >= 0) hits.splice(at, 1, ...notes.map((n) => placedHit(n, t, pos)));
+      hits.sort((a, b) => a.step - b.step);
+      lines.push(`climax (bar ${Math.floor(climaxCore.bar) + 1}): ${CLIMAX_WORDS[way]}`);
+    }
+    return {
+      hits,
+      curve: {
+        shape: ENERGY_WORDS[en.shape](en), pitchC: en.pitchC, paceC: en.paceC,
+        energy: Array.from({ length: total }, (_, g) => r2(E(g))),
+        centre: Array.from({ length: total }, (_, g) => centerAt(g)),
+        pace: Array.from({ length: total }, (_, g) => r2(paceAt(g))),
+        landings: cores.map((k) => ({ step: k.step, midi: k.midi, len: k.len, role: k.role === 'mid' ? 'core' : k.role })), neck: true,
+        ...(travel ? { travel } : {}),
+        ...(story ? { story } : {}),
+        ...(told ? { parts: told } : {}),
+      },
+      notes: [`Guitar 2: a solo (${travel ? 'core notes, with moves between' : story ? (told ? 'core notes, story told in licks' : 'core notes, story planned') : 'core notes only'}): ${cores.length} of ${bars.length} bars have one, in ${mood}: ${cores.map(coreLine).join('; ')}`, ...lines],
+    };
+  }
+
   // ---- the beat: the smallest group of the bar (a quarter of a 4/4 bar)
   const barAt = (g: number) => bars[barIx(g)];
   const beatOf = (g: number) => Math.min(...barAt(g).groups);
@@ -156,10 +224,36 @@ export function generateSoloMelody(rng: Rng, song: Song, chords: ChordPart, riff
     const endLen = wantEnd && span >= beatOf(A) * 2 ? pickEnd(A, span) : 0;
     const lens: number[] = [];
     let pos = A;
-    while (pos < A + span - endLen) {
-      const l = pickLen(pos, A + span - endLen - pos, lens);
-      lens.push(l);
-      pos += l;
+    const stop = A + span - endLen;
+    if (!o.rhythmMotif) {
+      while (pos < stop) {
+        const l = pickLen(pos, stop - pos, lens);
+        lens.push(l);
+        pos += l;
+      }
+    } else {
+      // the motif: the first cell (two beats, to the next beat) comes back, mostly, through the phrase; a cell that does not fit is written new
+      let cell: number[] | null = null;
+      while (pos < stop) {
+        if (cell) {
+          const size = cell.reduce((a, b) => a + b, 0);
+          let q = pos, fits = pos + size <= stop && rng.chance(MOTIF_KEEP);
+          for (const l of cell) {
+            if (!fits) break;
+            const barEnd = barAt(q).start + barAt(q).len;
+            if (!canHold(q, l) || (q + l > barEnd && q !== barAt(q).start)) fits = false;
+            q += l;
+          }
+          if (fits) { lens.push(...cell); pos += size; continue; }
+        }
+        const from = lens.length, p0 = pos;
+        while (pos < stop && (pos - p0 < MOTIF_BEATS * beatOf(p0) || !isBeat(pos))) {
+          const l = pickLen(pos, stop - pos, lens);
+          lens.push(l);
+          pos += l;
+        }
+        if (isBeat(pos) || pos === stop) cell = lens.slice(from);
+      }
     }
     if (endLen) lens.push(endLen);
     return lens;

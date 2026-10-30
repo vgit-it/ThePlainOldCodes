@@ -1,3 +1,4 @@
+import type { MoodSong } from './moodsong';
 import type { GuideSungLine } from './guide/words';
 import type { EnergyStyle } from './parts/energy';
 import type { VocalNote, VoiceType } from './parts/vocal';
@@ -41,6 +42,8 @@ export interface GenOptions {
   /** Fixed key (0-11) and mode; leave out for the song's own (the lick lab sets them). */
   key?: number;
   mode?: Mode;
+  /** Mood song (docs/MOOD-SONG.md): the song written for a mood, its mode, tempo and drum feel following it. Left out: the genre's own. */
+  moodSong?: MoodSong;
   /** Chords you set (strummed genres); the generator writes the rest around them. */
   chords?: ChordSheet;
   /** Semitones higher the vocal tunes are written (the Chester voice: a tenor; in key, the tune itself rewritten). */
@@ -67,6 +70,12 @@ export interface GenOptions {
   vocalMoodOff?: string[];
   /** The verse writer's most sets of notes (notes with a rest either side) in 4 bars (src/verse/sets.ts): left out, 4; 0, no limit. */
   vocalMaxSets?: number;
+  /** Tune (src/verse/tune.ts, docs/VOCAL-TUNE.md): a verse and a chorus are written in this many versions (4, 8 or 12), the best as a tune is sung; left out: one version, as always. */
+  vocalTune?: number;
+  /** Strong notes (src/verse/skeleton.ts, docs/VOCAL-TUNE.md): the strong note of every phrase of a verse and a chorus is planned first as a path through the chords' notes and the line is written toward it; left out: off. */
+  vocalSkeleton?: boolean;
+  /** Cell motifs (src/verse/cells.ts, docs/VOCAL-TUNE.md): a phrase is built from a motif in scale steps (stated, moved, changed, turned over), runs up to its held ending, and an answer plays its call's cells again; in the place of rule 39's copies. Left out: off. */
+  vocalCells?: boolean;
   /** Real strum mix (docs/STUDY-RHYTHM.md): strumming patterns from a library widened to what real guitarists play: held chords, quarters, 8ths in many shapes, 16ths, stabs. */
   strumMix?: boolean;
   /** Guitar 2 (the lead player) plays whole lines, mostly by step, as well as short licks (docs/LEAD-LINES.md). Off: as before. */
@@ -118,6 +127,10 @@ export interface Song {
   sections?: RiffStyle[];
   /** Tracks: force the drums into (or out of) half-time. */
   forceHalf?: boolean;
+  /** Mood riff (docs/MOOD-RIFF.md): the riff's notes follow the mode's 3rd. */
+  moodRiff?: boolean;
+  /** Tracks: the riff is written by the new riff writer (docs/RIFF-WIRE.md) where it can; else the old one. */
+  newRiff?: boolean;
   /** Tracks: drums never wait out the first bars of a quiet intro. */
   noTacet?: boolean;
   /** Tracks: a groove the drums shouldn't pick (the verse plays a different groove from the chorus). */
@@ -192,8 +205,73 @@ export interface SoloCurve {
   fine?: boolean;
   /** The solo player's report (docs/SOLO-PLAYER.md): what it did with each note of the melody. */
   moves?: SoloMove[];
+  /** The expression pass (docs/SOLO-EXPRESSION.md): the windows it played again, each with its start and end step, its pattern and the heat it was played at. */
+  express?: { t0: number; t1: number; pattern: string; heat: number }[];
+  /** The echo (docs/SOLO-ECHO.md): the windows that play another window's figure again (its start `from`), an answer playing its call or the signature figure coming back. */
+  echo?: { from: number; fromEnd: number; t0: number; t1: number; via: string }[];
   /** How the solo player read the melody (docs/SOLO-PLAYER.md, step 2): the situation of every note, joint, cell and phrase. */
   read?: SoloRead;
+  /** Core notes with moves between (docs/SOLO-CORE.md, step 2): what was written in each gap between the cores. */
+  travel?: TravelMove[];
+  /** Core notes with the story planned (docs/SOLO-STORY.md): the part of every gap between the cores. */
+  story?: StoryGap[];
+  /** The story told in licks (docs/SOLO-RECIPES.md): what is played in every part, for the card and the melody view. */
+  parts?: StoryPart[];
+}
+
+/** One part of the story as it was played: where, what it is called, what was played and in which pieces. */
+export interface StoryPart {
+  into: number;
+  from: number;
+  to: number;
+  role: StoryGap['role'];
+  label: string;
+  /** What was played, in a few words. */
+  recipe: string;
+  /** The pieces of it (a sung phrase, then a bend and pull-offs), for the melody view. */
+  bits: { from: number; to: number; what: string }[];
+  notes: number;
+}
+
+/** The part one gap plays in the solo's story (src/parts/solostory.ts). */
+export interface StoryGap {
+  /** Which core (by order) the gap leads into, and the room it has (16ths). */
+  into: number;
+  from: number;
+  to: number;
+  /** The room in beats, the jump from the core before in scale steps (up is plus), and the energy in the middle of it. */
+  beats: number;
+  steps: number;
+  energy: number;
+  role: 'statement' | 'answer' | 'build' | 'ramp' | 'release' | 'return' | 'link';
+  /** Its name in the story line (A, A′, B, build, ramp, release, A (back)). */
+  label: string;
+  /** The gap (by core order) whose phrase it can repeat. */
+  repeatOf?: number;
+}
+
+/** One move between two core notes (src/parts/solomoves.ts): where it sits, what it is, and the core it leads into. */
+export interface TravelMove {
+  /** The move's name, or `grace` (a single note into a core after a very short gap). */
+  move: string;
+  /** Where the move's room starts and ends (16ths; it ends where the next core starts). */
+  from: number;
+  to: number;
+  /** Which gap it is in, and which core (by order) it leads into. */
+  gap: number;
+  into: number;
+  /** The signature lick: stated once, then coming back changed. */
+  label?: 'signature' | 'return';
+  /** What changed in a return (an extra note, higher, a bend on the top note). */
+  change?: string;
+  /** How many notes it wrote, the pitch of the last one, and the pitch of the core it leads into. */
+  notes: number;
+  last: number;
+  core: number;
+  /** Which way the shape goes (1 up, -1 down), where that matters. */
+  dir?: 1 | -1;
+  /** A wide leap that step 3 may tap. */
+  tap?: boolean;
 }
 
 /** A situation the reader found in a span, and how strongly (0 to 1). */
@@ -315,6 +393,8 @@ export interface GuitarHit {
   vel: number;
   /** palm = palm-muted chug, dead = muted scratch. */
   mute?: 'palm' | 'dead';
+  /** A lead note played palm-muted (a chug in a solo's burst of muted notes, docs/SOLO-EXPRESSION.md). Unlike `mute: 'palm'` the hands still finger it and the checks still count it as a note. */
+  chug?: boolean;
   /** Quiet section: play on the clean channel even when the amp is driven. */
   clean?: boolean;
   /** Let other strings keep ringing (arpeggios). */
@@ -336,18 +416,33 @@ export interface GuitarHit {
   lateBend?: number;
   /** A bend let down or pushed up at this many 16ths into the note, not at the usual time (a note that carries into the next section bends on the bar line). */
   bendAt?: number;
+  /** How long the bend takes, in ms (a snap is about 40, a crawl 600); otherwise the engine's own speed. */
+  bendRise?: number;
+  /** The bend's shape: 1 is even, over 1 starts slow and finishes quick, under 1 jumps then creeps up. */
+  bendEase?: number;
   /** Trilled: hammered on and pulled off this many semitones above, fast, for the whole note. */
   trill?: number;
   /** Tremolo picked: the note picked again and again, as fast as the hand goes (32nds). */
   tremolo?: boolean;
   /** Raked into: the pick drags across this many muted strings just before the note. */
   rake?: number;
+  /** A harmonic (docs/GUITAR-SOUNDS.md): pinch, the picked note with its squeal an octave and a fifth up;
+   * natural, a chime at the note written (the string touched at a node, not fretted). */
+  harm?: 'pinch' | 'natural';
+  /** Whammy dive: the bar pushed down through the end of the note, this many semitones. */
+  dive?: number;
+  /** Feedback: the held note is taken over by a tone this many semitones up, swelling in (12: the octave). */
+  feedback?: number;
+  /** A pick scrape into the note: the pick's edge dragged down the strings for this many 16ths before it. */
+  scrape?: number;
   /** Sounds this much of a step after its step (a triplet: 1/3, 2/3); Guitar 2 only. */
   shift?: number;
   /** A passing note outside the key (a blue or chromatic note on a weak spot, docs/SOLO-PLAYER.md): the checks let it be. */
   out?: boolean;
   /** Played as written: not held on through a short rest into the next note (a pulse or a gallop on one note, docs/SOLO-PLAYER.md). */
   exact?: boolean;
+  /** A note shorter than a step on purpose (a 32nd in a run from the solo expression pass): a section's cap leaves it short. */
+  quick?: boolean;
   /** A second lead guitar plays this with it (Twin, docs/LEAD-TWIN.md): a harmony, an octave or the same notes, panned the other way. */
   twin?: number[];
   /** Fade the note in (volume swell). */
@@ -459,6 +554,12 @@ export interface SectionInfo {
   riser?: boolean;
   /** The previous section pushed this one's first chord early: its downbeat isn't struck again. */
   pushedIn?: boolean;
+  /** A solo with held chords under it (src/sections/soloback.ts): the steps where a chord is struck. */
+  soloBack?: { strikes: number[]; /** Only a stretch of the solo is held (docs/SOLO-VARY.md): its steps, from and up to. Missing: the whole section. */ from?: number; to?: number };
+  /** A bridge or breakdown whose lead line was written like a short solo (docs/BRIDGE-LEAD.md): the drummer fills under it. */
+  leadSolo?: boolean;
+  /** A long solo's stretches (one; two in 24 bars) that get another band feel (src/sections/solovary.ts, docs/SOLO-VARY.md): bars from and up to, within the solo. */
+  soloVary?: { from: number; to: number; drums: 'light' | 'half' | 'same'; chords: 'other' | 'held' | 'same' }[];
   /** Tension per bar (0-1) from the song's arc, and the mix level per bar (dB, 0 at the climax). */
   tension?: number[];
   db?: number[];

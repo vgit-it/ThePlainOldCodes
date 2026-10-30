@@ -11,7 +11,8 @@ import type { Built } from './build';
 import { dialsFor } from './personality';
 import { energyVolume } from './profile';
 import type { EmoOptions } from './emotion';
-import { accentsOf, buildSection, chordsKey, chorusMaster, hookSig, isChorus, isInterlude, isOutro, isShared, kindOf, moodOf, personalityOf, songGrid, verseSeed, type SectionOptions, type SungKind } from './section';
+import { aimFor, vocalTune, TUNE_KINDS, TUNE_MAX } from './tune';
+import { accentsOf, buildSection, chordsKey, chorusMaster, chordsOf, hookSig, isChorus, isInterlude, isOutro, isShared, kindOf, moodOf, personalityOf, songGrid, verseSeed, type SectionOptions, type SungKind } from './section';
 import { DEFAULT_RANGE, type BandNote, type Range } from './verse';
 import { writeWords, type Words } from './words';
 
@@ -97,6 +98,28 @@ export function writeSong(list: Idea[], o: SectionOptions): Map<Idea, SectionVoi
   const acc = new WeakMap<Idea, number[]>();
   const accOf = (i: Idea) => { let a = acc.get(i); if (!a) { a = accentsOf(i, !!o.bass); acc.set(i, a); } return a; };
   const verse = list.find((i) => i.section?.kind === 'verse'), chorus = [...list].reverse().find(isChorus);
+  // (Tune: a verse or a chorus is written in several versions, the pitch dice rolled again, and the best as a tune is kept; the
+  // phrasing is the same in all. A song's choruses take the master's version, an interlude or an outro the last chorus's.)
+  const tries = Math.min(TUNE_MAX, Math.max(0, Math.floor(o.emo?.tune ?? 0)));
+  const picked = new Map<string, number>();
+  const versionOf = (idea: Idea, master: Idea): number => {
+    const kind = kindOf(idea);
+    if (tries < 2 || !TUNE_KINDS.has(kind)) return 0;
+    const key = kind === 'chorus' ? `c|${hookSig(master, o)}|${chordsKey(master)}` : `v|${verseSeed(master, o)}|${chordsKey(master)}`;
+    let k = picked.get(key);
+    if (k === undefined) {
+      let best = -1;
+      k = 0;
+      for (let v = 0; v < tries; v++) {
+        const b = buildSection(master, o, accOf(master), undefined, verse, chorus, { self: v });
+        const s = vocalTune(b.notes, b.phrases, { key: master.song.key, grid: songGrid(master), chordAt: chordsOf(master), aim: aimFor(moodOf(master, o), kind) }).score;
+        if (s > best + 1e-9) { best = s; k = v; }
+      }
+      picked.set(key, k);
+    }
+    return k;
+  };
+  const chorusVer = chorus ? versionOf(chorus, chorus) : 0;
   for (const idea of list) {
     if (!isSung(idea)) continue;
     const shared = isShared(idea), kind = kindOf(idea);
@@ -104,7 +127,7 @@ export function writeSong(list: Idea[], o: SectionOptions): Map<Idea, SectionVoi
     const sig = shared ? `${hookSig(idea, o)}|${chordsKey(idea)}` : '';
     let built = sig ? hooks.get(sig) : undefined;
     if (!built) {
-      built = buildSection(idea, o, accOf(master), master !== idea ? master : undefined, verse, chorus);
+      built = buildSection(idea, o, accOf(master), master !== idea ? master : undefined, verse, chorus, { self: versionOf(idea, master), chorus: chorusVer });
       if (sig) hooks.set(sig, built);
     }
     // (choruses with the same rhythm sing the same words; one over other chords that moves a note has its own)

@@ -165,7 +165,7 @@ function negatives(events: PEvent[], notes: BaseNote[], c: VCtx, tag: string) {
 for (let i = 0; i < N; i++) {
   const genre = GENRES[i % 7], meter = METERS[i % METERS.length], mood = MOODS[i % MOODS.length], s = `sp-${i}-${genre}`;
   const idea = generate({ genre, meter, weirdness: 0.3, ...MAIN_GUITARS } as never, { song: s, chords: s + 'c', drums: s + 'd', strum: s + 's', bass: s + 'b', vocal: s + 'v' } as never);
-  const run = (soloPlan: string) => buildTrack(idea, { ...defaultTrackOptions(idea), soloPlan, mood } as never).sections as any[];
+  const run = (soloCheck: string) => buildTrack(idea, { ...defaultTrackOptions(idea), soloCheck, mood } as never).sections as any[];
   const joined = run('joins'), played = run('player');
   joined.forEach((sec, si) => {
     if (!sec.section?.solo && !sec.section?.lead) return;

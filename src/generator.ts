@@ -8,6 +8,7 @@ import type { MoveId } from './parts/moves';
 import { autoVoice, singIdea } from './parts/vocal';
 import type { EnergyStyle } from './parts/energy';
 import { autoMood } from './tension';
+import { moodHalf, moodMode, moodTempo, riffLike } from './moodsong';
 import { GENRES, GENRE_LIST, type Genre, type RiffStyle } from './genres';
 import type { ChordPart, Cycle, GenOptions, Idea, Seeds, Song, Stroke } from './idea';
 import { BASS_LINE_DESC, bassLengths, generateBass, generateRiffBass, pickBassLine, writeBassLine } from './parts/bass';
@@ -17,6 +18,7 @@ import { generateDrums } from './parts/drums';
 import { generateGuitar2 } from './parts/guitar2';
 import { generateHeavyDrums } from './parts/heavyDrums';
 import { generateRiff } from './parts/riff';
+import { type WrittenStyle, canWriteRiff, writeRiff, writes } from './parts/riffwriter';
 import { applySheet, hasPins } from './parts/sheet';
 import { pickRhythm, pickRiffPlayer, playRhythm, playRiffPart } from './players/rhythm';
 import { carryOver, developStrum, generateStrum, naturalStrokes } from './parts/strum';
@@ -56,17 +58,23 @@ export function planSong(rng: Rng, opts: GenOptions): Song {
     tuning = TUNINGS[rng.weighted(G.riff.tunings)];
     const r = rng.next(), s = tuning.strings;
     key = (r < 0.65 ? s[0] : r < 0.85 ? s[1] : s[0] + 2) % 12;
-    const [a, b] = rng.weighted(G.riff.arrangements.map(([x, y, wt]) => [[x, y] as const, wt] as const));
+    // (Mood riff: the mood's liking of each riff style times the genre's weight; the same one draw)
+    const like = (x: RiffStyle) => (opts.moodSong?.riff ? riffLike(opts.moodSong.mood, x) : 1);
+    const [a, b] = rng.weighted(G.riff.arrangements.map(([x, y, wt]) => [[x, y] as const, wt * like(x) * like(y)] as const));
     sections = [a, a, a, a, b, b, b, b];
   }
   const rolledMode = w > 0.6 && rng.chance(0.5) ? rng.pick(['phrygian', 'lydian'] as const) : rng.pick(G.modes);
   // (rolled anyway, so a chosen key or mode doesn't change any other decision; the lick lab uses them)
-  const mode = opts.mode ?? rolledMode;
+  const ms = opts.moodSong;
+  const mode = opts.mode ?? (ms?.mode ? moodMode(G.modes, ms.mood, rolledMode) : rolledMode);
   if (opts.key !== undefined) key = opts.key;
   let bpm = rng.int(...G.bpm);
   if (w > 0.8 && rng.chance(0.4)) bpm += rng.pick([-25, 25]);
   // rolled anyway, so a fixed tempo doesn't change any other decision
   if (opts.bpm) bpm = opts.bpm;
+  else if (ms?.tempo) bpm = moodTempo(bpm, ms.mood);
+  // (a slow mood at a fast tempo: the drums sit back in half-time)
+  const forceHalf = ms?.tempo && !opts.bpm && moodHalf(bpm, ms.mood) ? true : undefined;
 
   const meters = pickMeters(rng, opts.meter, w, G.altMeters);
   const groupsFor: Record<string, number[]> = {};
@@ -91,7 +99,7 @@ export function planSong(rng: Rng, opts: GenOptions): Song {
   }
 
   return {
-    genreSel, genre, partGenres, key, mode, bpm, swing: G.swing, w,
+    genreSel, genre, partGenres, key, mode, bpm, swing: G.swing, w, ...(forceHalf ? { forceHalf } : {}), ...(ms?.riff ? { moodRiff: true } : {}),
     meters, meterLabel: meters.length > 1 ? meters.join(' + ') : meters[0],
     groupsFor, bars, total: pos, plan, cycles, tuning, sections,
   };
@@ -126,7 +134,7 @@ export function generate(opts: GenOptions, seeds: Seeds = randomSeeds()): Idea {
   // the singer: the idea is a chorus, so it sings the chorus tune and its hook
   const vs = seeds.vocal ?? `${seeds.chords}-vocal`;
   singIdea(idea, vs, autoMood(song, seeds.song), opts.vocalLift ?? 0, opts.vocalRhythm, opts.vocalMelody, opts.vocalMove as MoveId | undefined, opts.vocalSinger, opts.vocalEnergy as EnergyStyle | 'off' | undefined, opts.vocalReal, opts.vocalPatterns,
-    opts.vocalWriter === 'classic' ? undefined : (fake) => { singSong([fake], vs, opts.vocalLift ?? 0, { mood: autoMood(song, seeds.song), on: emoOn(opts.vocalMoodOff), maxSets: setsOf(opts.vocalMaxSets) }, bassShareOf(opts.vocalWriter, opts.vocalBassShare)); linkVoice(fake, idea); });
+    opts.vocalWriter === 'classic' ? undefined : (fake) => { singSong([fake], vs, opts.vocalLift ?? 0, { mood: autoMood(song, seeds.song), on: emoOn(opts.vocalMoodOff), maxSets: setsOf(opts.vocalMaxSets), tune: opts.vocalTune, skeleton: opts.vocalSkeleton, cells: opts.vocalCells }, bassShareOf(opts.vocalWriter, opts.vocalBassShare)); linkVoice(fake, idea); });
   idea.vocalVoice = autoVoice(vs, song.partGenres.strum);
   idea.vocalHigh = pickHigh(vs, song.partGenres.strum);
   // the lead vocal as it's sung (an idea on its own: its own mood)
@@ -200,9 +208,16 @@ export function buildIdea(opts: GenOptions, seeds: Seeds, song: Song, b: BuildOp
   return { seeds, opts, song, chords, drums, strum, bass, bassLen, bassLine, guitar2: clearFills(song, drums, g2.hits), notes };
 }
 
+/** The new riff writer's riff (docs/RIFF-WIRE.md), when the track asks for it and it can write this one: 4/4, both halves in a style it writes (all eight now). Else null: the classic riff. */
+function writtenRiff(seed: string, song: Song, chords: ChordPart) {
+  const s = song.sections!;
+  if (!song.newRiff || !canWriteRiff(song) || !writes(s[0]) || !writes(s[4])) return null;
+  return writeRiff(seed, song, chords, { styles: [s[0], s[4]] as [WrittenStyle, WrittenStyle], tries: 24 })?.part ?? null;
+}
+
 /** Riff genres: guitar riff first, then drums locked to it and bass doubling it. */
 function generateRiffIdea(opts: GenOptions, seeds: Seeds, song: Song, chords: ChordPart): Idea {
-  const riff = generateRiff(new Rng(seeds.strum), song, chords);
+  const riff = writtenRiff(seeds.strum, song, chords) ?? generateRiff(new Rng(seeds.strum), song, chords);
   const drums = generateHeavyDrums(new Rng(seeds.drums), song, riff);
   const { bass, lens } = generateRiffBass(song, chords, drums, riff);
   const notes = [

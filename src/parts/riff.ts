@@ -10,6 +10,7 @@ import { type Bar, groupStarts } from '../rhythm';
 import { type Mode, chordPc } from '../theory';
 import { lowestOf, powerChord, riffNote, voicingsInTuning } from '../theory/fretboard';
 import { FIGURE_STYLES, figureRun } from './figures';
+import { riffPent } from '../moodsong';
 
 export interface RiffPart {
   hits: GuitarHit[];
@@ -45,8 +46,9 @@ interface Ev {
 }
 
 /** Minor pentatonic plus the colour notes of the mode (and the blues b5 when weird). */
-function riffScale(rng: Rng, mode: Mode, w: number): number[] {
-  const s = new Set([0, 3, 5, 7, 10, 12]);
+function riffScale(rng: Rng, mode: Mode, w: number, moodRiff = false): number[] {
+  // (Mood riff: a major key's riff takes the major 3rd)
+  const s = new Set(moodRiff ? [...riffPent(mode, false), 12] : [0, 3, 5, 7, 10, 12]);
   if (mode === 'phrygian') s.add(1);
   if (mode === 'dorian') s.add(9);
   if (mode === 'minor' && rng.chance(0.4)) s.add(8);
@@ -174,7 +176,7 @@ function answerCell(rng: Rng, cell: Ev[], bar: Bar, style: RiffStyle, fresh: () 
   return { cell: [...first, ...(second.length ? second : [{ pos: half, len: bar.len - half, kind: 'chord' as const, deg: 0, vel: 0.92 }])], tie: false };
 }
 
-const ARP_PATTERNS = [
+export const ARP_PATTERNS = [
   [0, 0.6, 0.8, 1, 0.8, 0.6, 0.8, 1],
   [0, 0.8, 0.6, 1, 0.3, 0.8, 0.6, 1],
   [0, 0.4, 0.6, 0.8, 1, 0.8, 0.6, 0.4],
@@ -188,7 +190,7 @@ export function generateRiff(rng: Rng, song: Song, chords: ChordPart): RiffPart 
   const sections = song.sections!;
   const { key, w, bars, total } = song;
   const { timeline, chordIdx } = chords;
-  const scale = riffScale(rng, song.mode, w);
+  const scale = riffScale(rng, song.mode, w, song.moodRiff);
   const pedal = rng.chance(0.5);
   const chordAt = (g: number) => timeline[chordIdx[Math.min(g, total - 1)]].chord;
 

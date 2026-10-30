@@ -1,3 +1,5 @@
+Status: always on — how verses and choruses differ in real songs; the Real songs setting (fixed on) uses it.
+
 # Verse vs chorus: what real songs do
 
 Option 3 of `docs/STUDY-LAKH.md`. Behind the **Real songs** switch (vocal row), and in the Guide card when **Song arc** and **Real songs** are both on (Anchor line).

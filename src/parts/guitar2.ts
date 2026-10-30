@@ -610,6 +610,8 @@ export interface Guitar2Part {
   notes: string[];
   /** A solo: the curves it followed (see Idea.soloCurve). */
   curve?: SoloCurve;
+  /** The role each four-bar run got. */
+  styles?: Guitar2Style[];
 }
 
 /**
@@ -921,5 +923,5 @@ export function generateGuitar2(
   const notes = [labels.every((l) => l === labels[0])
     ? `Guitar 2: ${labels[0]} throughout`
     : `Guitar 2: ${labels.map((l, i) => `bars ${i * 4 + 1}–${Math.min(bars.length, i * 4 + 4)} ${l}`).join(' → ')}`];
-  return { hits, notes };
+  return { hits, notes, styles };
 }

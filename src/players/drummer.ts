@@ -143,6 +143,11 @@ export function playDrums(sections: Idea[], seed: string): Feel {
     if (info.solo) {
       playUnderSolo(idea, dr, fixed, endAt);
       notes.push('Drummer: rides the cymbal under the solo, builds with it, fills into its peak and crashes with the guitar\'s big notes');
+    } else if (info.leadSolo) {
+      // a lead line written like a short solo (a bridge or breakdown): fills and catches, the groove stays
+      // (its own random, so the other sections' fills stay as they were)
+      playUnderSolo(idea, dr, new Rng(`${seed}-leadfill-${i}`), endAt, true);
+      notes.push('Drummer: fills at the end of the lead\'s phrases and crashes with its big notes');
     }
 
     // ghost notes around the backbeat: from the second time round (always, for a ghost-note player);
@@ -206,8 +211,10 @@ export function playDrums(sections: Idea[], seed: string): Feel {
  * a short fill at the end of each four-bar phrase where the guitar isn't busy, their big fill into
  * the peak bar, and a crash with the kick on the guitar's long held notes and its peak note (at most
  * once every two bars). The kick and snare pattern stays as it is.
+ * `lead`: a short lead line in a bridge or breakdown (docs/BRIDGE-LEAD.md): only the phrase-end fills and the
+ * crashes with the guitar's long notes; the band keeps its own hats and level.
  */
-function playUnderSolo(idea: Idea, dr: Drummer, rng: Rng, endAt: number) {
+function playUnderSolo(idea: Idea, dr: Drummer, rng: Rng, endAt: number, lead = false) {
   const d = idea.drums, { song } = idea, bars = song.bars, n = bars.length;
   const g2 = idea.guitar2;
   if (!g2.length) return;
@@ -221,7 +228,7 @@ function playUnderSolo(idea: Idea, dr: Drummer, rng: Rng, endAt: number) {
   // fills: the end of each four-bar phrase (not where the guitar is busy), and the big one into the peak
   bars.forEach((bar, bi) => {
     if (filled.has(bi) || bi === n - 1) return;
-    const intoPeak = bi === peakBar - 1;
+    const intoPeak = !lead && bi === peakBar - 1;
     if (!intoPeak && (bi % 4 !== 3 || busy(bi))) return;
     const b = barOf(d, bar);
     const groups = bar.groups;
@@ -232,9 +239,13 @@ function playUnderSolo(idea: Idea, dr: Drummer, rng: Rng, endAt: number) {
   });
   const inFill = fillSteps(idea);
 
+  // a lighter stretch (Solo variation) keeps its closed hats: that is the change
+  const lights = (idea.section!.soloVary ?? []).filter((v) => v.drums === 'light').map((v) => [bars[v.from].start, v.to >= n ? song.total : bars[v.to].start] as const);
+  const light = (g: number) => lights.some(([a, b]) => g >= a && g < b);
+  const lightFrom = (g: number) => lights.some(([a]) => g === a);
   // the ride instead of the hi-hat
-  for (let g = 0; g < endAt; g++) {
-    if (inFill.has(g) || !d.hat[g]) continue;
+  for (let g = 0; g < endAt && !lead; g++) {
+    if (inFill.has(g) || !d.hat[g] || light(g)) continue;
     if (g % 2 === 0) d.ride[g] = Math.min(0.85, d.hat[g] + 0.08);
     d.hat[g] = 0;
   }
@@ -245,18 +256,21 @@ function playUnderSolo(idea: Idea, dr: Drummer, rng: Rng, endAt: number) {
     d.ride[g] = 0; d.hat[g] = 0; d.hatOpen[g] = 0;
   };
   // a crash at the top of every four bars, and landing on the peak
-  for (let bi = 0; bi < n; bi += 4) crash(bars[bi].start);
-  crash(bars[peakBar].start);
+  // (not inside a lighter stretch, past its first bar)
+  if (!lead) {
+    for (let bi = 0; bi < n; bi += 4) if (!light(bars[bi].start) || lightFrom(bars[bi].start)) crash(bars[bi].start);
+    if (!light(bars[peakBar].start)) crash(bars[peakBar].start);
+  }
   // catching the guitar: its peak note and long held notes (on an 8th), once every two bars at most
   let caught = -Infinity;
   for (const h of g2) {
-    if (h.step % 2 || h.step - caught < 32 || !(h === peakHit || h.len >= 8)) continue;
+    if (h.step % 2 || h.step - caught < 32 || !(h === peakHit || h.len >= 8) || light(h.step)) continue;
     crash(h.step);
     caught = h.step;
   }
 
   // the build: a little softer at the start, up to the peak bar, easing off after it
-  bars.forEach((bar, bi) => {
+  if (!lead) bars.forEach((bar, bi) => {
     const k = bi <= peakBar ? 0.92 + 0.16 * (bi / Math.max(1, peakBar)) : 0.98;
     for (let g = bar.start; g < bar.start + bar.len; g++) {
       // (not the toms: that lane says which tom, not how hard)

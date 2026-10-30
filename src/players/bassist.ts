@@ -74,7 +74,9 @@ export function playBass(sections: Idea[], seed: string, drummer: Feel) {
       told = true;
     }
     // riff genres double the riff; quiet sections keep their long notes
-    if (idea.guitar || e <= 2 || !bass.some(Boolean)) return;
+    // (held chords under a solo keep their long roots: src/sections/soloback.ts; a held stretch only, those bars)
+    const sb = info.soloBack;
+    if (idea.guitar || (sb && sb.from === undefined) || e <= 2 || !bass.some(Boolean)) return;
     const last = i === lastChorus && lastChorus !== firstChorus;
     // the first verse as written; more from the second time round; the last chorus busiest
     const busy = last ? 1 : round === 0 && kind === 'verse' ? 0 : round === 0 ? bp.busy * 0.6 : bp.busy;
@@ -85,7 +87,7 @@ export function playBass(sections: Idea[], seed: string, drummer: Feel) {
     const lastBar = song.bars[song.bars.length - 1];
     const from = info.bandFrom ?? 0, to = lastBar.start;
     const changes = new Set(chords.timeline.map((t) => t.step));
-    const ok = (g: number) => g >= from && g < to && !inFill.has(g);
+    const ok = (g: number) => g >= from && g < to && !inFill.has(g) && !(sb && g >= sb.from! && g < sb.to!);
     // the same choice at the same spot whenever the block comes round
     const at = (g: number, what: string) => new Rng(`${seed}-bass-${kind}-${g}-${what}`);
     const put = (g: number, n: number, len: number) => {

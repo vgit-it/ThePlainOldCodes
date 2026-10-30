@@ -1,3 +1,5 @@
+Status: always on — the Melody Learned writer, picked by real singers' odds; fixed in the page's vocal settings.
+
 # Melody: Learned
 
 Option 5 from `docs/STUDY-LAKH.md`. A fourth melody writer in the vocal row: **Melody: Learned**. An experiment. Off unless chosen; with any other choice, everything is exactly as before.

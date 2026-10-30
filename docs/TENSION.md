@@ -1,3 +1,5 @@
+Status: live — tension and release, and the Mood menu (built).
+
 # Tension and release (2026-10-12)
 
 Paul: solos and whole songs don't tell much of a story. Could a song be built on tension and release

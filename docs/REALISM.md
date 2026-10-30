@@ -1,3 +1,5 @@
+Status: always on — scoring vocal lines against real songs; the Real songs setting is fixed on (`npm run realism-lab`).
+
 # Real songs: the vocal writers against real vocal lines
 
 Option 1 from `docs/STUDY-LAKH.md`. Three parts:

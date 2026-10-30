@@ -9,18 +9,22 @@ import type { MoveId } from './parts/moves';
 import { autoVoice, singTrack } from './parts/vocal';
 import type { EnergyStyle } from './parts/energy';
 import { type Mood, type MoodChoice, PROFILES, arcNote, autoMood, planTension } from './tension';
-import { type BuildOptions, buildIdea, withSheet } from './generator';
+import { type BuildOptions, buildIdea, generate, withSheet } from './generator';
+import { type MoodSong, riffLike } from './moodsong';
 import { GENRES, type Genre, QUIET_STYLES, type RiffStyle } from './genres';
-import type {
-  ChordEvent, ChordPart, ChordSheet, DrumPart, GuitarHit, Idea, SectionInfo, SectionKind, Seeds, Song, Stroke,
-} from './idea';
-import { type DrumBar, addFill } from './parts/drums';
-import { type G2Options, type Guitar2Part, type Guitar2Style, chordTones, generateGuitar2, generateHook, leadFret, pickStyle } from './parts/guitar2';
+import type { ChordSheet, GuitarHit, Idea, SectionKind, Song } from './idea';
+import { type G2Options, type Guitar2Part, type Guitar2Style, chordTones, generateHook, leadFret } from './parts/guitar2';
 import { TUNINGS } from './theory/fretboard';
 import { generateSolo2 } from './parts/solo2';
 import { generateSoloMelody } from './parts/solomelody';
-import { generateSoloPlan } from './parts/soloplan';
+import { generateSoloTune } from './parts/solotunefirst';
+import { generateSoloPlan, isCoreMode } from './parts/soloplan';
 import { performSolo } from './parts/soloplayer';
+import { addLeadSounds } from './parts/solosounds';
+import { shapeStory } from './parts/solodynamics';
+import { expressSolo } from './parts/soloexpress';
+import { heldBacking } from './sections/soloback';
+import { planVary, varySegs, varyTension, varyDrums } from './sections/solovary';
 import { LIVE_RULES, NO_RULES } from './parts/solorules-live';
 import { singLead } from './parts/leadvocal';
 import { emoOn, setsOf } from './verse/emotion';
@@ -36,11 +40,15 @@ import { type LickKind, pickLead } from './players/lead';
 import { GUITAR_ROLE_DESC, applyGuitarShape, planGuitar } from './players/presence';
 import { pickRhythm, pickRiffPlayer, playRhythm, playRiffPart } from './players/rhythm';
 import { Rng } from './rng';
-import { SOUND_NAME, type SoundId, type SoundSlot, describeSounds, orchestrate } from './sounds';
-import { type Bar, type Variant, groupStarts, zeros } from './rhythm';
-import { type Chord, type Mode, NOTE_NAMES, QUALITIES, type Quality, SCALES, chordPc, degreeChord } from './theory';
-import { lowestOf, powerChord } from './theory/fretboard';
+import { AUTO_GUITAR2, SOUND_NAME, type SoundId, type SoundSlot, describeSounds, orchestrate } from './sounds';
+import { type Chord, type Mode, NOTE_NAMES } from './theory';
 import { pickHigh } from './parts/singers';
+import { Seg, seg, take, join, asWritten, block, chordSig, tonicOnly, fill8 } from './sections/join';
+import { crashAt, ensureFill, pickup, shapeDrums, quarterTime, shapeStrum, shapeBass, carrySolo, bandStop, makeEnding } from './sections/energy';
+import { Plan, MOOD_PLANS, CHORUS_PLANS, JAM_PLANS, RIFF_VERSE_MOVE, isMinor, plansFor, describeChords, planned, chordal, pedalBass, transpose } from './sections/harmony';
+import { layerIntro, longIntro, jamBuild, snareBuild, bandHits } from './sections/arrangement';
+import { turnaround, push, settleIn, ringOut, walkUp, g2Pickup } from './sections/seams';
+import { runCount, writeGuitar2, writeGuitar2Styles, isLeadLine, FIGURE_SONGS, ROOM, makeRoom, NO_LEAD, BREAK, TWIN, TWIN_KINDS, addTwin, playingStyle } from './sections/guitar2';
 
 export type Choice = 'auto' | 'on' | 'off';
 export type IntroChoice = 'auto' | 'alone' | 'layered' | 'long' | 'band';
@@ -62,8 +70,56 @@ export interface TrackOptions {
   riffVerse?: Choice;
   /** Played by the band: each player plays the written parts their own way (missing in older links: on). */
   band?: 'on' | 'off';
-  /** The planned solo writer (docs/SOLO-PLAN.md): the solo's landings first, then the paths between them (missing in older links: off). */
-  soloPlan?: 'on' | 'off' | 'melody' | 'marks' | 'joins' | 'player' | 'perform';
+  /** The Solo writer: off (As before), on (Planned, docs/SOLO-PLAN.md: landings first) or perform (Melody + player, docs/SOLO-MELODY.md and SOLO-PLAYER.md). Missing or removed values in older links: off. */
+  soloPlan?: 'on' | 'off' | 'perform' | 'tune';
+  /** Tune first only (docs/SOLO-TUNE.md): how many versions of a solo are written before the best as a tune is kept (the page never sets it). */
+  soloTuneTries?: number;
+  /** Tune first only (docs/SOLO-MOOD.md): the mood's character in the intervals, jumps, pace and colour notes (missing in older links: off). */
+  soloMood?: 'on' | 'off';
+  /** Tune first with Solo mood: the mood turns the scale's 3rd and 6th over chords with no third (missing in older links: off). */
+  soloMoodScale?: 'on' | 'off';
+  /** Mood song (docs/MOOD-SONG.md): the song's mode and/or its tempo and drum feel follow the mood chosen (not on Auto). Missing in older links: off. */
+  moodSong?: 'off' | 'tempo' | 'mode' | 'both';
+  /** Mood riff (docs/MOOD-RIFF.md): the mood picks the riff styles (sad: single notes, arpeggios, low pedal; bold: gallops, big chords) and a major key's riff takes the major 3rd. Missing in older links: off. */
+  moodRiff?: 'on' | 'off';
+  /** Riff genres (docs/RIFF-WIRE.md): 'new' = the riffs are written by the riff writer (src/parts/riffwriter.ts) where it can (4/4, styles it writes); otherwise, and in older links, the classic riffs. */
+  riffWriter?: 'new' | 'classic';
+  /** Mood: all the way (docs/MOOD-ALL.md): Tune first solos with Solo mood and Mood scale, Mood song and Mood riff, in one switch. On Auto it uses the mood Auto picks for the song. Missing in older links: off. */
+  moodAll?: 'on' | 'off';
+  /** Melody + player only (docs/SOLO-MELODY.md, step 0f): a phrase repeats its first beat or two of rhythm (missing in older links: off). */
+  soloMotif?: 'on' | 'off';
+  /** Melody + player only (step 0f): after a busy stretch of quick notes the player lets the next note be (missing in older links: off). */
+  soloBreath?: 'on' | 'off';
+  /** Melody + player only (step 0f): in a straight groove the player's figures start and land on the 8th, not on an odd 16th or in a triplet (missing in older links: off). */
+  soloGrid?: 'on' | 'off';
+  /** Melody + player only (docs/SOLO-CORE.md): "only" writes just the core notes of about half the bars, so they can be heard alone; "travel" adds moves between them (step 2); "story" plans the part of every gap in the solo's story, without notes yet (docs/SOLO-STORY.md). Missing in older links: every phrase, as before. */
+  soloCores?: 'only' | 'travel' | 'story' | 'recipes' | 'library' | 'off';
+  /** Core notes only (docs/SOLO-CLIMAX.md): the climax core is played, not just held (missing in older links: off). */
+  soloClimax?: 'on' | 'off';
+  /** Every solo writer (docs/SOLO-SOUNDS.md): solos and lead breaks get pinch and natural harmonics, whammy dives, feedback and a pick scrape, by genre (missing in older links: off). */
+  soloSounds?: 'on' | 'off';
+  /** The solo player's polish on the chosen-bars (core note) modes: the story notes are dressed like the other solo writers' (docs/SOLO-POLISH.md). */
+  soloPolish?: 'on' | 'off';
+  /** The story's own dynamics on the core note modes: loudness follows the arc, a laid-back start, a closing ring (docs/SOLO-SHAPE.md). */
+  soloShape?: 'on' | 'off';
+  /** Tune first only (docs/SOLO-EXPRESSION.md): the melody played the way a guitarist would: held bent notes, quick runs, flurries and breaths in windows of any length; replaces Solo polish (missing in older links: off). */
+  soloExpress?: 'on' | 'off';
+  /** Bend dials (docs/SOLO-BENDS.md): on Solo expression, each bent note gets its own speed, shape and timing, by its place. 'plain' (default): the engine's one fixed bend. */
+  soloBends?: 'dials' | 'plain';
+  /** Recast (docs/SOLO-RECAST.md): on Solo expression, some runs become a named lick, a legato roll, a pedal figure or a trill climb, and some held notes slide in or trill. 'off' (default): the runs as they were. */
+  soloRecast?: 'on' | 'off';
+  /** Echo (docs/SOLO-ECHO.md): on Solo expression, an answer plays its call's figure again on its own notes, and one signature figure comes back near the climax and the end. 'off' (default): every window on its own. */
+  soloEcho?: 'on' | 'off';
+  /** How much Solo expression changes the tune (docs/SOLO-AMOUNT.md): 'light' leaves most of it as written; 'full' changes more. 'normal' (default, and missing in older links): as before. */
+  soloAmount?: 'light' | 'normal' | 'full';
+  /** What the band plays under a solo (docs/SOLO-BACKING.md): 'held' = the song's chords kept, the rhythm guitar ringing each one held (power chords or full chords) instead of its riff; otherwise as written (missing in older links: as written). */
+  soloBacking?: 'held' | 'written';
+  /** Solo variation (docs/SOLO-VARY.md): in a solo of 16 bars or more, one stretch of 4 or 8 bars gets another band feel (lighter, half-time or lifted drums; the other section's chords, or held chords). Off (default, and missing in older links): the same band all through. */
+  soloVary?: 'on' | 'off';
+  /** Lead in bridges and breakdowns (docs/BRIDGE-LEAD.md): a bridge or breakdown whose Guitar 2 plays a melodic line gets it written like a short lead break (the solo writer and Solo expression, sparse), and the drummer fills under it. Off (default, and missing in older links): the older Guitar 2 line. */
+  bridgeLead?: 'on' | 'off';
+  /** Checks only (scripts/solo-*-check.ts), never set by the page: a step of the melody + player writer on its own (the melody, with gap marks, with joins, or read and left as written). */
+  soloCheck?: 'melody' | 'marks' | 'joins' | 'player';
   /** When the rhythm guitar plays (src/players/presence.ts): it sits out intros, verses and bridges, comes in late, drops out, as in real songs (missing in older links: off). */
   guitarPlan?: 'on' | 'off';
   /** The song's mood, which shapes its tension and release (missing in older links: Auto). */
@@ -118,1069 +174,6 @@ export interface Track {
 /** Length in seconds at the track's tempo. */
 export const trackSeconds = (t: Track) => (t.steps * 15) / t.source.song.bpm;
 
-/* ------------------------------------------------------------ slicing and joining */
-
-const DRUM_LANES = ['kick', 'snare', 'hat', 'hatOpen', 'ride', 'crash', 'tom'] as const;
-
-/** A run of bars from an idea. */
-interface Seg { idea: Idea; from: number; n: number }
-const seg = (idea: Idea, from = 0, n = idea.song.bars.length - from): Seg => ({ idea, from, n });
-
-/** The first `k` bars of a list of segments. */
-function take(segs: Seg[], k: number): Seg[] {
-  const out: Seg[] = [];
-  for (const s of segs) {
-    if (k <= 0) break;
-    const n = Math.min(k, s.n);
-    out.push({ ...s, n });
-    k -= n;
-  }
-  return out;
-}
-
-function chordIdxFor(timeline: ChordEvent[], total: number): number[] {
-  const idx = zeros(total);
-  for (let t = 0, g = 0; g < total; g++) {
-    while (t + 1 < timeline.length && timeline[t + 1].step <= g) t++;
-    idx[g] = t;
-  }
-  return idx;
-}
-
-/** Glue runs of bars into one section. */
-function join(segs: Seg[], info: SectionInfo): Idea {
-  const first = segs[0].idea;
-  const riff = !!first.guitar;
-  const bars: Bar[] = [];
-  const styles: RiffStyle[] = [];
-  const plan: Variant[] = [];
-  const timeline: ChordEvent[] = [];
-  const strum: Stroke[] = [];
-  const bass: number[] = [];
-  const bassLen: number[] = [];
-  const lanes = Object.fromEntries(DRUM_LANES.map((l) => [l, [] as number[]])) as Record<(typeof DRUM_LANES)[number], number[]>;
-  const fills: DrumPart['fills'] = [];
-  const guitar: GuitarHit[] = [];
-  const guitar2: GuitarHit[] = [];
-  let pos = 0;
-
-  for (const { idea, from, n } of segs) {
-    const src = idea.song.bars.slice(from, from + n);
-    const a = src[0].start, last = src[src.length - 1], b = last.start + last.len;
-    const off = pos - a, barOff = bars.length - from;
-    src.forEach((bar, i) => {
-      bars.push({ ...bar, start: bar.start + off });
-      if (idea.song.sections) styles.push(idea.song.sections[from + i]);
-      plan.push(idea.song.plan[from + i]);
-    });
-    // the chord already sounding when the run starts
-    const { timeline: tl, chordIdx } = idea.chords;
-    if (tl[chordIdx[a]].step !== a) timeline.push({ step: pos, chord: tl[chordIdx[a]].chord });
-    for (const e of tl) if (e.step >= a && e.step < b) timeline.push({ step: e.step + off, chord: e.chord });
-    strum.push(...idea.strum.slice(a, b));
-    bass.push(...idea.bass.slice(a, b));
-    bassLen.push(...(idea.bassLen?.slice(a, b) ?? zeros(b - a)));
-    for (const l of DRUM_LANES) lanes[l].push(...idea.drums[l].slice(a, b));
-    for (const f of idea.drums.fills) if (f.bar >= from && f.bar < from + src.length) fills.push({ bar: f.bar + barOff, len: f.len });
-    for (const h of idea.guitar ?? []) if (h.step >= a && h.step < b) guitar.push({ ...h, step: h.step + off });
-    for (const h of idea.guitar2) if (h.step >= a && h.step < b) guitar2.push({ ...h, step: h.step + off });
-    pos += b - a;
-  }
-
-  const song: Song = { ...first.song, bars, total: pos, plan, sections: first.song.sections ? styles : undefined };
-  return {
-    seeds: first.seeds,
-    opts: first.opts,
-    song,
-    chords: { timeline, chordIdx: chordIdxFor(timeline, pos), notes: [] },
-    drums: { ...lanes, fills, halfTime: first.drums.halfTime, fourFloor: first.drums.fourFloor, groove: first.drums.groove },
-    strum,
-    bass,
-    bassLen: riff || segs.some((s) => s.idea.bassLen) ? bassLen : undefined,
-    bassLine: first.bassLine,
-    guitar: riff ? guitar : undefined,
-    guitar2,
-    notes: [],
-    section: info,
-  };
-}
-
-/** An idea as written, before its rhythm player played it (generate() keeps the written parts). */
-function asWritten(idea: Idea): Idea {
-  const w = idea.written;
-  if (!w) return idea;
-  return { ...idea, strum: [...w.strum], guitar: w.guitar?.map((h) => ({ ...h })), strumVel: undefined, strumColour: undefined,
-    rhythmPick: undefined, shapes: undefined, rhythmEcho: undefined, rhythmTime: undefined, written: undefined };
-}
-
-/* ------------------------------------------------------------ blocks */
-
-/** A new block of music: same song, new seeds for the listed parts. */
-function block(src: Idea, tag: string, reseed: (keyof Seeds)[], over: Partial<Song> = {}, chords?: BuildOptions['chords']): Idea {
-  const seeds: Seeds = { ...src.seeds };
-  for (const k of reseed) seeds[k] = `${src.seeds[k] ?? src.seeds.strum}-${tag}`;
-  return buildIdea(src.opts, seeds, { ...src.song, ...over }, { chords });
-}
-
-const chordSig = (i: Idea) => i.chords.timeline.map((e) => `${e.chord.root}${e.chord.q}`).join();
-
-
-/** Breakdowns sit on the tonic: the riff's stabs do the moving. */
-const tonicOnly = (c: ChordPart): ChordPart => ({
-  timeline: [{ step: 0, chord: { root: 0, q: '5' } }],
-  chordIdx: zeros(c.chordIdx.length),
-  notes: [],
-});
-
-const fill8 = (s: RiffStyle): RiffStyle[] => new Array<RiffStyle>(8).fill(s);
-
-/* ------------------------------------------------------------ drum helpers */
-
-const beatSet = (song: Song) => new Set(song.bars.flatMap((b) => groupStarts(b.groups).map((p) => b.start + p)));
-
-function barOf(d: DrumPart, bar: Bar): DrumBar {
-  const s = (a: number[]) => a.slice(bar.start, bar.start + bar.len);
-  return { K: s(d.kick), S: s(d.snare), H: s(d.hat), O: s(d.hatOpen), R: s(d.ride), T: s(d.tom) };
-}
-
-function putBar(d: DrumPart, bar: Bar, b: DrumBar) {
-  for (let j = 0; j < bar.len; j++) {
-    const g = bar.start + j;
-    d.kick[g] = b.K[j]; d.snare[g] = b.S[j]; d.hat[g] = b.H[j]; d.hatOpen[g] = b.O[j]; d.ride[g] = b.R[j]; d.tom[g] = b.T[j];
-  }
-}
-
-const emptyBar = (len: number): DrumBar => ({ K: zeros(len), S: zeros(len), H: zeros(len), O: zeros(len), R: zeros(len), T: zeros(len) });
-
-function crashAt(d: DrumPart, g: number) {
-  d.crash[g] = 0.85;
-  d.kick[g] = Math.max(d.kick[g], 0.9);
-  d.hat[g] = 0; d.hatOpen[g] = 0; d.ride[g] = 0;
-}
-
-function clearDrums(idea: Idea) {
-  for (const l of DRUM_LANES) idea.drums[l].fill(0);
-  idea.drums.fills = [];
-}
-
-/** A drum fill in the last bar (if it doesn't have one). */
-function ensureFill(idea: Idea, rng: Rng) {
-  const { bars, w } = idea.song;
-  const L = bars.length - 1;
-  if (idea.drums.fills.some((f) => f.bar === L)) return;
-  const b = barOf(idea.drums, bars[L]);
-  const len = addFill(rng, b, bars[L].len, bars[L].groups, w, idea.song.partGenres.drums);
-  putBar(idea.drums, bars[L], b);
-  idea.drums.fills.push({ bar: L, len, seam: true });
-}
-
-/** Drums sit out, then come in with a fill at the end (intros). */
-function pickup(idea: Idea, rng: Rng) {
-  clearDrums(idea);
-  const { bars, w } = idea.song;
-  const L = bars.length - 1;
-  const b = emptyBar(bars[L].len);
-  const len = addFill(rng, b, bars[L].len, bars[L].groups, w, idea.song.partGenres.drums);
-  putBar(idea.drums, bars[L], b);
-  idea.drums.fills.push({ bar: L, len, seam: true });
-}
-
-/* ------------------------------------------------------------ energy */
-
-/**
- * Drums get lighter (2: closed 8th hats, no crashes; 3: closed hats, one crash)
- * or bigger (5: ride, crashes every 2 bars). 4 = as written.
- */
-function shapeDrums(idea: Idea, e: number, rng: Rng) {
-  const d = idea.drums, { song } = idea, n = song.total;
-  const beat = beatSet(song);
-  const barStarts = new Set(song.bars.map((b) => b.start));
-  if (e <= 1) {
-    for (let g = 0; g < n; g++) {
-      const cym = d.hat[g] || d.ride[g] || d.hatOpen[g] || d.crash[g];
-      d.kick[g] = barStarts.has(g) ? 0.7 : 0;
-      d.snare[g] = 0; d.tom[g] = 0; d.crash[g] = 0; d.hatOpen[g] = 0; d.ride[g] = 0;
-      d.hat[g] = beat.has(g) && cym ? 0.4 : 0;
-    }
-    d.fills = [];
-  } else if (e === 2) {
-    for (let g = 0; g < n; g++) {
-      const wash = d.hatOpen[g] || d.ride[g] || (g > 0 && d.crash[g]);
-      if (wash && !d.hat[g]) d.hat[g] = beat.has(g) ? 0.55 : 0.42;
-      d.hatOpen[g] = 0; d.ride[g] = 0;
-      if (g > 0) d.crash[g] = 0;
-      if (g % 2) {
-        d.hat[g] = 0;
-        if (!beat.has(g)) d.kick[g] = 0;
-      }
-      d.hat[g] *= 0.85;
-      d.snare[g] *= 0.9;
-    }
-  } else if (e === 3) {
-    // verses: closed hi-hat instead of ride, one crash at the top only
-    for (let g = 0; g < n; g++) {
-      if (d.ride[g] && !d.hat[g]) d.hat[g] = beat.has(g) ? 0.6 : 0.45;
-      d.ride[g] = 0;
-      if (g > 0 && d.crash[g]) { d.crash[g] = 0; d.hat[g] = 0.6; }
-    }
-  } else if (e >= 5) {
-    const toRide = !song.sections && !d.ride.some(Boolean) && rng.chance(0.6);
-    if (toRide) {
-      for (let g = 0; g < n; g++) {
-        if (d.hat[g] && g % 2 === 0) d.ride[g] = Math.min(0.8, d.hat[g] + 0.05);
-        d.hat[g] = 0;
-      }
-    }
-    song.bars.forEach((b, i) => { if (i % 2 === 0) crashAt(d, b.start); });
-  }
-}
-
-/** The hi-hat or ride on the beats only (no 8ths or 16ths between); the crash and open hats stay. Returns whether anything changed. */
-function quarterTime(idea: Idea): boolean {
-  const d = idea.drums, beat = beatSet(idea.song);
-  let n = 0;
-  for (let g = 0; g < idea.song.total; g++) {
-    if (beat.has(g)) continue;
-    if (d.hat[g] || d.ride[g]) n++;
-    d.hat[g] = 0; d.ride[g] = 0;
-  }
-  return n > 0;
-}
-
-const bassRoot = (key: number, c: Chord) => {
-  let m = 36 + chordPc(key, c);
-  if (m > 43) m -= 12;
-  return m;
-};
-
-/** Where a held chord is struck: on each change, and again at the top of every second bar it carries on for. */
-function restrikes(song: Song, changes: Set<number>): Set<number> {
-  const out = new Set(changes);
-  let held = 0;
-  song.bars.forEach((b) => {
-    held = changes.has(b.start) ? 0 : held + 1;
-    if (held && held % 2 === 0) out.add(b.start);
-  });
-  return out;
-}
-
-/** Strummed parts: held chords (1), palm mutes (2), as written (3–4), every beat struck (5). */
-function shapeStrum(idea: Idea, e: number) {
-  if (e === 3 || e === 4) return;
-  const { strum, song, chords } = idea;
-  const genre = song.partGenres.strum;
-  const beat = beatSet(song);
-  const changes = new Set(chords.timeline.map((t) => t.step));
-  const again = restrikes(song, changes);
-  for (let g = 0; g < song.total; g++) {
-    const s = strum[g];
-    if (e <= 1) strum[g] = again.has(g) ? 'D' : '.';
-    else if (e === 2 && genre !== 'funk') {
-      if (s === 'U' || (genre === 'pop' && s === 'x')) strum[g] = '.';
-      else if (genre !== 'pop' && s === 'D' && !beat.has(g) && !changes.has(g)) strum[g] = 'p';
-    // the biggest sections: palm mutes open up and every beat is struck, but the pattern's gaps stay
-    } else if (e >= 5 && genre !== 'funk' && (s === 'p' || (s === '.' && beat.has(g)))) strum[g] = 'D';
-  }
-  // every chord change is heard
-  for (const c of changes) if (c < song.total && strum[c] !== 'D') strum[c] = 'D';
-}
-
-/** Bass: long roots (1), roots on the beat (2), as written (3–4), driving 8ths (5). */
-function shapeBass(idea: Idea, e: number) {
-  if (e === 3 || e === 4) return;
-  const { bass, song, chords } = idea;
-  // a flowing line already moves: the biggest sections keep it (funk keeps its groove)
-  if (e >= 5 && (song.partGenres.bass === 'funk' || idea.bassLine === 'flowing')) return;
-  // long roots and driving 8ths are played legato
-  idea.bassLen?.fill(0);
-  const beat = beatSet(song);
-  const changes = new Set(chords.timeline.map((t) => t.step));
-  const again = restrikes(song, changes);
-  for (let g = 0; g < song.total; g++) {
-    const r = bassRoot(song.key, chords.timeline[chords.chordIdx[g]].chord);
-    if (e <= 2) bass[g] = changes.has(g) || (e === 2 ? beat.has(g) : again.has(g)) ? r : 0;
-    else if (g % 2 === 0 && !bass[g]) bass[g] = r;
-  }
-}
-
-/** Cap notes so nothing rings past step `s`. */
-const capAt = (s: number) => (h: GuitarHit): GuitarHit => ({ ...h, len: Math.max(1, Math.min(h.len, s - h.step)) });
-
-/**
- * A planned solo's last note carries on (docs/SOLO-PLAN.md, round 2): it rings through the rest of the section and the next
- * section's first bar, and bends, finishing on the bar line, to the nearest note of the next section's first chord (up to three semitones:
- * pushed up from below, or picked bent and let down). Transitions (a band stop, band hits, a snare build) have cut the
- * section's end by now; the note is the solo's final landing, else the last note left.
- */
-function carrySolo(idea: Idea, next: Idea | undefined) {
-  const lands = idea.soloCurve?.landings;
-  if (!next || !lands || !idea.guitar2.length) return;
-  const total = idea.song.total;
-  const fin = [...lands].reverse().find((l) => l.role !== 'waypoint');
-  const sorted = [...idea.guitar2].sort((a, b) => a.step - b.step);
-  const h = sorted.find((x) => fin && x.step === fin.step && !x.mute && x.notes.length) ?? [...sorted].reverse().find((x) => !x.mute && x.notes.length);
-  if (!h) return;
-  // (pickup notes into the next section would run into it: the carried note wins)
-  idea.guitar2 = idea.guitar2.filter((x) => x === h || x.step < h.step);
-  h.len = total - h.step + next.song.bars[0].len;
-  // (a double-stop, a trill, a tremolo or a rake just rings on)
-  if (h.notes.length !== 1 || h.trill || h.tremolo || h.rake) return;
-  const tones = chordTones(next.song.key, next.chords.timeline[0].chord);
-  const cur = h.notes[0] - (h.unbend ?? 0);
-  const d = [0, 1, -1, 2, -2, 3, -3].find((x) => tones.includes((((cur + x) % 12) + 12) % 12));
-  if (!d) return;
-  // (the move ends on the bar line, so it is heard in the solo's own level as the chord arrives: from the bar line on, the next section's
-  // level is under it, and the note has already died away some)
-  const six = 15 / idea.song.bpm;
-  const at = Math.max(0.5, total - h.step - (d > 0 ? 0.14 + d * 0.04 : 0.12) / six - 0.25);
-  h.bend = 0;
-  if (d > 0) { h.notes = [cur + d]; h.unbend = undefined; h.lateBend = d; h.bendAt = at; }
-  else { h.notes = [cur]; h.lateBend = undefined; h.unbend = -d; h.bendAt = at; }
-}
-
-/** Everyone stops for the last beat or two of the section, then the next section hits. */
-function bandStop(idea: Idea, beats: number) {
-  const { bars } = idea.song;
-  const L = bars.length - 1, bar = bars[L];
-  const end = bar.start + bar.len;
-  const s0 = end - bar.groups.slice(-beats).reduce((a, b) => a + b, 0);
-  for (const l of DRUM_LANES) for (let g = s0; g < end; g++) idea.drums[l][g] = 0;
-  idea.drums.fills = idea.drums.fills.filter((f) => f.bar !== L);
-  for (let g = s0; g < end; g++) { idea.strum[g] = '.'; idea.bass[g] = 0; }
-  // a muted scratch chokes the strummed chord
-  if (!idea.guitar) idea.strum[s0] = 'x';
-  if (idea.guitar) idea.guitar = idea.guitar.filter((h) => h.step < s0).map(capAt(s0));
-  idea.guitar2 = idea.guitar2.filter((h) => h.step < s0).map(capAt(s0));
-  idea.section!.tail = { stop: s0 };
-  // the last bass note stops too
-  const lens = idea.bassLen ?? zeros(idea.song.total);
-  for (let g = s0 - 1; g >= bar.start; g--) {
-    if (!idea.bass[g]) continue;
-    lens[g] = Math.min(lens[g] || s0 - g, s0 - g);
-    break;
-  }
-  if (!idea.guitar) idea.bassLen = lens.some(Boolean) ? lens : undefined;
-  else idea.bassLen = lens;
-}
-
-/** The last bar becomes one held chord on the home chord, with a crash. */
-function makeEnding(idea: Idea, home: Chord) {
-  const { song } = idea;
-  const L = song.bars.length - 1, bar = song.bars[L];
-  const a = bar.start, b = a + bar.len;
-  for (const l of DRUM_LANES) for (let g = a; g < b; g++) idea.drums[l][g] = 0;
-  idea.drums.fills = idea.drums.fills.filter((f) => f.bar !== L);
-  idea.drums.crash[a] = 0.95;
-  idea.drums.kick[a] = 0.95;
-  const lens = idea.bassLen ?? zeros(song.total);
-  for (let g = a; g < b; g++) { idea.strum[g] = '.'; idea.bass[g] = 0; lens[g] = 0; }
-  idea.guitar2 = idea.guitar2.filter((h) => h.step < a).map(capAt(a));
-  const timeline = [...idea.chords.timeline.filter((e) => e.step < a), { step: a, chord: home }];
-  idea.chords = { ...idea.chords, timeline, chordIdx: chordIdxFor(timeline, song.total) };
-  if (idea.guitar && song.tuning) {
-    const t = song.tuning;
-    idea.guitar = idea.guitar.filter((h) => h.step < a).map(capAt(a));
-    idea.guitar.push({ step: a, ...powerChord(song.key, t, true), len: bar.len, vel: 0.95 });
-    // same octave as the riff bass
-    const tonic = lowestOf(song.key, t);
-    let shift = 0;
-    while (tonic - shift > 36) shift += 12;
-    idea.bass[a] = tonic - shift;
-  } else {
-    idea.strum[a] = 'D';
-    idea.bass[a] = bassRoot(song.key, home);
-  }
-  lens[a] = bar.len;
-  idea.bassLen = lens;
-  idea.section = { ...idea.section!, ending: true };
-}
-
-/* ------------------------------------------------------------ harmony plan */
-
-/** A chord plan: [root in semitones above the key, length in bars]. Verses and pre-choruses end on V (or bVII) to lead into the chorus. */
-/** Chords as [root (semitones above the key), bars, quality (otherwise the key's own, or major for a root outside it)]. */
-type Plan = [number, number, Quality?][];
-
-const MAJOR_PLANS: Record<'verse' | 'pre' | 'bridge', Plan[]> = {
-  verse: [
-    [[0, 2], [5, 2], [0, 2], [7, 2]], // I IV I V
-    [[0, 1], [7, 1], [9, 1], [5, 1], [0, 1], [7, 1], [9, 1], [7, 1]], // I V vi IV … V
-    [[9, 2], [5, 2], [0, 2], [7, 2]], // vi IV I V
-    [[0, 2], [10, 2], [5, 2], [7, 2]], // I bVII IV V
-    [[0, 3], [5, 1], [0, 3], [7, 1]], // I . . IV I . . V
-    [[0, 4], [5, 2], [7, 2]], // I . . . IV . V .
-  ],
-  pre: [
-    [[5, 1], [7, 1], [5, 1], [7, 1]], // IV V IV V
-    [[9, 1], [5, 1], [2, 1], [7, 1]], // vi IV ii V
-    [[5, 2], [7, 2]], // IV . V .
-    [[2, 1], [5, 1], [7, 2]], // ii IV V .
-  ],
-  bridge: [
-    [[9, 2], [5, 2], [0, 2], [7, 2]], // vi IV I V
-    [[5, 2], [9, 2], [5, 2], [7, 2]], // IV vi IV V
-    [[4, 2], [9, 2], [5, 2], [7, 2]], // iii vi IV V
-    [[10, 2], [5, 2], [10, 2], [7, 2]], // bVII IV bVII V
-  ],
-};
-
-const MINOR_PLANS: Record<'verse' | 'pre' | 'bridge', Plan[]> = {
-  verse: [
-    [[0, 2], [8, 2], [0, 2], [7, 2]], // i bVI i v
-    [[0, 2], [5, 2], [0, 2], [10, 2]], // i iv i bVII
-    [[0, 1], [10, 1], [8, 1], [10, 1]], // i bVII bVI bVII
-    [[0, 4], [8, 2], [10, 2]], // i . . . bVI . bVII .
-    [[0, 3], [10, 1], [0, 3], [8, 1]], // i . . bVII i . . bVI
-  ],
-  pre: [
-    [[8, 1], [10, 1], [8, 1], [10, 1]], // bVI bVII bVI bVII
-    [[5, 2], [7, 2]], // iv . v .
-    [[3, 2], [10, 2]], // bIII . bVII .
-    [[8, 2], [10, 2]], // bVI . bVII .
-  ],
-  bridge: [
-    [[3, 2], [10, 2], [8, 2], [7, 2]], // bIII bVII bVI v
-    [[8, 2], [3, 2], [10, 2], [7, 2]], // bVI bIII bVII v
-    [[5, 2], [8, 2], [10, 2], [7, 2]], // iv bVI bVII v
-  ],
-};
-
-/**
- * Chords that carry a mood (docs/TENSION.md): borrowed chords (iv in a major key for melancholy and
- * nostalgia, bVI–bVII into the chorus for triumph, the Phrygian bII for darkness and unease), the V held
- * long before a chorus (tension), the major V in a minor key (a stronger pull home), and for a dreamy
- * song, no hard V at all. Used for the verses, pre-choruses and bridges about half the time.
- */
-const MOOD_PLANS: Partial<Record<Mood, Partial<Record<'major' | 'minor', Partial<Record<'verse' | 'pre' | 'bridge', Plan[]>>>>>> = {
-  melancholic: {
-    major: { verse: [[[0, 2], [9, 2], [5, 2], [5, 2, 'min']]], pre: [[[9, 1], [5, 1], [5, 1, 'min'], [7, 1]]], bridge: [[[5, 2], [5, 2, 'min'], [0, 2], [7, 2]]] },
-    minor: { verse: [[[0, 2], [5, 2], [8, 2], [7, 2, 'maj']]], bridge: [[[8, 2], [5, 2], [0, 2], [7, 2, 'maj']]] },
-  },
-  nostalgic: {
-    major: { verse: [[[0, 2], [4, 2], [5, 2], [5, 2, 'min']]], pre: [[[2, 1], [5, 1, 'min'], [7, 2]]], bridge: [[[5, 2], [5, 2, 'min'], [9, 2], [7, 2]]] },
-    minor: { verse: [[[0, 2], [8, 2], [3, 2], [10, 2]]] },
-  },
-  triumphant: {
-    major: { pre: [[[5, 1], [7, 1], [8, 1], [10, 1]]], bridge: [[[9, 2], [5, 2], [8, 2], [10, 2]]] },
-    minor: { bridge: [[[8, 2], [10, 2], [8, 2], [10, 2]]] },
-  },
-  happy: { major: { bridge: [[[2, 2], [5, 2], [9, 2], [7, 2]]] }, minor: { bridge: [[[3, 2], [10, 2], [8, 2], [10, 2]]] } },
-  tense: {
-    major: { pre: [[[5, 1], [7, 3]]], bridge: [[[9, 2], [8, 2], [7, 4]]] },
-    minor: { verse: [[[0, 3], [1, 1]]], pre: [[[8, 1], [7, 3, 'maj']]], bridge: [[[0, 2], [1, 2], [0, 2], [7, 2, 'maj']]] },
-  },
-  dark: {
-    major: { verse: [[[0, 2], [8, 2], [10, 2], [0, 2]]], bridge: [[[8, 2], [5, 2, 'min'], [0, 2], [7, 2]]] },
-    minor: { verse: [[[0, 2], [1, 2], [0, 2], [8, 2]]], bridge: [[[8, 2], [5, 2], [1, 2], [7, 2, 'maj']]] },
-  },
-  angry: { major: { verse: [[[0, 2], [10, 2], [5, 2], [0, 2]]], pre: [[[10, 2], [7, 2]]] } },
-  dreamy: {
-    major: { verse: [[[0, 2], [5, 2], [0, 2], [5, 2]]], pre: [[[5, 4]]], bridge: [[[9, 2], [4, 2], [5, 4]]] },
-    minor: { verse: [[[0, 4], [8, 4]]], pre: [[[8, 4]]], bridge: [[[8, 2], [3, 2], [8, 4]]] },
-  },
-};
-
-/** Choruses written for a riff that plays the verses: away from home, then back (V bVII I, IV V I…). */
-const CHORUS_PLANS: Record<'major' | 'minor', Plan[]> = {
-  major: [[[7, 2], [10, 2], [0, 4]], [[5, 2], [7, 2], [0, 4]], [[10, 2], [5, 2], [0, 4]], [[5, 2], [0, 2], [7, 2], [0, 2]]],
-  minor: [[[8, 2], [10, 2], [0, 4]], [[3, 2], [10, 2], [0, 4]], [[5, 2], [8, 2], [10, 2], [0, 2]], [[8, 2], [3, 2], [10, 2], [0, 2]]],
-};
-
-/** Outro jams: a short loop in the new key, round and round. */
-const JAM_PLANS: Record<'major' | 'minor', Plan[]> = {
-  minor: [[[0, 1], [8, 1], [10, 1], [0, 1]], [[0, 2], [10, 1], [8, 1]], [[0, 1], [3, 1], [10, 1], [5, 1]], [[0, 1], [10, 1], [8, 1], [10, 1]]],
-  major: [[[0, 1], [10, 1], [5, 1], [0, 1]], [[0, 1], [7, 1], [10, 1], [5, 1]], [[0, 2], [5, 1], [10, 1]]],
-};
-
-/** Riff verses sit on the tonic and move in the last bar. */
-const RIFF_VERSE_MOVE = { major: [10, 5, 7], minor: [10, 8, 5, 3, 7] };
-
-const isMinor = (m: Mode) => m === 'minor' || m === 'dorian' || m === 'phrygian';
-const plansFor = (m: Mode) => (isMinor(m) ? MINOR_PLANS : MAJOR_PLANS);
-
-const NUMERAL = ['I', 'bII', 'II', 'bIII', 'III', 'IV', '#IV', 'V', 'bVI', 'VI', 'bVII', 'VII'];
-const numeral = (c: Chord) =>
-  c.q === '5' ? `${NUMERAL[c.root]}5` : ['min', 'm7', 'm9'].includes(c.q) ? NUMERAL[c.root].toLowerCase() : NUMERAL[c.root];
-
-/** "I – IV – I – V" for a block's chords. */
-function describeChords(idea: Idea): string {
-  const out: string[] = [];
-  for (const e of idea.chords.timeline) {
-    const n = numeral(e.chord);
-    if (out[out.length - 1] !== n) out.push(n);
-  }
-  return out.slice(0, 8).join(' – ');
-}
-
-/** A chord on `root` that fits the mode (out-of-key roots are major), coloured like the genre. */
-function chordOn(song: Song, root: number, power: boolean, rng: Rng): Chord {
-  if (power) return { root, q: '5' };
-  const G = GENRES[song.genre];
-  const scale: readonly number[] = SCALES[song.mode];
-  const d = scale.indexOf(root);
-  let c: Chord = d >= 0 ? degreeChord(scale, d, !!G.seventh) : { root, q: G.seventh ? '7' : 'maj' };
-  if (c.q === 'dim' || c.q === 'aug' || c.q === 'm7b5') c = { root, q: '5' };
-  return G.flavor(c, rng);
-}
-
-/** Chords written from a plan (instead of random ones), before the block's other parts are written to them. */
-const planned = (song: Song, plan: Plan, rng: Rng, power: boolean) => (c: ChordPart): ChordPart => {
-  const byRoot = new Map<string, Chord>(); // the same chord every time a root comes back
-  const timeline: ChordEvent[] = [];
-  for (let bi = 0, k = 0; bi < song.bars.length; k++) {
-    const [root, n, q] = plan[k % plan.length];
-    const id = `${root}${q ?? ''}`;
-    if (!byRoot.has(id)) byRoot.set(id, q && !power ? GENRES[song.genre].flavor({ root, q }, rng) : chordOn(song, root, power, rng));
-    timeline.push({ step: song.bars[bi].start, chord: byRoot.get(id)! });
-    bi += n;
-  }
-  return { timeline, chordIdx: chordIdxFor(timeline, c.chordIdx.length), notes: [] };
-};
-
-/** Riff styles that want real chords rather than power chords. */
-const chordal = (s: RiffStyle) => s === 'arp' || s === 'picked' || s === 'lick';
-
-/**
- * A dominant pedal: the bass holds the key's 5th in 8ths over the last `n` bars (the chords moving above
- * it), a classic build. Only where the 5th sits well under every chord there (a chord note, or the 9th of
- * IV, the 11th of ii, the 6th of bVII); false if it doesn't.
- */
-function pedalBass(idea: Idea, n: number): boolean {
-  const { song, chords, bass } = idea;
-  const bars = song.bars.slice(-Math.min(n, song.bars.length));
-  const from = bars[0].start, to = song.total;
-  const pc = (song.key + 7) % 12;
-  for (let g = from; g < to; g++) {
-    const c = chords.timeline[chords.chordIdx[g]].chord;
-    const tones = QUALITIES[c.q].map((x) => (chordPc(song.key, c) + x) % 12);
-    if (!tones.includes(pc) && ![2, 5, 10].includes(c.root)) return false;
-  }
-  const heard = bass.slice(from, to).filter(Boolean);
-  const mid = heard.length ? heard.reduce((a, b) => a + b, 0) / heard.length : 40;
-  const m = pc + 12 * Math.round((mid - pc) / 12);
-  for (let g = from; g < to; g++) {
-    bass[g] = (g - from) % 2 === 0 ? m : 0;
-    if (idea.bassLen) idea.bassLen[g] = bass[g] ? 2 : 0;
-  }
-  return true;
-}
-
-/** Move a whole section up (a key change for the last chorus). */
-function transpose(idea: Idea, n: number) {
-  idea.song = { ...idea.song, key: (idea.song.key + n) % 12 };
-  idea.bass = idea.bass.map((m) => (m ? m + n : 0));
-  const up = (h: GuitarHit): GuitarHit => ({ ...h, notes: h.notes.map((m) => m + n) });
-  if (idea.guitar) idea.guitar = idea.guitar.map(up);
-  idea.guitar2 = idea.guitar2.map(up);
-  // (a planned solo's landings and gaps are notes too)
-  const sc = idea.soloCurve;
-  if (sc?.landings) sc.landings = sc.landings.map((l) => ({ ...l, midi: l.midi + n }));
-  if (sc?.gaps) sc.gaps = sc.gaps.map((g) => ({ ...g, from: g.from && { ...g.from, midi: g.from.midi + n }, to: g.to && { ...g.to, midi: g.to.midi + n } }));
-}
-
-/* ------------------------------------------------------------ arrangement */
-
-/** Write a drum fill into an (empty) bar: the drums coming in. */
-function fillBar(idea: Idea, bi: number, rng: Rng) {
-  const { bars, w } = idea.song;
-  const b = emptyBar(bars[bi].len);
-  const len = addFill(rng, b, bars[bi].len, bars[bi].groups, w, idea.song.partGenres.drums);
-  putBar(idea.drums, bars[bi], b);
-  idea.drums.fills.push({ bar: bi, len, seam: true });
-}
-
-/** Eight-bar intro: the hook alone for four bars, the drums come in with a fill, the bass joins (now or two bars later). */
-function layerIntro(idea: Idea, rng: Rng): string {
-  const { bars } = idea.song;
-  const half = bars[3].start + bars[3].len;
-  const bassFrom = rng.chance(0.4) && bars[6] ? bars[6].start : half;
-  for (const l of DRUM_LANES) for (let g = 0; g < half; g++) idea.drums[l][g] = 0;
-  idea.drums.fills = idea.drums.fills.filter((f) => f.bar > 3);
-  fillBar(idea, 3, rng);
-  for (let g = 0; g < bassFrom; g++) { idea.bass[g] = 0; if (idea.bassLen) idea.bassLen[g] = 0; }
-  idea.guitar2 = idea.guitar2.filter((h) => h.step >= half);
-  idea.section!.bandFrom = half;
-  return bassFrom > half
-    ? 'Layered: guitar alone, the drums come in with a fill at bar 5, the bass two bars later'
-    : 'Layered: guitar alone, then drums (with a fill) and bass come in at bar 5';
-}
-
-/**
- * Sixteen-bar intro, built up a layer at a time: the guitar alone, the drums come in (with a fill),
- * then the bass, then Guitar 2 and the full band. The drums stay light (no crashes, closed hats)
- * until everyone's in, and fill into the last four bars.
- */
-function longIntro(idea: Idea, rng: Rng): string {
-  const { bars, total } = idea.song;
-  const at = (bi: number) => bars[bi]?.start ?? total;
-  const drumsIn = at(4), bassIn = at(8), allIn = at(12);
-  const d = idea.drums;
-  for (const l of DRUM_LANES) for (let g = 0; g < drumsIn; g++) d[l][g] = 0;
-  for (let g = drumsIn; g < allIn; g++) {
-    d.crash[g] = 0;
-    if (d.hatOpen[g]) { d.hat[g] = Math.max(d.hat[g], d.hatOpen[g] * 0.8); d.hatOpen[g] = 0; }
-  }
-  d.fills = d.fills.filter((f) => f.bar > 3);
-  fillBar(idea, 3, rng);
-  if (bars[11] && !d.fills.some((f) => f.bar === 11)) {
-    const b = barOf(d, bars[11]);
-    d.fills.push({ bar: 11, len: addFill(rng, b, bars[11].len, bars[11].groups, idea.song.w, idea.song.partGenres.drums), seam: true });
-    putBar(d, bars[11], b);
-  }
-  crashAt(d, allIn);
-  for (let g = 0; g < bassIn; g++) { idea.bass[g] = 0; if (idea.bassLen) idea.bassLen[g] = 0; }
-  idea.guitar2 = idea.guitar2.filter((h) => h.step >= allIn);
-  idea.section!.bandFrom = allIn;
-  return 'Long build: guitar alone, the drums come in with a fill at bar 5, the bass at bar 9, everyone (Guitar 2 too) at bar 13';
-}
-
-/**
- * An outro jam builds: the half-time first part keeps its cymbals down (a crash only where it starts)
- * and fills into the full band, which crashes in.
- */
-function jamBuild(idea: Idea, firstBars: number, rng: Rng) {
-  const { bars, total } = idea.song;
-  const at = bars[firstBars]?.start ?? total;
-  const d = idea.drums;
-  for (let g = 1; g < at; g++) d.crash[g] = 0;
-  const L = firstBars - 1;
-  if (bars[L] && !d.fills.some((f) => f.bar === L)) {
-    const b = barOf(d, bars[L]);
-    d.fills.push({ bar: L, len: addFill(rng, b, bars[L].len, bars[L].groups, idea.song.w, idea.song.partGenres.drums), seam: true });
-    putBar(d, bars[L], b);
-  }
-  crashAt(d, at);
-}
-
-/** The last bar builds: snare 8ths, then 16ths, getting louder; the band drives 8ths with it. */
-function snareBuild(idea: Idea) {
-  const { bars, key } = idea.song;
-  const L = bars.length - 1, bar = bars[L];
-  const d = idea.drums;
-  const st = groupStarts(bar.groups);
-  const lastG = bar.len - bar.groups[bar.groups.length - 1];
-  for (let j = 0; j < bar.len; j++) {
-    const g = bar.start + j;
-    d.hat[g] = 0; d.hatOpen[g] = 0; d.ride[g] = 0; d.tom[g] = 0; d.crash[g] = 0;
-    d.kick[g] = st.includes(j) ? 0.9 : 0;
-    d.snare[g] = j >= lastG || j % 2 === 0 ? 0.4 + 0.55 * (j / bar.len) : 0;
-    if (!idea.guitar && j % 2 === 0) {
-      idea.strum[g] = 'D';
-      idea.bass[g] = bassRoot(key, idea.chords.timeline[idea.chords.chordIdx[g]].chord);
-    } else if (!idea.guitar) { idea.strum[g] = '.'; idea.bass[g] = 0; }
-  }
-  d.fills = [...d.fills.filter((f) => f.bar !== L), { bar: L, len: bar.len, build: true }];
-  idea.section!.tail = { build: bar.start };
-}
-
-const HIT_PATTERNS = [[0, 3, 6], [0, 6, 10], [0, 4, 8, 10], [0, 3, 6, 8, 11], [0, 6, 8, 14]];
-
-/** The last bar is a figure of band hits: everyone on the same accents, silence between. */
-function bandHits(idea: Idea, rng: Rng) {
-  const { bars, key } = idea.song;
-  const L = bars.length - 1, bar = bars[L];
-  const a = bar.start, b = a + bar.len;
-  const fits = HIT_PATTERNS.filter((p) => p[p.length - 1] < bar.len - 1);
-  const hits = (fits.length ? rng.pick(fits) : [0, Math.floor(bar.len / 2)]).map((p) => a + p);
-  idea.section!.tail = { hits };
-  const chordAt = (g: number) => idea.chords.timeline[idea.chords.chordIdx[g]].chord;
-  for (const l of DRUM_LANES) for (let g = a; g < b; g++) idea.drums[l][g] = 0;
-  idea.drums.fills = idea.drums.fills.filter((f) => f.bar !== L);
-  const lens = idea.bassLen ?? zeros(idea.song.total);
-  for (let g = a; g < b; g++) { idea.strum[g] = '.'; idea.bass[g] = 0; lens[g] = 0; }
-  idea.guitar2 = idea.guitar2.filter((h) => h.step < a).map(capAt(a));
-  if (idea.guitar) idea.guitar = idea.guitar.filter((h) => h.step < a).map(capAt(a));
-  for (const g of hits) {
-    idea.drums.kick[g] = 0.95;
-    idea.drums.snare[g] = 0.9;
-    const pc = chordPc(key, chordAt(g));
-    if (idea.guitar && idea.song.tuning) {
-      idea.guitar.push({ step: g, ...powerChord(pc, idea.song.tuning, true), len: 2, vel: 0.95 });
-      const tonic = lowestOf(pc, idea.song.tuning);
-      let shift = 0;
-      while (tonic - shift > 40) shift += 12;
-      idea.bass[g] = tonic - shift;
-    } else {
-      idea.strum[g] = 'D';
-      // a muted scratch an 8th later chokes the chord: short, tight hits
-      if (g + 2 < b && !hits.includes(g + 2)) idea.strum[g + 2] = 'x';
-      idea.bass[g] = bassRoot(key, chordAt(g));
-    }
-    lens[g] = 2;
-  }
-  idea.bassLen = lens;
-}
-
-/* ------------------------------------------------------------ seams: how one section hands over to the next */
-
-const lastBarOf = (idea: Idea) => idea.song.bars[idea.song.bars.length - 1];
-
-/** Where the second half of a bar starts (beat 3 in 4/4). */
-const halfOf = (bar: Bar) => bar.start + (groupStarts(bar.groups).find((p) => p >= bar.len / 2) ?? Math.floor(bar.len / 2));
-
-/** A section's first chord, written relative to another section's key (the last chorus can be in a new key). */
-function firstChordIn(from: Idea, to: Idea): Chord {
-  const c = from.chords.timeline[0].chord;
-  return { ...c, root: (chordPc(from.song.key, c) - to.song.key + 12) % 12 };
-}
-
-/** Rewrite a section's chords from step `s` to its end. */
-function setChordFrom(idea: Idea, s: number, chord: Chord) {
-  const timeline = [...idea.chords.timeline.filter((e) => e.step < s), { step: s, chord }];
-  idea.chords = { ...idea.chords, timeline, chordIdx: chordIdxFor(timeline, idea.song.total) };
-}
-
-const tonesOf = (key: number, c: Chord) => QUALITIES[c.q].map((i) => (key + c.root + i) % 12);
-/** A note a half step from a chord tone (or a tritone from the root) rubs against the chord. */
-const rubs = (n: number, key: number, c: Chord) => {
-  const pc = n % 12, tones = tonesOf(key, c);
-  return !tones.includes(pc) && (tones.some((t) => (pc - t + 12) % 12 === 1 || (t - pc + 12) % 12 === 1) || (pc - tones[0] + 12) % 12 === 6);
-};
-/** The nearest chord tone to a note. */
-function nearestTone(n: number, key: number, c: Chord): number {
-  const tones = tonesOf(key, c);
-  for (let d = 1; d < 7; d++) for (const m of [n - d, n + d]) if (tones.includes(((m % 12) + 12) % 12)) return m;
-  return n;
-}
-
-/** The next note of a scale above (dir 1) or below (dir -1) a note. */
-function scaleStep(n: number, dir: 1 | -1, key: number, mode: Mode): number {
-  const pcs = SCALES[mode].map((p) => (p + key) % 12);
-  let m = n + dir;
-  while (!pcs.includes(((m % 12) + 12) % 12)) m += dir;
-  return m;
-}
-
-/**
- * A turnaround: the second half of the last bar moves to a chord that leads into the next section
- * (V of its first chord, or IV or bVII of it), instead of sitting on the chord the next section
- * starts on, or stepping to it awkwardly. Into a key change it's always the new key's V.
- */
-function turnaround(a: Idea, b: Idea, rng: Rng, keyChange: boolean, pinned: boolean): string | null {
-  if (a.guitar) return null; // riffs write their own moves
-  // sections whose chords you set keep them (a key change still needs its V)
-  if (!keyChange && pinned) return null;
-  const { song } = a;
-  const tl = a.chords.timeline, last = tl[tl.length - 1];
-  const bar = lastBarOf(a);
-  const target = firstChordIn(b, a);
-  const iv = (target.root - last.chord.root + 12) % 12;
-  // the last chord already held the whole bar, and the next section starts on it: nothing moves
-  const stuck = iv === 0 && last.step <= bar.start;
-  const awkward = iv === 1 || iv === 6 || iv === 11;
-  if (!keyChange && !(stuck && rng.chance(0.7)) && !awkward) return null;
-  const s = Math.max(halfOf(bar), last.step);
-  if (s > song.total - 4) return null;
-  const scale: readonly number[] = SCALES[song.mode];
-  const leads: [number, number][] = keyChange ? [[(target.root + 7) % 12, 1]]
-    : ([[(target.root + 7) % 12, 3], [(target.root + 5) % 12, 1], [(target.root + 10) % 12, 1]] as [number, number][])
-      .filter(([r]) => scale.includes(r) && r !== last.chord.root);
-  if (!leads.length) return null;
-  const chord = chordOn(song, rng.weighted(leads), false, rng);
-  const old = tl[a.chords.chordIdx[s]].chord;
-  setChordFrom(a, s, chord);
-  if (a.strum[s] !== 'D') a.strum[s] = 'D';
-  // the bass moves with the chord (keeping its figure)
-  let d = (chord.root - old.root + 12) % 12;
-  if (d > 6) d -= 12;
-  const playing = a.bass.slice(bar.start, song.total).some(Boolean);
-  for (let g = s; g < song.total; g++) {
-    if (!a.bass[g]) continue;
-    let m = a.bass[g] + d;
-    while (m > 52) m -= 12;
-    while (m < 28) m += 12;
-    a.bass[g] = m;
-  }
-  if (playing && !a.bass[s]) a.bass[s] = bassRoot(song.key, chord);
-  // Guitar 2: notes that would rub against the new chord move to its nearest chord tone (or stop, if held into it)
-  a.guitar2 = a.guitar2.map((h) => {
-    if (h.step + h.len <= s || h.swell) return h;
-    if (h.step < s) return h.notes.some((n) => rubs(n, song.key, chord)) ? capAt(s)(h) : h;
-    return h.notes.some((n) => rubs(n, song.key, chord)) ? { ...h, notes: h.notes.map((n) => (rubs(n, song.key, chord) ? nearestTone(n, song.key, chord) : n)) } : h;
-  });
-  return `Turnaround: the last bar turns to ${numeral(chord)}, leading into the ${b.section!.label.toLowerCase()}`;
-}
-
-/**
- * The band pushes into the next section: its first chord comes an 8th early, on the "and" of the last
- * beat, with a crash, and rings over the bar line (the downbeat isn't struck again).
- * False when the next section has nothing on its downbeat to push.
- */
-function push(a: Idea, b: Idea): boolean {
-  const total = a.song.total, s = total - 2;
-  const bar = lastBarOf(a);
-  if (s <= bar.start || !b.bass[0]) return false;
-  if (a.guitar) {
-    const first = b.guitar?.find((h) => h.step === 0 && !h.mute);
-    if (!first) return false;
-    b.guitar = b.guitar!.filter((h) => h !== first);
-    a.guitar = a.guitar.filter((h) => h.step < s).map(capAt(s));
-    a.guitar.push({ ...first, step: s, len: first.len + 2, vel: Math.max(first.vel, 0.9) });
-  } else {
-    if (b.strum[0] === '.' || b.strum[0] === 'x') return false;
-    b.strum[0] = '.';
-    for (let g = s; g < total; g++) a.strum[g] = '.';
-    a.strum[s] = 'D';
-  }
-  setChordFrom(a, s, firstChordIn(b, a));
-  // the bass pushes with the band, and rings into the next section
-  const lens = a.bassLen ?? zeros(total);
-  for (let g = s; g < total; g++) { a.bass[g] = 0; lens[g] = 0; }
-  for (let g = s - 1; g >= bar.start; g--) {
-    if (!a.bass[g]) continue;
-    if (lens[g]) lens[g] = Math.min(lens[g], s - g);
-    break;
-  }
-  a.bass[s] = b.bass[0];
-  b.bass[0] = 0;
-  if (b.bassLen) b.bassLen[0] = 0;
-  let next = 1;
-  while (next < 8 && !b.bass[next]) next++;
-  lens[s] = 2 + next;
-  a.bassLen = lens;
-  // drums: kick and crash on the push, nothing on the downbeat after it
-  for (const l of DRUM_LANES) for (let g = s; g < total; g++) a.drums[l][g] = 0;
-  crashAt(a.drums, s);
-  for (const l of ['kick', 'crash', 'hat', 'hatOpen', 'ride'] as const) b.drums[l][0] = 0;
-  a.section!.tail = { push: s };
-  b.section!.pushedIn = true;
-  return true;
-}
-
-/**
- * The first bar of a half-time section entered from a full-time one: the band strikes the first chord
- * and lets it ring (drums: kick and crash, then a snare pickup into the new groove). Dropping straight
- * from a full groove into half-time felt like the song falling over.
- */
-function settleIn(idea: Idea) {
-  const bar = idea.song.bars[0], end = bar.len;
-  const d = idea.drums;
-  for (const l of DRUM_LANES) for (let g = 1; g < end; g++) d[l][g] = 0;
-  // (pushed in: the chord, kick and crash already came an 8th early, and ring on)
-  const pushed = !!idea.section!.pushedIn;
-  if (!pushed) {
-    d.kick[0] = Math.max(d.kick[0], 0.9);
-    crashAt(d, 0);
-  }
-  // the pickup: the last beat's 8ths on the snare, getting louder
-  const beats = groupStarts(bar.groups);
-  const last = beats[beats.length - 1];
-  for (let g = last, v = 0.4; g < end; g += 2, v += 0.15) d.snare[g] = Math.min(0.8, v);
-  d.fills = d.fills.filter((f) => f.bar !== 0);
-  if (idea.guitar) {
-    const first = idea.guitar.find((h) => h.step === 0);
-    idea.guitar = idea.guitar.filter((h) => h.step >= end);
-    if (first && !pushed) idea.guitar.unshift({ ...first, len: end, mute: undefined });
-  } else {
-    if (!pushed && (idea.strum[0] === '.' || idea.strum[0] === 'x')) idea.strum[0] = 'D';
-    for (let g = 1; g < end; g++) idea.strum[g] = '.';
-    // and the band comes back in on the next downbeat (a pattern starting later left a hole)
-    if (idea.strum[end] === '.') idea.strum[end] = 'D';
-  }
-  // the bass holds its first note through the bar
-  for (let g = 1; g < end; g++) idea.bass[g] = 0;
-  if (idea.bassLen) { for (let g = 1; g < end; g++) idea.bassLen[g] = 0; if (idea.bass[0]) idea.bassLen[0] = end; }
-}
-
-/** Loud into quiet: the band strikes one chord halfway through the last bar and lets it ring into the next section. */
-function ringOut(a: Idea) {
-  const { song } = a;
-  const L = song.bars.length - 1, bar = song.bars[L];
-  const h = halfOf(bar), total = song.total;
-  const chord = a.chords.timeline[a.chords.chordIdx[h]].chord;
-  const pc = chordPc(song.key, chord);
-  for (const l of DRUM_LANES) for (let g = h; g < total; g++) a.drums[l][g] = 0;
-  a.drums.fills = a.drums.fills.filter((f) => f.bar !== L);
-  crashAt(a.drums, h);
-  const lens = a.bassLen ?? zeros(total);
-  for (let g = h; g < total; g++) { a.strum[g] = '.'; a.bass[g] = 0; lens[g] = 0; }
-  if (a.guitar && song.tuning) {
-    a.guitar = a.guitar.filter((x) => x.step < h).map(capAt(h));
-    a.guitar.push({ step: h, ...powerChord(pc, song.tuning, true), len: total - h + 4, vel: 0.9 });
-    let n = lowestOf(pc, song.tuning);
-    while (n > 40) n -= 12;
-    a.bass[h] = n;
-  } else {
-    a.strum[h] = 'D';
-    a.bass[h] = bassRoot(song.key, chord);
-  }
-  for (let g = h - 1; g >= bar.start; g--) {
-    if (!a.bass[g]) continue;
-    if (lens[g]) lens[g] = Math.min(lens[g], h - g);
-    break;
-  }
-  lens[h] = total - h + 4;
-  a.bassLen = lens;
-  a.section!.tail = { ring: h };
-}
-
-/**
- * The bass walks into the next section's first note over the last beat: up or down the scale, or
- * a chromatic approach from below, with the drum fill.
- */
-function walkUp(a: Idea, b: Idea, rng: Rng): boolean {
-  if (a.guitar || !b.bass[0]) return false;
-  const { song } = a;
-  const bar = lastBarOf(a), total = song.total;
-  const beat = bar.groups[bar.groups.length - 1];
-  if (bar.len < 8 || beat < 4 || !a.bass.slice(bar.start, total - beat).some(Boolean)) return false;
-  const t = b.bass[0];
-  let how = rng.weighted<'up' | 'down' | 'chromatic'>(song.partGenres.bass === 'funk' ? [['chromatic', 3], ['up', 1]] : [['up', 3], ['chromatic', 2], ['down', 1]]);
-  const three = how === 'up' && bar.len >= 12 && rng.chance(0.35);
-  // no room below the target on the bass: come down onto it instead
-  if (how !== 'down' && t - (three ? 5 : 3) < 28) how = 'down';
-  let line: number[];
-  if (how === 'chromatic') line = [t - 2, t - 1];
-  else {
-    const dir = how === 'up' ? -1 : 1; // walking up means starting below
-    const n1 = scaleStep(t, dir, b.song.key, b.song.mode), n2 = scaleStep(n1, dir, b.song.key, b.song.mode);
-    line = three && how === 'up' ? [scaleStep(n2, dir, b.song.key, b.song.mode), n2, n1] : [n2, n1];
-  }
-  const from = total - 2 * line.length;
-  const lens = a.bassLen;
-  for (let g = from; g < total; g++) { a.bass[g] = 0; if (lens) lens[g] = 0; }
-  line.forEach((n, i) => {
-    a.bass[from + 2 * i] = n;
-    if (lens) lens[from + 2 * i] = 2;
-  });
-  if (lens) for (let g = from - 1; g >= bar.start; g--) {
-    if (!a.bass[g]) continue;
-    if (lens[g]) lens[g] = Math.min(lens[g], from - g);
-    break;
-  }
-  return true;
-}
-
-/** Guitar 2 leads into its next phrase: a note or two before the bar line, stepping into its first note. */
-function g2Pickup(a: Idea, b: Idea, rng: Rng): boolean {
-  const first = b.guitar2.find((h) => h.step === 0);
-  if (!first || first.notes.length !== 1 || first.swell || first.mute) return false;
-  const bar = lastBarOf(a), total = a.song.total;
-  const beat = bar.groups[bar.groups.length - 1];
-  if (bar.len < 8 || a.guitar2.some((h) => h.step + h.len > total - beat)) return false;
-  const t = first.notes[0], { key, mode } = b.song;
-  // up or down the scale into the note, two notes or one; only lines that sit with the chord under them
-  const chordAt = (g: number) => a.chords.timeline[a.chords.chordIdx[g]].chord;
-  const lines: [number[], number][] = [];
-  for (const [dir, w] of [[-1, 3], [1, 2]] as const) {
-    const n1 = scaleStep(t, dir, key, mode), n2 = scaleStep(n1, dir, key, mode);
-    lines.push([[n2, n1], w], [[n1], w * 0.7]);
-  }
-  const fits = lines.filter(([l]) => l.every((n, i) => !rubs(n, a.song.key, chordAt(total - 2 * (l.length - i)))));
-  if (!fits.length) return false;
-  const line = rng.weighted(fits);
-  line.forEach((n, i) => a.guitar2.push({
-    step: total - 2 * (line.length - i), notes: [n], strings: first.strings, len: 2, vel: first.vel * 0.85, clean: first.clean,
-  }));
-  return true;
-}
-
-/* ------------------------------------------------------------ guitar 2 */
-
-const runCount = (idea: Idea) => Math.ceil(idea.song.bars.length / 4);
-
-/** Rewrite guitar 2 for a section: forced roles, or picked like an idea (undefined). Returns its description. */
-function writeGuitar2(idea: Idea, o: G2Options, rng: Rng, force?: Guitar2Style[], lick?: LickKind): string {
-  const g2 = generateGuitar2(rng, idea.song, idea.chords, idea.guitar ?? null, force, lick, o);
-  idea.guitar2 = g2.hits;
-  return g2.notes[0];
-}
-
-/** Figures (docs/LEAD-FIGURES.md): the chance a song's verses have a picked figure on Guitar 2, by genre (real songs: picked figures are 26% of lead bars in pop, 13-15% in rock and grunge). */
-/** The Solo writer entries that write the melody step first (docs/SOLO-MELODY.md); `player` goes on to the solo player (docs/SOLO-PLAYER.md). */
-const MELODY_PLANS: readonly string[] = ['melody', 'marks', 'joins', 'player', 'perform'];
-
-const FIGURE_SONGS: Record<Genre, number> = { pop: 0.7, rock: 0.5, grunge: 0.5, altmetal: 0.4, hardrock: 0.25, metal: 0.2, funk: 0.3 };
-
-/**
- * Room (docs/LEAD-ROOM.md): the chance the lead guitar keeps out from under the singer's lines through a
- * four-bar run, by genre. Real lead guitar plays while the singer sings 15% of its notes in metal, 21% in
- * hard rock, 35% in funk; about half in pop, rock, grunge and alt metal, as the app did (docs/STUDY-LEAD.md).
- */
-const ROOM: Record<Genre, number> = { metal: 0.7, hardrock: 0.8, funk: 0.7, pop: 0.1, rock: 0, grunge: 0, altmetal: 0 };
-
-/**
- * Room: in the runs where the lead keeps out of the way, Guitar 2's notes under a sung line go, and notes
- * ringing into one stop where it starts; what's left plays in the gaps (answers, fills, the end of a
- * verse into the chorus). Solos and sections with no singing are left alone.
- */
-function makeRoom(sections: Idea[], genre: Genre, seed: string) {
-  const rng = new Rng(seed);
-  for (const x of sections) {
-    const voc = x.vocal ?? [];
-    if (x.section?.solo || !voc.length || !x.guitar2.length) continue;
-    // the sung lines (gaps under a beat joined)
-    const lines: [number, number][] = [];
-    for (const n of voc) {
-      const l = lines[lines.length - 1];
-      if (l && n.step - l[1] < 4) l[1] = Math.max(l[1], n.step + n.len);
-      else lines.push([n.step, n.step + n.len]);
-    }
-    const bars = x.song.bars;
-    const clear = new Set<number>(); // runs of four bars
-    for (let r = 0; r * 4 < bars.length; r++) if (rng.chance(ROOM[genre])) clear.add(r);
-    const runOf = (g: number) => Math.floor(Math.max(0, bars.findIndex((b) => g >= b.start && g < b.start + b.len)) / 4);
-    const under = (g: number) => lines.some(([a, b]) => g >= a - 1 && g < b);
-    x.guitar2 = x.guitar2.filter((h) => !(clear.has(runOf(h.step)) && under(h.step)));
-    for (const h of x.guitar2) {
-      if (!clear.has(runOf(h.step))) continue;
-      const next = lines.find(([a]) => a > h.step);
-      if (next && h.step + h.len > next[0]) h.len = Math.max(1, Math.floor(next[0] - h.step));
-    }
-  }
-}
-
-/**
- * Breaks (docs/LEAD-BREAKS.md): in songs with no solo, the chance there's no lead guitar at all (real songs
- * with a lead guitar: pop 29%, funk 36%, rock 48%; docs/STUDY-LEAD.md), else of a short lead break after a
- * chorus (real pop and funk songs with a lead: 54% / 76% have one; the app's pop 25%, funk 13%).
- */
-const NO_LEAD: Record<Genre, number> = { pop: 0.65, funk: 0.6, altmetal: 0.5, rock: 0.3, grunge: 0.25, hardrock: 0.1, metal: 0.05 };
-const BREAK: Record<Genre, number> = { pop: 0.45, funk: 0.7, rock: 0.5, grunge: 0.5, altmetal: 0.5, hardrock: 0.5, metal: 0.5 };
-
-/**
- * Twin (docs/LEAD-TWIN.md): the chance a song has a second lead guitar on the hook and lead lines, not the solo (real
- * hard rock and metal songs with a lead: 55% have a second lead line, 70% of those in the same bars), and
- * what it plays: a harmony a scale 3rd up, an octave below, or the same notes (a double).
- */
-const mod = (n: number, m: number) => ((n % m) + m) % m;
-type TwinKind = 'harmony' | 'octave' | 'double';
-const TWIN: Record<Genre, number> = { hardrock: 0.55, metal: 0.55, rock: 0.3, grunge: 0.2, altmetal: 0.15, pop: 0.1, funk: 0.1 };
-const TWIN_KINDS: Record<Genre, [TwinKind, number][]> = {
-  metal: [['harmony', 3], ['octave', 1], ['double', 1]], hardrock: [['harmony', 2], ['double', 2], ['octave', 1]],
-  rock: [['double', 2], ['octave', 2], ['harmony', 1]], grunge: [['octave', 2], ['double', 2]], altmetal: [['octave', 2], ['double', 2]],
-  pop: [['double', 2], ['octave', 1], ['harmony', 1]], funk: [['octave', 2], ['double', 1]],
-};
-
-/** Twin: a second lead guitar on Guitar 2's notes from step `from` (a harmony stays a double where it would rub on a held note). */
-function addTwin(idea: Idea, kind: TwinKind, from: number) {
-  const { key, mode, total } = idea.song;
-  const sc: readonly number[] = SCALES[mode];
-  const chordAt = (g: number) => idea.chords.timeline[idea.chords.chordIdx[Math.min(g, total - 1)]].chord;
-  const third = (m: number, g: number, held: boolean) => {
-    const d = sc.indexOf(mod(m - key, 12));
-    const up = m + (d < 0 ? 3 : mod(sc[(d + 2) % 7] - sc[d], 12));
-    const tones = chordTones(key, chordAt(g));
-    return held && tones.some((t) => [1, 11].includes(mod(up - t, 12))) ? m : up;
-  };
-  idea.guitar2 = idea.guitar2.map((h) => {
-    if (h.step < from || h.swell || h.mute) return h;
-    const twin = kind === 'double' ? [...h.notes] : kind === 'octave' ? h.notes.map((m) => (m >= 64 ? m - 12 : m + 12)) : h.notes.map((m) => third(m, h.step, h.len >= 4));
-    return { ...h, twin };
-  });
-}
-
-/** A role that plays (not 'rest'), picked as for an idea. */
-function playingStyle(rng: Rng, idea: Idea, run: number): Guitar2Style {
-  const sec = idea.song.sections?.[run * 4] ?? null;
-  for (let i = 0; i < 6; i++) {
-    const s = pickStyle(rng, idea.song.partGenres.strum, sec);
-    if (s !== 'rest') return s;
-  }
-  return 'lead';
-}
-
-
 /* ------------------------------------------------------------ structure */
 
 interface Slot {
@@ -1234,14 +227,39 @@ const MAX_SECONDS = 210;
 /** Solo New, above 100 bpm: the chance of a longer solo, by genre. */
 const LONG_SOLO: Record<Genre, number> = { metal: 0.7, hardrock: 0.65, rock: 0.5, altmetal: 0.5, grunge: 0.45, funk: 0.35, pop: 0.3 };
 
-export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(src)): Track {
+/** What Mood song asks of the idea: nothing on Auto (the Auto mood comes from the song), or on a mood no longer in the list. */
+export function moodSongOf(opts: TrackOptions): MoodSong | undefined {
+  const v = opts.moodSong, riff = opts.moodRiff === 'on';
+  const song = v === 'tempo' || v === 'mode' || v === 'both';
+  if ((!song && !riff) || !opts.mood || opts.mood === 'auto' || !PROFILES[opts.mood as Mood]) return undefined;
+  return { mood: opts.mood as Mood, ...(song ? { tempo: v !== 'mode', mode: v !== 'tempo' } : {}), ...(riff ? { riff: true } : {}) };
+}
+
+/** The options Mood: all the way turns on (the mood on Auto is the one Auto picks for the song as the genre wrote it). */
+export function moodAllOpts(given: TrackOptions, srcIn: Idea): TrackOptions {
+  if (given.moodAll !== 'on') return given;
+  const auto = !given.mood || given.mood === 'auto' || !PROFILES[given.mood as Mood];
+  return { ...given, ...(auto ? { mood: autoMood(srcIn.song, srcIn.seeds.song) } : {}), soloPlan: 'tune', soloMood: 'on', soloMoodScale: 'on', moodSong: 'both', moodRiff: 'on' };
+}
+
+export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOptions(srcIn)): Track {
+  // (Mood: all the way: the five mood switches, whatever they were set to)
+  const moodAll = moodAllOpts(given, srcIn);
+  // (an old link may carry a Solo writer that is gone: it plays as "As before")
+  const opts: TrackOptions = moodAll.soloPlan === 'on' || moodAll.soloPlan === 'perform' || moodAll.soloPlan === 'tune' || moodAll.soloPlan === undefined ? moodAll : { ...moodAll, soloPlan: 'off' };
+  // (Mood song: the same seeds, the song written again for the mood; switched off, back as it was)
+  const want = moodSongOf(opts);
+  const src = JSON.stringify(srcIn.opts.moodSong ?? null) === JSON.stringify(want ?? null) ? srcIn : generate({ ...srcIn.opts, moodSong: want }, srcIn.seeds);
   const S = opts.seeds;
+  // (Tune first, docs/SOLO-TUNE.md: its own melody writer; the player dresses it, lightly, behind Solo polish)
+  const tuneFirst = opts.soloPlan === 'tune';
+  const coreOn = !tuneFirst && isCoreMode(opts.soloCores);
   // separate random streams, so rerolling one block leaves everything else as it was
   const rng = new Rng(S.structure);
   // the mood: how the song builds and lets go (tension.ts); it leans the quiet sections, the key
   // change and the stops its way
-  const moodAuto = !opts.mood || opts.mood === 'auto';
-  const mood: Mood = moodAuto ? autoMood(src.song, src.seeds.song) : opts.mood as Mood;
+  const moodAuto = !given.mood || given.mood === 'auto';
+  const mood: Mood = !opts.mood || opts.mood === 'auto' ? autoMood(src.song, src.seeds.song) : opts.mood as Mood;
   const MP = PROFILES[mood];
   const mr = new Rng(`${S.structure}-${mood}`);
   // (a block's chords: the mood's own about half the time)
@@ -1249,12 +267,14 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
     const extra = genre === 'funk' && part === 'verse' ? undefined : MOOD_PLANS[mood]?.[isMinor(src.song.mode) ? 'minor' : 'major']?.[part];
     return extra?.length && mr.chance(0.55) ? mr.pick(extra) : plan;
   };
+  // (Mood riff: the riff styles of a verse or a bridge, weighted by what the mood likes)
+  const likeRiffs = (list: [RiffStyle, number][]): [RiffStyle, number][] => (opts.moodRiff === 'on' ? list.map(([x, wt]) => [x, wt * riffLike(mood, x)]) : list);
   const vr = new Rng(S.verse), pr = new Rng(S.pre), br = new Rng(S.bridge);
   const { genre, mode } = src.song;
   const riff = !!src.song.sections;
   const P = plansFor(mode);
   // the idea again, but the drums never wait out its first bars (it gets sliced and repeated)
-  const baseSong = { ...src.song, noTacet: true };
+  const baseSong = { ...src.song, noTacet: true, ...(opts.riffWriter === 'new' ? { newRiff: true } : {}) };
   // (the idea as written: the rhythm player's performance of it is redone section by section)
   const written = asWritten(src);
   const base = riff ? buildIdea(src.opts, src.seeds, baseSong, withSheet(src.opts, src.seeds, baseSong)) : written;
@@ -1299,7 +319,7 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
       // a new verse riff (also when the verse is rerolled): it sits on the home chord and moves in its last bar
       chorus = va !== vb ? [seg(base, 4, 4), seg(base, 4, 4)] : [seg(base)];
       const chorusStyle = vb;
-      const options = R.verse.filter(([x]) => x !== chorusStyle);
+      const options = likeRiffs(R.verse).filter(([x]) => x !== chorusStyle);
       verseStyle = options.length ? vr.weighted(options) : 'arp';
       const move = vr.pick(RIFF_VERSE_MOVE[isMinor(mode) ? 'minor' : 'major']);
       verse = [seg(block(base, vTag, ['chords', 'strum'], { sections: fill8(verseStyle) },
@@ -1334,7 +354,7 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
     } else {
       br.chance(0.4);
       const quiet = !quietVerse && mr.chance(MP.quiet * 0.6);
-      const options = R.bridge.filter(([x]) => x !== vb && x !== verseStyle);
+      const options = likeRiffs(R.bridge).filter(([x]) => x !== vb && x !== verseStyle);
       const style: RiffStyle = quiet ? 'arp' : options.length ? br.weighted(options) : 'single';
       bridgeE = quiet ? 2 : 4;
       bridge = [seg(block(base, bTag, ['chords', 'strum'], { sections: fill8(style), forceHalf: quiet ? undefined : true },
@@ -1514,9 +534,32 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
   const bandSeed = S.band ?? `${src.seeds.song}-band`;
   const lead = pickLead(bandSeed, src.song.partGenres.strum);
   const leadPlan = new Rng(`${bandSeed}-lead-plan`);
-  // the solo player: the melody + joins, played like a guitarist would (Melody + read: every note as written; Melody + player: the long notes played the player's way)
+  // the solo player (Melody + player): the melody + joins, played like a guitarist would (the check step `player`: every note as written)
   const playSolo = (sol: Guitar2Part, seed: string, idea: Idea, mood: Mood, tension: number[], play: boolean): Guitar2Part =>
-    performSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind }, play ? LIVE_RULES : NO_RULES);
+    performSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind, breath: opts.soloBreath === 'on' || coreOn || tuneFirst, grid: opts.soloGrid === 'on' || coreOn || tuneFirst, light: coreOn || tuneFirst }, play ? LIVE_RULES : NO_RULES);
+  // Solo expression (docs/SOLO-EXPRESSION.md): the Tune first melody played again in windows, bent and held, run and breathed
+  const expressTune = (sol: Guitar2Part, seed: string, idea: Idea, mood: Mood, tension: number[]): Guitar2Part =>
+    expressSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind }, { dials: opts.soloBends === 'dials', recast: opts.soloRecast === 'on', echo: opts.soloEcho === 'on', amount: opts.soloAmount === 'light' || opts.soloAmount === 'full' ? opts.soloAmount : 'normal' });
+  // Lead guitar sounds (docs/SOLO-SOUNDS.md): harmonics, dives, feedback and a pick scrape put on the finished solo (its own seed: nothing else changes)
+  // (the amp is the section's own Guitar 2 sound, as on Auto; `before` and `after` are the sections either side)
+  const withSounds = (sol: Guitar2Part, seed: string, idea: Idea, lick: LickKind, intensity: number, solo: boolean, said: string[], si: number): Guitar2Part => {
+    const info = idea.section!, total = idea.song.total, before = slots[si - 1], after = slots[si + 1];
+    const sound = info.sound?.guitar2 ?? AUTO_GUITAR2[idea.song.partGenres.strum];
+    const got = addLeadSounds(new Rng(`${seed}-sounds`), sol.hits, {
+      genre: idea.song.genre, lick, intensity, solo, energy: info.energy, bpm: idea.song.bpm,
+      amp: sound === 'electric-clean' ? 'clean' : sound === 'acoustic' ? 'acoustic' : sound === 'piano' ? 'none' : 'driven',
+      barStarts: idea.song.bars.map((b) => b.start),
+      tonesAt: (g) => chordTones(idea.song.key, idea.chords.timeline[idea.chords.chordIdx[Math.max(0, Math.min(g, total - 1))]].chord),
+      curve: sol.curve?.energy,
+      dropAfter: !after || after.energy < info.energy, songEnd: !after, liftIn: !!before && before.energy < info.energy,
+      keyUp: keyUp && finalAt >= 0 && si >= finalAt ? keyUp : 0,
+    });
+    const names = { pinch: 'pinch harmonic', natural: 'natural harmonic', dive: 'whammy dive', feedback: 'feedback', scrape: 'pick scrape' };
+    if (got.done.length) said.push(`Lead sounds: ${[...new Set(got.done)].map((d) => names[d]).join(', ')}`);
+    return { ...sol, hits: got.hits };
+  };
+  // how the melody writer is used: `perform` (the page) joins and plays; the check steps stop earlier
+  const melody = opts.soloCheck ? { mode: opts.soloCheck === 'player' ? 'joins' as const : opts.soloCheck === 'melody' ? 'plain' as const : opts.soloCheck, play: false } : opts.soloPlan === 'perform' || tuneFirst ? { mode: 'joins' as const, play: true } : null;
   // Guitar 2's switches (Lines, Figures); with Figures, some songs (pop and rock most) have a picked figure through the verses
   const g2o: G2Options = { lines: src.opts.leadLines, figures: src.opts.leadFigures, figureSeed: `${bandSeed}-figure`, licks: src.opts.leadLicks ? new Set<string>() : undefined };
   const roomIntro = !!src.opts.leadRoom && new Rng(`${bandSeed}-room-intro`).chance(ROOM[src.song.partGenres.strum]);
@@ -1610,10 +653,21 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
   const sections = slots.map((s, si) => {
     const r = new Rng(`${S.structure}-${si}-${s.kind}`);
     const label = s.n ? `${KIND_LABEL[s.kind]} ${s.n}` : KIND_LABEL[s.kind];
-    const idea = join(s.segs, { kind: s.kind, label, energy: s.energy, sound: sounds[si] });
+    // a long solo: one stretch gets another band feel (docs/SOLO-VARY.md)
+    const first = s.segs[0]?.idea;
+    const soloBarsNow = s.segs.reduce((a, g) => a + g.n, 0);
+    const vary = opts.soloVary === 'on' && s.kind === 'solo' && s.g2 === 'solo' && !s.intro && first
+      ? planVary(`${S.structure}-${si}-solo-vary`, soloBarsNow, genre, arc.mood, !(first.song.forceHalf ?? first.drums.halfTime) && first.song.bars.every((b) => b.len === 16 && b.groups.length === 4), opts.soloBacking === 'held')
+      : null;
+    const idea = join(vary ? varySegs(s.segs, take(soloOverChorus ? verse : chorus, 8), vary) : s.segs, { kind: s.kind, label, energy: s.energy, sound: sounds[si] });
+    if (vary) idea.section!.soloVary = vary;
     // (an outro that is a jam or a guitar solo is the guitar's: nobody sings)
     if (s.kind === 'outro' && (jam || s.g2 === 'solo')) idea.section!.lead = true;
     const notes: string[] = [];
+
+    // Solo backing: held chords under a solo
+    const held = opts.soloBacking === 'held' && s.g2 === 'solo' && !s.intro;
+    if (held) notes.push(heldBacking(idea));
 
     // energy
     if (s.intro === 'alone') {
@@ -1624,7 +678,7 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
       notes.push(`${riff ? 'Riff' : 'Guitar'} alone, the drums come in with a fill`);
     } else {
       shapeDrums(idea, s.energy, r);
-      if (!riff) shapeBass(idea, s.energy);
+      if (!riff && !held) shapeBass(idea, s.energy);
       // room to breathe: half-time sections, and (for some drummers) every verse, on quarter notes
       const drumGenre = idea.song.partGenres.drums;
       const half = idea.song.forceHalf ?? idea.drums.halfTime;
@@ -1635,11 +689,37 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
       }
     }
     // (under a solo the rhythm guitar backs off a little)
-    if (!riff) shapeStrum(idea, s.g2 === 'solo' ? Math.min(3, s.energy) : s.energy);
+    if (!riff && !held) shapeStrum(idea, s.g2 === 'solo' ? Math.min(3, s.energy) : s.energy);
+    // (a long solo's stretch: the drums, and the chords held or the other section's)
+    for (const v of vary ?? []) {
+      const bars = idea.song.bars, at = bars[v.from].start, end = v.to >= bars.length ? idea.song.total : bars[v.to].start;
+      const dn = varyDrums(idea, v, r);
+      if (dn) notes.push(dn);
+      if (v.chords === 'held') notes.push(`Solo bars ${v.from + 1}-${v.to}: ${heldBacking(idea, at, end)}`);
+      else if (v.chords === 'other') notes.push(`Solo bars ${v.from + 1}-${v.to}: the ${soloOverChorus ? 'verse' : 'chorus'}'s chords and groove`);
+    }
 
     // guitar 2
     const runs = runCount(idea);
     let g2 = 'Guitar 2: same as the idea';
+    // (the lines after the first that a solo writer gives: one per gap between the cores, the story)
+    let g2more: string[] = [];
+    // A short melodic solo, quoting the hook, lower and sparer than a full one (a lead break, or a lead line in a bridge or breakdown)
+    const writeBreakSolo = (tag: string) => {
+      let sol = tuneFirst
+        ? generateSoloTune(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on' })
+        : melody
+        ? generateSoloMelody(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(isCoreMode(opts.soloCores) ? { cores: opts.soloCores, ...(opts.soloClimax === 'on' ? { climax: 'played' as const } : {}) } : {}) }, melody.mode)
+        : opts.soloPlan === 'on'
+        ? generateSoloPlan(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums })
+        : generateSolo2(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3);
+      if (tuneFirst && opts.soloExpress === 'on') sol = expressTune(sol, `${soloSeed}-${tag}-${si}`, idea, arc.mood, arc.sections[si].tension);
+      else if (melody && (coreOn || tuneFirst ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-${tag}-${si}`, idea, arc.mood, arc.sections[si].tension, melody.play);
+      if (melody && melody.play && coreOn && opts.soloShape === 'on') sol = shapeStory(sol, arc.mood);
+      if (opts.soloSounds === 'on') sol = withSounds(sol, `${soloSeed}-${tag}-${si}`, idea, lead.lick, 0.3, false, notes, si);
+      idea.guitar2 = sol.hits;
+      idea.soloCurve = sol.curve;
+    };
     // the lead player's verse: mostly answering the singer, now and then another part for a change
     const answering = (k: number): Guitar2Style => (r.chance(lead.other) ? playingStyle(r, idea, k) : 'answerMore');
     // Room: a lead line over the band's intro, where the lead keeps out of the verses
@@ -1652,8 +732,17 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
       const late = s.g2 === 'drop' && runs > 1 && r.chance(0.5);
       g2 = writeGuitar2(idea, g2o, r, Array.from({ length: runs }, (_, k) => (late && k < runs / 2 ? 'rest' : 'figure')));
     } else if (s.g2 === 'drop') { idea.guitar2 = []; g2 = 'Guitar 2: sits out'; }
-    else if (s.g2 === 'pick') g2 = writeGuitar2(idea, g2o, r);
-    else if (s.g2 === 'build' && leadVerses) {
+    else if (s.g2 === 'pick') {
+      const w = writeGuitar2Styles(idea, g2o, r);
+      g2 = w.note;
+      // Lead in bridges and breakdowns (switch): a melodic line there is written like a short lead break
+      if (opts.bridgeLead === 'on' && (s.kind === 'bridge' || s.kind === 'breakdown') && isLeadLine(w.styles)) {
+        writeBreakSolo('bridge');
+        idea.section!.lead = true;
+        idea.section!.leadSolo = true;
+        g2 = `Guitar 2: a lead line through the ${s.kind}, written like a short solo`;
+      }
+    } else if (s.g2 === 'build' && leadVerses) {
       g2 = writeGuitar2(idea, g2o, r, Array.from({ length: runs }, (_, k) => (k < runs / 2 ? 'answer' : answering(k))), lead.lick);
       notes.push('Plays twice through; Guitar 2 answers the singer more the second time');
     } else if (s.g2 === 'build') {
@@ -1666,31 +755,30 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
       g2 = writeGuitar2(idea, g2o, r, Array.from({ length: runs }, (_, k) => (k === runs - 1 ? 'climb' : 'answer')), lead.lick);
     } else if (s.g2 === 'solo') {
       // (how far it goes: where it sits on the song's curve; the climax goes highest)
-      const tt = arc.sections[si].tension;
+      const tt = vary ? varyTension(arc.sections[si].tension, vary) : arc.sections[si].tension;
       const intensity = si === arc.climax ? 1 : Math.max(0, Math.min(1, (tt.reduce((a, b) => a + b, 0) / tt.length - MP.base) / Math.max(0.1, MP.peak - MP.base)));
       const soloHook = s.kind === 'solo' && soloOverChorus && hook.length ? hook : null;
-      let sol = MELODY_PLANS.includes(opts.soloPlan as string)
-        ? generateSoloMelody(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity, { mood: arc.mood, tension: tt, drums: idea.drums }, opts.soloPlan === 'marks' ? 'marks' : opts.soloPlan === 'joins' || opts.soloPlan === 'player' || opts.soloPlan === 'perform' ? 'joins' : 'plain')
+      let sol = tuneFirst
+        ? generateSoloTune(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, intensity, { mood: arc.mood, tension: tt, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on' })
+        : melody
+        ? generateSoloMelody(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity, { mood: arc.mood, tension: tt, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(isCoreMode(opts.soloCores) ? { cores: opts.soloCores, ...(opts.soloClimax === 'on' ? { climax: 'played' as const } : {}) } : {}) }, melody.mode)
         : opts.soloPlan === 'on'
         ? generateSoloPlan(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity, { mood: arc.mood, tension: tt, drums: idea.drums })
         : generateSolo2(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity);
-      if (opts.soloPlan === 'player' || opts.soloPlan === 'perform') sol = playSolo(sol, `${soloSeed}-${si}`, idea, arc.mood, tt, opts.soloPlan === 'perform');
+      if (tuneFirst && opts.soloExpress === 'on') sol = expressTune(sol, `${soloSeed}-${si}`, idea, arc.mood, tt);
+      else if (melody && (coreOn || tuneFirst ? melody.play && opts.soloPolish === 'on' : melody.play || opts.soloCheck === 'player')) sol = playSolo(sol, `${soloSeed}-${si}`, idea, arc.mood, tt, melody.play);
+      if (melody && melody.play && coreOn && opts.soloShape === 'on') sol = shapeStory(sol, arc.mood);
+      if (opts.soloSounds === 'on') sol = withSounds(sol, `${soloSeed}-${si}`, idea, lead.lick, intensity, true, notes, si);
       idea.guitar2 = sol.hits;
       idea.soloCurve = sol.curve;
       idea.section!.solo = true;
       g2 = sol.notes[0];
+      if (melody && coreOn || tuneFirst && opts.soloExpress === 'on') g2more = sol.notes.slice(1);
       if (s.kind === 'solo') notes.push(`Guitar solo, ${idea.song.bars.length} bars over the ${soloOverChorus ? 'chorus' : 'verse'} chords; the rhythm guitar backs off`);
       else notes.push('Guitar 2 solos over the outro');
     } else if (s.g2 === 'break') {
       // Breaks: a short melodic solo, quoting the hook, lower and sparer than a full one; the band as it is
-      let sol = MELODY_PLANS.includes(opts.soloPlan as string)
-        ? generateSoloMelody(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums }, opts.soloPlan === 'marks' ? 'marks' : opts.soloPlan === 'joins' || opts.soloPlan === 'player' || opts.soloPlan === 'perform' ? 'joins' : 'plain')
-        : opts.soloPlan === 'on'
-        ? generateSoloPlan(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums })
-        : generateSolo2(new Rng(`${soloSeed}-break-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3);
-      if (opts.soloPlan === 'player' || opts.soloPlan === 'perform') sol = playSolo(sol, `${soloSeed}-break-${si}`, idea, arc.mood, arc.sections[si].tension, opts.soloPlan === 'perform');
-      idea.guitar2 = sol.hits;
-      idea.soloCurve = sol.curve;
+      writeBreakSolo('break');
       idea.section!.lead = true;
       g2 = 'Guitar 2: a lead break, a short melodic solo over the chorus chords';
     } else if (s.g2 === 'play') g2 = writeGuitar2(idea, g2o, r, Array.from({ length: runs }, (_, k) => playingStyle(r, idea, k)));
@@ -1747,7 +835,7 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
     const pc = (x: number) => Math.round(x * 100);
     const t0 = ten.tension[0], t1 = ten.tension[ten.tension.length - 1];
     notes.unshift(`${label} · energy ${s.energy} of 5 · tension ${pc(t0)}%${Math.abs(t1 - t0) >= 0.04 ? ` → ${pc(t1)}%` : ''} (${ten.role}) · ${idea.song.bars.length} bars · ${rhythm}`, `Chords: ${describeChords(idea)}`);
-    notes.push(g2);
+    notes.push(g2, ...g2more);
     if (idea.drums.groove && s.intro !== 'alone' && s.energy >= 2) notes.push(`Drums: ${idea.drums.groove}`);
     if (!riff && idea.bassLine && s.intro !== 'alone') {
       notes.push(`Bass: ${s.energy <= 2 ? 'long held roots' : s.energy >= 5 && idea.bassLine !== 'flowing' && idea.song.partGenres.bass !== 'funk' ? 'driving 8th notes, held into each other' : BASS_LINE_DESC[idea.bassLine]}`);
@@ -1840,7 +928,7 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
     idea.notes.push('The band lands on the first chord and lets it ring for a bar, then the drummer picks up into the half-time feel');
   });
   // a planned solo's last note carries on into the next section, bending to its first chord
-  sections.forEach((idea, i) => carrySolo(idea, sections[i + 1]));
+  sections.forEach((idea, i) => carrySolo(idea, sections[i + 1], opts.soloBends === 'dials' && opts.soloExpress === 'on'));
   // a long outro's tag repeats the chorus's last bars: its bars don't line up with the chorus's
   if (outroLong || jam) delete edit.outro;
   // (a jam ends in its own key)
@@ -1886,7 +974,7 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
   singTrack(sections, { seed: vocalSeed, mood, genre: src.song.partGenres.strum, lift: src.opts.vocalLift ?? 0, grid: src.opts.vocalRhythm === 'grid', words: src.opts.vocalRhythm === 'words', shaped: !!src.opts.vocalMelody, first: src.opts.vocalMelody === 'first', learned: src.opts.vocalMelody === 'learned', move: src.opts.vocalMove as MoveId | undefined, high: src.opts.vocalSinger, energy: src.opts.vocalEnergy as EnergyStyle | 'off' | undefined, real: src.opts.vocalReal, patterns: src.opts.vocalPatterns }, arc.climax);
   // the verse melody writer's lead vocal (the default): its notes, words and lines replace the classic tune
   const verseVocal = src.opts.vocalWriter !== 'classic';
-  if (verseVocal) singSong(sections, vocalSeed, src.opts.vocalLift ?? 0, { mood, on: emoOn(src.opts.vocalMoodOff), maxSets: setsOf(src.opts.vocalMaxSets), climax: sections[arc.climax] }, bassShareOf(src.opts.vocalWriter, src.opts.vocalBassShare));
+  if (verseVocal) singSong(sections, vocalSeed, src.opts.vocalLift ?? 0, { mood, on: emoOn(src.opts.vocalMoodOff), maxSets: setsOf(src.opts.vocalMaxSets), tune: src.opts.vocalTune, skeleton: src.opts.vocalSkeleton, cells: src.opts.vocalCells, climax: sections[arc.climax] }, bassShareOf(src.opts.vocalWriter, src.opts.vocalBassShare));
   // Room (switch): the lead out from under the singer's lines, by genre
   if (src.opts.leadRoom) makeRoom(sections, src.song.partGenres.strum, `${S.band ?? `${src.seeds.song}-band`}-room`);
   const voice = autoVoice(vocalSeed, src.song.partGenres.strum);
@@ -1905,7 +993,7 @@ export function buildTrack(src: Idea, opts: TrackOptions = defaultTrackOptions(s
   const steps = sections.reduce((a, s) => a + s.song.total, 0);
   // the lead vocal as it's sung, worked out over the whole song
   if (!verseVocal) singLead(sections, mood);
-  return { source: src, opts, order: slots.map((s) => s.kind), sections, bars, steps, edit, riffVerse, newChorus, mood, climax: arc.climax };
+  return { source: src, opts: given.moodAll === 'on' ? given : opts, order: slots.map((s) => s.kind), sections, bars, steps, edit, riffVerse, newChorus, mood, climax: arc.climax };
 }
 
 /** Which of the track's seeds a section's reroll changes (null: the section is the idea itself). */

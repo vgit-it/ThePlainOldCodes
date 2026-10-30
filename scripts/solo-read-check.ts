@@ -134,7 +134,7 @@ const MUST_FIRE = ['long-note', 'short-note', 'leap-up', 'leap-down', 'step-up',
 for (let i = 0; i < N; i++) {
   const genre = GENRES[i % 7], meter = METERS[i % METERS.length], mood = MOODS[i % MOODS.length], s = `sr-${i}-${genre}`;
   const idea = generate({ genre, meter, weirdness: 0.3, ...MAIN_GUITARS } as never, { song: s, chords: s + 'c', drums: s + 'd', strum: s + 's', bass: s + 'b', vocal: s + 'v' } as never);
-  const secs = buildTrack(idea, { ...defaultTrackOptions(idea), soloPlan: 'player', mood } as never).sections as any[];
+  const secs = buildTrack(idea, { ...defaultTrackOptions(idea), soloCheck: 'player', mood } as never).sections as any[];
   for (const sec of secs) {
     if (!sec.section?.solo && !sec.section?.lead) continue;
     const read = sec.soloCurve?.read;

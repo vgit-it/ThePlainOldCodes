@@ -1,9 +1,11 @@
+Status: live — the melody step of the solo writer; lives on inside Melody + player.
+
 # Solo melody: the melody step (Step 0 of the planned solo writer)
 
 Paul (2026-10-24): the solos don't sound melodic. Add a first step that writes a melody from the chords' core notes with the vocal's interval theory, long notes (up to a bar) and short ones (up to a quarter bar), never more than a beat of silence. He wants to hear this step alone.
 
 ## What it is (`src/parts/solomelody.ts`, `npm run solo-melody-check`)
-- Switch: Track options → Solo writer → **Melody only (chord notes, plain)** (`soloPlan: 'melody'`; old links unchanged).
+- Switch: since 2026-10-25 the Solo writer menu has three entries (As before, Planned, **Melody + player**). This step lives on inside Melody + player; the stand-alone entries (Melody only, + gap marks, + joins, + read) are gone from the menu. The checks still reach them through `soloCheck` in the track options (`'melody'`, `'marks'`, `'joins'`, `'player'`), which the page never sets. Old links that carry a removed entry play as As before. Text below describing those menu entries is history.
 - The solo section plays only this melody on Guitar 2: a pick on every note, no bends, slides or vibrato. (The band's own habits still apply: the lead's feel follows the drummer, the last note is carried into the next section.)
 
 ## Notes
@@ -99,3 +101,12 @@ Paul: the energy shape's effect should be more apparent, even with big jumps bet
 - **Pace**: the pace always goes with the energy too (`paceC` 1): busier at the strong parts, sparser in the calm.
 - **Loudness**: the strong parts are played louder, the calm softer (`VEL_SWING` 0.14, was 0.05).
 - Numbers (140 songs, 89 solos): pitch against the energy 0.73 to 0.80 (0.85 to 0.95 in the full solos, lower in short breaks and outro solos), string 0.41 to 0.52, fret 0.75; lowest note on average Bb3, highest G5. The mood now shows in the size of the moves and the leaps (angry 51% leaps, melancholic 37%); the share going up is the energy's, so the check for it is gone.
+
+## Step 0f: easier to follow, two switches (2026-10-25)
+Paul: in the quick runs, the notes of different lengths make the tune hard to follow; and a figure on a note sounded off beat. Three switches, all Track options (Melody + player only), **off** by default, until he has listened. Check: `npm run solo-breath-check` (all three; `solo-melody-check` also measures the motif).
+- **Where the quick notes come from.** Not the melody: it has 26 notes a solo, 23% quick, never more than 4 in a row. The player turns it into 77 notes a solo, 81% quick, with 15 in a row on average (32 at most): licks on the long notes, dressed short notes, runs and fills in the rests.
+- **Solo breaths** (`soloBreath`, `breath` in `PlayerCtx`, `src/parts/soloplayer.ts`): after 6 quick notes in a row (`BREATH_AFTER`, each under a beat), the next melody note is left as written and the rest before it stays silent. Longest run 15.5 → 9 on average (32 → 12 at most). The licks themselves are not cut, so a single lick can still be long.
+- **Solo rhythm motif** (`soloMotif`, `rhythmMotif` in `PlanOpts`, `src/parts/solomelody.ts`, `rhythm`): a phrase writes its first cell (two beats, on to the next beat) and plays it again through the phrase (80% each time, if the notes fit the chords and the bar). The share of 3-note rhythm patterns that come back goes 15% → 19%: the melody's pitches still differ, only the rhythm repeats. Changes the melody step, so it also changes where the player's licks fall.
+- **Solo figures on the 8th grid** (`soloGrid`, `grid` in `PlayerCtx`, `src/parts/solofigure.ts`): why a figure sounded off beat (a stair-up on a snare note in an 8th groove): a 16th-unit figure could start on the "e" or "a" (half the time its grid was one 16th wide), the return landed on an odd 16th, and a triplet unit was allowed in straight grooves. With the switch, in a groove that is not a shuffle: the figure starts and lands on an 8th (`onEighth`), no triplet unit, and the bend-and-run flourish has no triplets or dotted 16ths and lands on an 8th. The notes inside a 16th run still fall on odd 16ths, as a run does. Numbers (39 solos): notes off the 8th grid 36% → 22%; triplets or in between 15% → 2%; as a side effect the longest quick run 15.5 → 11.8. Shuffles are not touched. Gap fills, pickups in rests and dressed short notes are not on the grid yet.
+- A link from before has none of the options: off, as before.
+- Not done yet: stepwise short notes, a higher floor for long notes (`pLong`), no fills on busy bars. The breath switch only leaves notes plain; a bigger cut would stop the licks themselves.

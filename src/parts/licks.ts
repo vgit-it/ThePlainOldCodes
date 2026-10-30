@@ -8,6 +8,7 @@
 // don't rub against the chord, nothing clashing with the riff, the last note a chord note. Licks are
 // also cut down (their first notes left off) to fit a gap, so the same lick doesn't always come out
 // the same.
+// The licks themselves are data: src/recipes/licks.json, edited in the recipe lab (docs/RECIPE-LAB.md).
 
 import type { ChordPart, GuitarHit, Song } from '../idea';
 import type { LickKind } from '../players/lead';
@@ -15,33 +16,12 @@ import type { Rng } from '../rng';
 import { type Chord, QUALITIES, SCALES, chordPc } from '../theory';
 import type { Tuning } from '../theory/fretboard';
 import { chordTones, leadFret } from './guitar2';
+import licksFile from '../recipes/licks.json';
+import { type LibNote, type LickFile, type Speed, parseNotes, spanOf } from '../recipes/library';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 
-export type Speed = 'slow' | 'mid' | 'fast';
-
-/** One note of a lick, parsed. `semi`: the note (as it sounds, after any bend) above the chord's root. */
-export interface LibNote {
-  pos: number;
-  semi: number;
-  len: number;
-  /** Bent up into it this many semitones. */
-  bend?: number;
-  /** The bend let down again (with `bend`), or a pre-bend released (without). */
-  unbend?: number;
-  art?: 'pick' | 'legato' | 'slide';
-  /** A second note under it this many semitones (0: a unison bend, 12: an octave); any bend is on the lower note. */
-  dyad?: number;
-  trill?: number;
-  tremolo?: boolean;
-  rake?: boolean;
-  /** A muted ghost note. */
-  dead?: boolean;
-  /** A passing note outside the key the lick means (a blue note, a chromatic step). */
-  out?: boolean;
-  /** Wide vibrato. */
-  vib?: boolean;
-}
+export type { LibNote, Speed } from '../recipes/library';
 
 export interface LibLick {
   who: LickKind[];
@@ -54,124 +34,11 @@ export interface LibLick {
   span: number;
 }
 
-/**
- * Notes as "pos:semi:len:techniques", techniques comma-separated: bN bent up N, rN let down N, pbN
- * pre-bent N and released, h hammered/pulled (legato), s slid, d-N a second note N below (d-0 a unison
- * bend, d-12 an octave), trN trilled N above, trem tremolo picked, rk raked, x ghost, c a passing
- * note outside the key, v wide vibrato.
- */
-function lick(who: LickKind[], speed: Speed, q: LibLick['q'], name: string, src: string): LibLick {
-  const notes = src.trim().split(/\s+/).map((tok) => {
-    const [pos, semi, len, tech = ''] = tok.split(':');
-    const n: LibNote = { pos: +pos, semi: +semi, len: +len };
-    for (const t of tech.split(',').filter(Boolean)) {
-      if (t.startsWith('pb')) n.unbend = +t.slice(2);
-      else if (t.startsWith('b')) n.bend = +t.slice(1);
-      else if (t.startsWith('r') && t !== 'rk') n.unbend = +t.slice(1);
-      else if (t.startsWith('d-')) n.dyad = +t.slice(2);
-      else if (t.startsWith('tr') && t !== 'trem') n.trill = +t.slice(2);
-      else if (t === 'trem') n.tremolo = true;
-      else if (t === 'rk') n.rake = true;
-      else if (t === 'h') n.art = 'legato';
-      else if (t === 's') n.art = 'slide';
-      else if (t === 'x') n.dead = true;
-      else if (t === 'c') n.out = true;
-      else if (t === 'v') n.vib = true;
-    }
-    return n;
-  });
-  return { who, speed, q, name, notes, span: Math.max(...notes.map((n) => n.pos + n.len)) };
-}
-
-export const LIBRARY: LibLick[] = [
-  // the melodic player (Gilmour, Slash, Knopfler, May): sung notes, big bends, room around them
-  lick(['sung'], 'slow', 'min', 'a two-tone overbend', '0:7:6:b4,v 6:5:2 8:3:8:v'),
-  lick(['sung', 'simple'], 'slow', 'any', 'a unison bend', '0:7:8:d-0,b2,v 8:5:2:c 10:0:6:v'),
-  lick(['sung', 'blues'], 'slow', 'min', 'a bend under a held note', '0:15:8:d-3,b2'),
-  lick(['sung'], 'mid', 'min', 'a sung pickup with a slide', '0:7:2:s 2:10:2 4:12:2:h 6:15:10:v'),
-  lick(['sung'], 'mid', 'min', 'a pre-bend let down', '0:14:2:pb2 2:12:2:h 4:10:2 6:12:2 8:7:8:b2,v'),
-  lick(['sung'], 'mid', 'min', 'a bend let down, home', '0:7:4:b2,r2 4:3:2 6:0:10:v'),
-  lick(['sung'], 'fast', 'min', 'a picked cascade', '0:12:1 1:10:1:h 2:7:1 3:10:1 4:7:1:h 5:5:1 6:3:2:h 8:7:6:v'),
-  lick(['sung'], 'slow', 'maj', 'a bend up to the third', '0:4:6:b2,v 6:2:2 8:0:8:v'),
-  lick(['sung'], 'mid', 'maj', 'sixths sliding down', '0:4:4:d-9,s 4:2:2:d-9 6:0:6:d-8'),
-  lick(['sung'], 'mid', 'maj', 'thirds in harmony', '0:11:2:d-4 2:12:2:d-3 4:14:2:d-3 6:16:6:d-4,v'),
-  lick(['sung'], 'mid', 'maj', 'a pre-bend let down', '0:9:2:pb2 2:7:2 4:4:2 6:2:2 8:4:8:h,v'),
-  lick(['sung'], 'mid', 'maj', 'a sung line with slides', '0:2:2:s 2:4:2 4:7:4:s 8:9:2 10:7:6:v'),
-  lick(['sung'], 'fast', 'maj', 'a picked cascade', '0:12:1 1:9:1:h 2:7:1 3:9:1 4:7:1:h 5:4:1 6:2:1:h 7:0:1 8:4:8:v'),
-
-  // the shredder (Hammett, Wylde, Gilbert, Dimebag, Petrucci, Rhoads): sequences, pedal tones, trills, tremolo
-  lick(['run'], 'fast', 'min', 'the pentatonic in threes', '0:15:1 1:12:1:h 2:10:1 3:12:1 4:10:1:h 5:7:1 6:10:1 7:7:1:h 8:5:1 9:7:1 10:5:1:h 11:3:1 12:0:4:v'),
-  lick(['run'], 'fast', 'maj', 'the pentatonic in threes', '0:16:1 1:14:1:h 2:12:1 3:14:1 4:12:1:h 5:9:1 6:12:1 7:9:1:h 8:7:1 9:9:1 10:7:1:h 11:4:1 12:0:4:v'),
-  lick(['run'], 'fast', 'min', 'a pull-off loop', '0:15:1 1:12:1:h 2:10:1:h 3:12:1:h 4:15:1 5:12:1:h 6:10:1:h 7:12:1:h 8:15:1 9:12:1:h 10:10:1:h 11:12:1:h 12:12:4:b2,v'),
-  lick(['run'], 'fast', 'min', 'a pedal-tone run', '0:17:1 1:15:1:h 2:12:1:h 3:15:1:h 4:15:1 5:14:1:h 6:12:1:h 7:14:1:h 8:14:1 9:12:1:h 10:10:1:h 11:12:1:h 12:7:4:v'),
-  lick(['run'], 'fast', 'min', 'a legato climb in fours', '0:0:1 1:2:1:h 2:3:1:h 3:5:1:h 4:2:1 5:3:1:h 6:5:1:h 7:7:1:h 8:3:1 9:5:1:h 10:7:1:h 11:8:1:h 12:7:4:v'),
-  lick(['run'], 'fast', 'any', 'string skipping', '0:3:1 1:7:1 2:5:1 3:10:1 4:7:1 5:12:1 6:10:1 7:15:1 8:12:4:v'),
-  lick(['run'], 'fast', 'maj', 'a broken chord, up', '0:4:1 1:7:1 2:10:1 3:13:1 4:16:1 5:19:1 6:16:4:v'),
-  lick(['run'], 'fast', 'min', 'chromatic steps down', '0:12:1 1:15:1 2:14:1:h,c 3:13:1:h,c 4:12:1:h 5:10:1 6:9:1:h,c 7:7:1:h 8:7:6:v'),
-  lick(['run'], 'mid', 'any', 'tremolo picking', '0:7:4:trem 4:10:4:trem,c 8:12:8:trem'),
-  lick(['run', 'blues'], 'mid', 'min', 'trills climbing', '0:12:4:tr3 4:15:4:tr2 8:19:8:v'),
-  lick(['run'], 'fast', 'min', 'a harmonic-minor turn', '0:8:1 1:7:1:h 2:8:1:h 3:11:1:c 4:12:1 5:11:1:h,c 6:8:1 7:7:1:h 8:12:8:v'),
-  lick(['run'], 'slow', 'any', 'a held bend, then a trill', '0:12:6:b2,v 6:7:6:tr3 12:7:4'),
-
-  // the raw player (Cobain, McCready, Cantrell, Mascis, White): few notes, octaves, slides, a bend or a trill
-  lick(['simple'], 'slow', 'min', 'octaves', '0:7:4:d-12 4:10:2:d-12 6:12:10:d-12'),
-  lick(['simple'], 'slow', 'maj', 'octaves', '0:7:4:d-12 4:9:2:d-12 6:12:10:d-12'),
-  lick(['simple'], 'mid', 'min', 'a bend into the flat fifth', '0:6:2:b1,c 2:5:2 4:3:8:v'),
-  lick(['simple'], 'mid', 'min', 'a bend, then a trill', '0:7:4:b2 4:10:4:tr2 8:7:8:v'),
-  lick(['simple'], 'fast', 'min', 'a Hendrix flurry', '0:15:1 1:12:1:h 2:10:1 3:12:1:h 4:15:4:b1,c 8:12:8:v'),
-  lick(['simple'], 'mid', 'any', 'a slide, falling', '0:12:4:s 4:10:2:c 6:7:2 8:12:8:v'),
-  lick(['simple'], 'slow', 'any', 'one note, again', '0:7:2 2:7:2 4:7:2 6:10:2:s,c 8:7:8:v'),
-  lick(['simple', 'sung'], 'slow', 'any', 'a unison bend', '0:12:8:d-0,b2,v'),
-
-  // the funk player (Rodgers, Mayfield, Prince, Frusciante, Wong): ghosted 16ths, double-stops, stabs
-  lick(['muted'], 'mid', 'maj', 'a ghosted 16th hook', '0:4:1:x 1:7:1 2:4:1:x 3:4:1 4:9:1 5:7:1:x 6:7:1 7:4:2'),
-  lick(['muted'], 'mid', 'any', 'a ghosted 16th hook', '0:7:1:x 1:12:1 2:7:1:x 3:10:1:c 4:12:1 5:12:1:x 6:7:2'),
-  lick(['muted'], 'mid', 'maj', 'a hammered double-stop', '0:7:1:d-5 1:7:3:d-3,h 4:4:2:d-4'),
-  lick(['muted'], 'mid', 'maj', 'sixths, slid into', '0:4:2:d-9,s 3:2:1:d-9 4:0:2:d-8'),
-  lick(['muted'], 'mid', 'min', 'parallel fourths', '0:10:1:d-5 1:12:1:d-5 2:12:1:x 3:15:2:d-5'),
-  lick(['muted'], 'mid', 'any', 'stabs', '2:7:1:d-3 6:7:1:d-3'),
-  lick(['muted'], 'fast', 'min', 'a Dorian 16th line', '0:3:1 1:5:1 2:7:1 3:9:1 4:10:1:h 5:12:3'),
-  lick(['muted', 'sung'], 'slow', 'any', 'a raked scream', '0:12:2:rk 2:19:8:b2,v'),
-
-  // the blues player (on top of the blues licks): Albert King's overbends, a bend under a held note,
-  // B.B. King's box, Chuck Berry's double-stops
-  lick(['blues'], 'slow', 'any', 'an Albert King overbend', '0:7:8:b4,rk,v'),
-  lick(['blues'], 'mid', 'min', 'a bend under a held note, picked again', '0:15:4:d-3,b2 4:15:1 5:15:1 6:15:2'),
-  lick(['blues'], 'mid', 'maj', "B.B. King's box", '0:16:2:b2 2:12:4:v 6:9:2 8:12:8:v'),
-  lick(['blues'], 'mid', 'any', 'Chuck Berry double-stops', '0:12:1:d-5 3:12:1:d-5 6:12:2:d-5 8:12:1:d-5 11:12:1:d-5 14:12:2:d-5'),
-  lick(['blues', 'simple'], 'mid', 'any', 'a double-stop bend', '0:12:4:d-5,b2 4:12:4:d-5'),
-
-  // more from lessons (2026-10-16, docs/LEAD.md section 5): blues and classic rock players
-  lick(['blues', 'sung'], 'mid', 'min', 'Clapton: the minor third bent to the fourth, home', '0:17:4:b2,v 4:15:2 6:12:2:h 8:10:2 10:12:6:v'),
-  lick(['blues'], 'mid', 'min', 'SRV: raked double-stops, down to the root', '0:7:2:d-4,rk 2:7:2:d-4 4:5:2 6:3:2:h 8:0:8:v'),
-  lick(['blues'], 'mid', 'min', 'Freddie King: a bend picked again, let down', '0:7:2:b2 2:7:2:b2 4:7:4:b2,r2 8:3:2 10:0:6:v'),
-  lick(['blues', 'sung'], 'mid', 'maj', 'Page: minor to major in one lick', '0:3:2:c 2:4:2:h 4:7:2 6:9:2:h 8:12:8:v'),
-  lick(['blues', 'run'], 'fast', 'min', 'Angus: a bent note against the next string', '0:7:1:b2 1:10:1 2:7:1:b2 3:10:1 4:7:1:b2 5:10:1 6:7:1:b2 7:10:1 8:12:8:v'),
-  lick(['blues', 'sung'], 'slow', 'min', 'Gary Moore: a crying bend let down', '0:17:6:b2,r2,v 6:15:2 8:12:8:v'),
-  lick(['sung', 'blues'], 'mid', 'min', 'Slash: one bend, again and again', '0:19:2:b2 2:19:2:b2 4:19:2:b2 6:17:2 8:15:2 10:12:6:v'),
-
-  // melodic players: target notes and enclosures, a pedal-steel bend, Santana, Mayer, The Edge
-  lick(['sung', 'run'], 'mid', 'maj', 'an enclosure onto the third', '0:5:2 2:3:2:c 4:4:8:v'),
-  lick(['sung', 'run'], 'mid', 'min', 'an enclosure onto the third', '0:5:2 2:2:2 4:3:8:v'),
-  lick(['sung'], 'slow', 'maj', 'a pedal-steel bend under a held note', '0:7:8:d-3,b2,v 8:4:8:v'),
-  lick(['sung'], 'mid', 'min', 'Santana: a sung Dorian line', '0:7:2 2:9:2:h,c 4:10:4 8:12:2:s 10:14:2 12:15:8:v'),
-  lick(['sung', 'blues'], 'mid', 'min', 'Mayer: short notes, laid back', '1:12:1 3:10:1 5:7:2:s 8:10:2:h 10:12:6:v'),
-  lick(['sung', 'simple'], 'mid', 'any', 'The Edge: ringing eighths', '0:7:2 2:12:2 4:7:2 6:12:2 8:7:2 10:12:6'),
-
-  // shredders: tapping, neoclassical, Phrygian, sixes
-  lick(['run'], 'fast', 'min', 'Van Halen: a tapped arpeggio', '0:19:1 1:12:1:h 2:15:1:h 3:19:1:h 4:12:1:h 5:15:1:h 6:22:1:h 7:15:1:h 8:19:1:h 9:22:1:h 10:15:1:h 11:19:1:h 12:24:4:v'),
-  lick(['run'], 'fast', 'min', 'Malmsteen: a harmonic-minor six', '0:15:1 1:14:1 2:12:1 3:11:1:c 4:12:1 5:14:1 6:12:1 7:10:1 8:8:1 9:7:1 10:8:1 11:10:1 12:7:4:v'),
-  lick(['run', 'simple'], 'mid', 'min', 'Hammett: a Phrygian trill', '0:12:4:tr1 4:13:2:c 6:12:2 8:7:8:v'),
-  lick(['run'], 'fast', 'min', 'Wylde: the pentatonic in sixes', '0:15:1 1:12:1:h 2:10:1:h 3:12:1:h 4:15:1 5:12:1:h 6:12:1 7:10:1:h 8:7:1:h 9:10:1:h 10:12:1 11:10:1:h 12:7:4:b2,v'),
-
-  // the raw player: one string, a fuzzed bend
-  lick(['simple'], 'mid', 'min', 'up one string, slid', '0:0:2:s 2:3:2:s 4:5:2:s 6:7:4:s 10:5:2 12:3:4:v'),
-  lick(['simple'], 'slow', 'min', 'Mascis: a fuzzed bend, let down', '0:12:8:b2,r2,v 8:10:2 10:7:6:v'),
-
-  // the funk player: octaves, a sparse Dorian line
-  lick(['muted'], 'mid', 'any', 'a muted octave line', '0:12:1:d-12 1:12:1:x 2:10:1:d-12,c 3:12:2:d-12 6:7:2:d-12'),
-  lick(['muted', 'sung'], 'mid', 'min', 'Frusciante: a sparse Dorian line', '0:7:1 1:9:1:c 2:10:2 4:12:1:x 5:12:3:s'),
-];
+/** The named licks the app plays: the live ones in src/recipes/licks.json (edited in the recipe lab, docs/RECIPE-LAB.md), in file order. */
+export const LIBRARY: LibLick[] = (licksFile as LickFile).licks.filter((l) => l.status === 'live').map((l) => {
+  const notes = parseNotes(l.notes);
+  return { who: l.who, speed: l.speed, q: l.q, name: l.name, notes, span: spanOf(notes) };
+});
 
 /** The chances, by player, of a rake into a lick's first bent note, and of using a lick from the library at all. */
 export const LICK_HABITS: Record<LickKind, { rake: number; verse: number }> = {
@@ -200,6 +67,11 @@ export interface PlacedNote {
   rake?: number;
   dead?: boolean;
   vib?: number;
+  /** The lead's extra sounds, as the library marks them (docs/GUITAR-SOUNDS.md). */
+  harm?: 'pinch' | 'natural';
+  dive?: number;
+  feedback?: number;
+  scrape?: number;
 }
 
 /** What a lick has to fit: the key, the chords and the riff. */
@@ -289,6 +161,7 @@ export function placeLibLick(
       step: step(n), midi: best!.base + n.semi, len, vel: n.dead ? 0.55 : vel + (i === 0 ? 0.04 : 0) + (rng.next() - 0.5) * 0.05,
       bend: n.bend ?? 0, unbend: n.unbend, art: n.art ?? (i === 0 ? 'pick' : undefined), dyad: n.dyad, trill: n.trill,
       tremolo: n.tremolo, rake, dead: n.dead, vib: n.vib && len >= 4 ? 24 : undefined,
+      harm: n.harm, dive: n.dive, feedback: n.feedback, scrape: n.scrape,
     };
   });
 }
@@ -298,6 +171,7 @@ export function placedHit(e: PlacedNote, t: Tuning, pos: number, clean?: boolean
   const f = leadFret(e.midi, t, pos);
   const extra = {
     bend: e.bend, unbend: e.unbend, lateBend: e.lateBend, bendAt: e.bendAt, art: e.art, trill: e.trill, tremolo: e.tremolo, rake: e.rake, vib: e.vib,
+    harm: e.harm, dive: e.dive, feedback: e.feedback, scrape: e.scrape,
     mute: e.dead ? ('dead' as const) : undefined, clean,
   };
   if (e.dyad === undefined) return { step: e.step, ...f, len: e.len, vel: e.vel, ...extra };

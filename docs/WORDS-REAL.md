@@ -1,3 +1,5 @@
+Status: always on — how real singers set words; tunes Rhythm Words under the Real songs setting.
+
 # Words: how real singers set them
 
 Option 4 of `docs/STUDY-LAKH.md`. Tunes **Rhythm Words** (`docs/VOCAL-WORDS.md`) when the **Real songs** switch is on.

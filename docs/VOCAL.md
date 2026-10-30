@@ -1,3 +1,5 @@
+Status: live — the demo singer: pseudo-English words, melody, voice, backing.
+
 # The demo singer (2026-10-12)
 
 Paul: could there be a vocalist who sings in pseudo-English: no real words, but it sounds like English,

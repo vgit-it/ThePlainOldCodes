@@ -1,3 +1,5 @@
+Status: experiment — a catalogue of vocal melody moves; not chosen by the page now (fixed settings), Phase 6 decides.
+
 # Vocal melody moves: research (2026-10-13)
 
 Paul: Shaped is "too tame" and too alike from song to song; "read up on some cool vocal melody things that

@@ -1,3 +1,5 @@
+Status: experiment — the Shaped melody writer; not chosen by the page now (fixed settings), Phase 6 decides.
+
 # Vocal melody: Shaped (2026-10-13)
 
 A second way of choosing the vocal's pitches, beside the current one (kept: **Classic**, the default).

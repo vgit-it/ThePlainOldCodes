@@ -82,6 +82,8 @@ const PREP_XFADE = 0.03;
  */
 const LOOKAHEAD = 0.25;
 const LOOKAHEAD_PREP = 0.6;
+/** While the screen is off (page hidden): a locked phone's timers run late and in bursts. */
+const LOOKAHEAD_BACKGROUND = 1.5;
 
 export const INSTRUMENT_NAMES: Record<string, string> = {
   piano: 'piano', pad: 'synth pad', acoustic: 'acoustic guitar', electric: 'electric guitar', bass: 'bass', drums: 'drums',
@@ -684,7 +686,16 @@ export class Engine {
   }
 
   private applyLookAhead() {
-    if (!this.offline) this.ctx.lookAhead = this.playing && this.prep?.busy ? LOOKAHEAD_PREP : LOOKAHEAD;
+    if (this.offline) return;
+    this.ctx.lookAhead = this.background ? LOOKAHEAD_BACKGROUND : this.playing && this.prep?.busy ? LOOKAHEAD_PREP : LOOKAHEAD;
+  }
+
+  /** The page is hidden (screen off) and keeps playing: notes are scheduled further ahead, as a hidden page's timers run late (docs/BACKGROUND.md). */
+  private background = false;
+  setBackground(on: boolean) {
+    if (this.background === on) return;
+    this.background = on;
+    this.applyLookAhead();
   }
 
   /**
@@ -891,7 +902,7 @@ export class Engine {
   /** `ring` overrides how long the hit rings (the final chord of a track). */
   private playHit(inst: ChordInstrument, h: GuitarHit, time: number, six: number, dyn = 1, ring?: number, legato = false) {
     inst.strum({
-      stroke: h.mute === 'palm' ? 'p' : h.mute === 'dead' ? 'x' : 'D',
+      stroke: h.mute === 'palm' || h.chug ? 'p' : h.mute === 'dead' ? 'x' : 'D',
       notes: h.notes,
       strings: h.strings,
       time,
@@ -906,7 +917,8 @@ export class Engine {
       slide: h.slide,
       swell: h.swell,
       touch: h.touch,
-      bend: h.bend, unbend: h.unbend, lateBend: h.lateBend, bendAt: h.bendAt !== undefined ? h.bendAt * six : undefined, trill: h.trill, tremolo: h.tremolo, rake: h.rake,
+      bend: h.bend, unbend: h.unbend, lateBend: h.lateBend, bendAt: h.bendAt !== undefined ? h.bendAt * six : undefined, bendRise: h.bendRise !== undefined ? h.bendRise / 1000 : undefined, bendEase: h.bendEase, trill: h.trill, tremolo: h.tremolo, rake: h.rake,
+      harm: h.harm, dive: h.dive, feedback: h.feedback,
     });
   }
 
@@ -1001,6 +1013,12 @@ export class Engine {
     if (this.g2Inst && !this.realNow.guitar2) {
       const hits = this.hitsAt2[this.idx][g] ?? [];
       const next = hits.length ? toNext(this.hitsAt2) : 0;
+      // a pick scrape starts before its note (up to a bar): one that begins on this step, in this section or the next
+      for (let n = 1; n <= 16; n++) {
+        const k = g + n;
+        const ahead = k < total ? this.hitsAt2[this.idx]?.[k] : nextIdx >= 0 ? this.hitsAt2[nextIdx]?.[k - total] : undefined;
+        for (const h of ahead ?? []) if (h.scrape === n) this.g2Inst.scrape?.(time + (h.shift ?? 0) * six + (idea.g2Feel ?? 0) / 1000, n * six, h.vel, h.clean);
+      }
       for (const h of hits) {
         // (a triplet sounds between the steps)
         const off = (h.shift ?? 0) * six;

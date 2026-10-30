@@ -155,6 +155,9 @@ export const CELL_NAMES = Object.keys(CELLS);
 
 export const msStep = (s: Span) => 15000 / s.ctx.song.bpm;
 
+/** Grid switch: a step on an 8th of the song (the 16ths between are the odd steps). */
+const onEighth = (t: number) => Math.abs(t / 2 - Math.round(t / 2)) < 1e-6;
+
 // ---------------------------------------------------------------- the path of notes
 
 interface Pos { t: number; dur: number; target: number }
@@ -258,6 +261,8 @@ export function composeFigures(s: Span, ask: FigureAsk, rng: Rng, tries = 28): F
   const beat = beatAt(song, n.t);
   const want = ask.want, P = ask.profile, person = ask.person;
   const shuffle = s.read.tags.some((t) => t.id === 'shuffle-groove' && t.w >= 0.5);
+  // (the grid switch: in a straight groove the figure starts and lands on the 8th, and has no triplets)
+  const grid = !!s.ctx.grid && !shuffle;
   const canOut = person.kind === 'bluesy' || person.kind === 'funky';
   const home = homeShare(want);
   const bridge = ask.intent === 'bridge';
@@ -294,7 +299,8 @@ export function composeFigures(s: Span, ask: FigureAsk, rng: Rng, tries = 28): F
     if (shuffle) units.push({ v: beat / 3, w: 3 }, { v: beat / 6, w: want.agitation > 0.3 ? 1 : 0.2 }, { v: beat / 2, w: 0.5 });
     else {
       units.push({ v: 2, w: clamp(1.2 - want.agitation, 0.3, 2) }, { v: 1, w: clamp(0.5 + want.agitation, 0.2, 2) });
-      units.push({ v: beat / 3, w: person.kind === 'bluesy' ? 0.5 : 0.2 }, { v: beat, w: clamp(0.5 - 0.6 * want.agitation, 0.05, 0.9) });
+      if (!grid) units.push({ v: beat / 3, w: person.kind === 'bluesy' ? 0.5 : 0.2 });
+      units.push({ v: beat, w: clamp(0.5 - 0.6 * want.agitation, 0.05, 0.9) });
       if (want.agitation > 0.6) units.push({ v: 0.5, w: 0.4 });
     }
     const u = wpick(rng, units) ?? 1;
@@ -345,13 +351,14 @@ export function composeFigures(s: Span, ask: FigureAsk, rng: Rng, tries = 28): F
       ])!;
       layout = lay;
       // (the figure starts on the grid of its own unit, counted from the note: on the beat or the 8th, or in the triplet)
-      const g = u < 1 ? 1 : u === 1 && rng.chance(0.5) ? 2 : u;
+      const g = grid ? (u <= 2 ? 2 : u) : u < 1 ? 1 : u === 1 && rng.chance(0.5) ? 2 : u;
       const onGrid = (x: number) => Math.max(g, Math.round(x / g) * g);
       if (lay === 'hold-fig-hold') { head = snap(onGrid(rest * (0.4 + 0.2 * rng.next()))); tail = snap(rest - head); }
       else if (lay === 'fig-first') { head = snap(onGrid(rng.pick([1, 1, 2]))); tail = snap(rest - head); }
       else { tail = snap(Math.min(rng.pick([1, 2]), rest - dMin)); head = snap(rest - tail); }
       if (head < dMin - 1e-6 || tail < dMin - 1e-6) continue;
     }
+    if (grid && (!onEighth(n.t + head) || !onEighth(n.t + L - tail))) continue;
 
     // ---- the path of notes
     const A = clamp(Math.round(P.size / 1.8 + 0.6 * want.agitation + (rng.next() - 0.5)), 1, 4);
@@ -420,8 +427,10 @@ function bendFlourish(s: Span, ask: FigureAsk, rng: Rng, k: FlourishK): Figure[]
   // (quick: a moment, at most about half a second whatever the tempo)
   const hq = Math.min(minHead + (rng.chance(0.3) ? 1 : 0) + (rng.chance(0.15) ? 2 : 0), Math.max(minHead, Math.floor(500 / ms)));
   // the lengths a flourish draws from (not quicker than the pick can go)
+  const grid = !!s.ctx.grid && !k.shuffle;
   const units: { v: number; w: number }[] = (k.shuffle
     ? [{ v: snap(beat / 3), w: 3 }, { v: snap(beat / 6), w: 1.2 }, { v: snap(beat / 2), w: 0.8 }, { v: 1, w: 0.3 }]
+    : grid ? [{ v: 1, w: 3 }, { v: 2, w: 1.4 }]
     : [{ v: 1, w: 3 }, { v: 2, w: 1.4 }, { v: snap(beat / 3), w: 0.9 }, { v: snap(beat / 6), w: 0.7 }, { v: 1.5, w: 0.5 }]).filter((u) => u.v >= dMin - 1e-6);
   if (!units.length) return [];
   const defs = CONTOURS.filter((d) => (k.only ? d.name === k.only : true) && d.m[0] >= 2 && d.m[0] <= 5);
@@ -448,6 +457,7 @@ function bendFlourish(s: Span, ask: FigureAsk, rng: Rng, k: FlourishK): Figure[]
     const F = durs.reduce((a, x) => a + x, 0) + (gapAt >= 0 ? 1 : 0);
     const tail = snap(L - hq - F);
     if (tail < Math.max(2, minHome - hq) - 1e-6 || tail < 2 * dMin) continue;
+    if (grid && !onEighth(n.t + L - tail)) continue;
     const pitchesToMain = (pitch: number) => pitch === n.midi;
     let t = n.t + hq;
     const pos: Pos[] = durs.map((dur, i) => { if (i === gapAt) t += 1; const q = { t, dur, target: 0 }; t += dur; return q; });

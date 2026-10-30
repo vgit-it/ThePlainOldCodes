@@ -2,7 +2,11 @@
 // Pure: the same input gives the same notes.
 
 import { SCALES, type Chord, type Mode } from '../theory';
-import { planForm, leafSeeds, RULES, type Leaf, type Rule, type Variation } from './form';
+import { planForm, leafSeeds, PITCH_RULES, RULES, type Leaf, type Rule, type Variation } from './form';
+import { withVariant } from './tune';
+import { CELL_KINDS, withCells, type CellInfo, type CellMemo } from './cells';
+import { profileFor } from './intervals';
+import { planSkeleton, withGoals, type Goal, type Skeleton } from './skeleton';
 import { EMO_PULL, intervalsFor, pullTo, toneBias, withColour, withEndDegrees, withSuspensions, withSurprise, type EmoBuild, type EmoCtx } from './emotion';
 import type { Genre } from '../genres';
 import { BarGrid, gridOf } from './grid';
@@ -57,6 +61,8 @@ export interface BuildInput {
   emo?: EmoCtx;
   /** The bass-led vocal (bassline.ts): the bass line's starts and chord notes, and how much of the line is the bass's (0-1); left out: the plain grid. */
   bass?: { skel: BassSkel; share: number };
+  /** A tune version (tune.ts): 0 is the section as it always was; another rolls the pitch rules' dice again, the phrasing stays. */
+  variant?: number;
 }
 
 export interface Built {
@@ -74,7 +80,16 @@ export interface Built {
   shapes: ShapeInfo[];
   /** Why phrases got no shape (counts, for the check). */
   skips: Skips;
+  /** The skeleton's strong notes (skeleton.ts), when it is on: where each phrase's note lands (steps from the section's start). */
+  goals: Goal[];
+  /** The cells (cells.ts), when they are on: the motif and each later stretch sung to its shape (steps from the section's start). */
+  cells: CellInfo[];
+  /** How many phrases got a run-up to their held ending (cells.ts). */
+  runUps: number;
 }
+
+/** How hard the skeleton pulls the line to its notes (voiceLead's pull): firmer than the mood contour's lean. */
+const SKEL_PULL = { leap: 0.8, w: 0.5 };
 
 export function buildVerse(inp: BuildInput): Built {
   const { key, mode } = inp;
@@ -90,7 +105,9 @@ export function buildVerse(inp: BuildInput): Built {
   const total = inp.chordAt.length;
   const leaves = planForm(inp.bars, inp.meta, inp.variation, inp.seed, inp.call);
   const seeds = leafSeeds(leaves, inp.seed);
-  const out: Built = { notes: [], phrases: [], breaks: [], runs: [], holds: [], tones: [], bars: [], leaves, tries: [], shapes: [], skips: {} };
+  // (a tune version: the pitch rules take new dice, every leaf alike, so an answering leaf still repeats the leaf it answers)
+  if (inp.variant) for (const sd of seeds.values()) for (const r of PITCH_RULES) sd[r] = withVariant(sd[r], inp.variant);
+  const out: Built = { notes: [], phrases: [], breaks: [], runs: [], holds: [], tones: [], bars: [], leaves, tries: [], shapes: [], skips: {}, goals: [], cells: [], runUps: 0 };
   // (what a rule looks at in the band: an answering leaf's rhythm rules look at the band under the leaf they answer, so the
   // rhythm repeats even where the band under it doesn't; the rules about notes look at the band under the leaf itself)
   const rootFrom = (leaf: Leaf, rule: Rule): number => {
@@ -107,6 +124,10 @@ export function buildVerse(inp: BuildInput): Built {
   const repeatsOf = (leaf: Leaf): number => { let n = 0, l = leaf; while (l.source !== null) { n++; l = leaves.find((x) => x.id === l.source)!; } return n; };
   // (the try each leaf was written on: an answering leaf starts on its source's, so the two still match)
   const tryOf = new Map<number, number>();
+  // (each leaf's skeleton, for the leaves that answer it)
+  const skels = new Map<number, Skeleton>();
+  // (each leaf's cells, for the leaves that answer it)
+  const cellMemos = new Map<number, CellMemo>();
   for (const leaf of leaves) {
     const from = G0.start(leaf.from);
     const end = leaf.from + leaf.bars >= inp.bars ? total : G0.start(leaf.from + leaf.bars);
@@ -122,6 +143,8 @@ export function buildVerse(inp: BuildInput): Built {
     const accOf = (rule: Rule) => win(inp.acc, rootFrom(leaf, rule), len, 0.5);
     // (the bass-led vocal: what the bass plays under this leaf; the rhythm of an answering leaf is its source's, like the band's hits)
     const lead: BassLead | undefined = inp.bass && inp.bass.share > 0 ? { share: inp.bass.share, on: win(inp.bass.skel.on, rootFrom(leaf, 'holds'), len, false), tone: win(inp.bass.skel.tone, rootFrom(leaf, 'tones'), len, undefined) } : undefined;
+    // (the skeleton an answering leaf takes its notes from: the leaf it answers)
+    const srcSkel = leaf.source !== null ? skels.get(leaf.source) : undefined;
     const write = (sd: Record<Rule, string>, final: boolean) => {
       // (a leaf that isn't the last leaves a beat of silence at its end: the phrases stop before it)
       // (a beat of the leaf's last bar: its last beat group, so the phrases stop on a beat)
@@ -137,7 +160,9 @@ export function buildVerse(inp: BuildInput): Built {
       const runs = randomRuns(len, G, inp.energy, breaks, sd.runs, accOf('runs'), d);
       // (rule 21: each phrase starts on a freshly drawn core note)
       // (mood notes: the chord note a bar or phrase sits on leans to the mood's degrees and the phrase's contour)
-      const bias = bothBiases(X && toneBias(X, phrases, sd.phrases), lead && bassBias(lead));
+      // (the skeleton: each phrase's strong note planned first; the line leans to it and the bar it ends in sits on its chord note)
+      const skel = X?.E.skeleton && !d.climb && d.dwell === undefined ? planSkeleton({ phrases, chordAt, key, mode, range, kind: X.E.kind, mood: X.E.mood, seed: sd.tones, u0: from / total, u1: end / total, last: end >= total, grid: G, pent }, srcSkel) : null;
+      const bias = bothBiases(bothBiases(X && toneBias(X, phrases, sd.phrases), lead && bassBias(lead)), skel?.bias);
       const drawn = randomTones(len, G, sd.tones, accOf('tones'), d, { from, total }, fit, bias);
       const { tones, bars } = rerollTones(drawn.tones, drawn.bars, phrases, G, sd.tones, d, fit, bias);
       const holds = randomHolds(len, G, breaks, runs, tones, win(inp.chordAt, rootFrom(leaf, 'holds'), len, inp.chordAt[0]), sd.holds, accOf('holds'), d);
@@ -151,14 +176,19 @@ export function buildVerse(inp: BuildInput): Built {
       // (a phrase may open on one long note; the short notes after it stay short)
       const held = withOpeners(withHolds(plain, holds), phrases, chordAt, G, sd.phrases, accOf('phrases'), d);
       // (mood notes: where the climb and the dwell don't pull, the phrase's contour and the tension lean the register, gently)
-      const emoPull = X && !climbTo ? pullTo(X, phrases, sd.phrases) : undefined;
+      const emoPull = X && !climbTo && !skel ? pullTo(X, phrases, sd.phrases) : undefined;
+      // (with the skeleton the mood's contour is in the plan; the tension curve still leans the register, on top of it)
+      const tensionPull = X && skel ? pullTo({ ...X, E: { ...X.E, on: new Set([...X.E.on].filter((x) => x !== 'contour')) } }, phrases, sd.phrases) : undefined;
+      const skelTarget = skel && tensionPull ? (step: number) => { const t = skel.target(step), p = tensionPull(step); return t === undefined || p === undefined ? t : t + (p - (range.lo + range.hi) / 2); } : skel?.target;
       // (rule 46, intervals by mood: where a core note is sung, and which way a neighbour goes, follow the mood's liking of the interval)
       const iv = X && intervalsFor(X, phrases, `${sd.tones}|iv`);
-      const walked = walkToNext(addNeighbours(voiceLead(withStretch(held.notes, tones, chordAt, G, sd.holds, accOf('holds'), d, held.opened), range, climbTo ?? emoPull, { tones, chordAt, bar: G, chance: d.octave, up: d.octaveUp, seed: `${sd.tones}|oct` }, emoPull ? EMO_PULL : undefined, iv), key, mode, G, sd.neighbours, d, iv), phrases, key, mode, G, sd.walk, d);
+      const walked = walkToNext(addNeighbours(voiceLead(withStretch(held.notes, tones, chordAt, G, sd.holds, accOf('holds'), d, held.opened), range, climbTo ?? skelTarget ?? emoPull, { tones, chordAt, bar: G, chance: d.octave, up: d.octaveUp, seed: `${sd.tones}|oct` }, skel ? SKEL_PULL : emoPull ? EMO_PULL : undefined, iv), key, mode, G, sd.neighbours, d, iv), phrases, key, mode, G, sd.walk, d);
       const pushed = pushNotes(limitSame(smallBreaks(foldIntoRange(walked, range), phrases, G, sd.small, accOf('small'), d)), phrases, G, sd.small, accOf('small'), d);
       const ended = phraseEndings(pushed, phrases, G, sd.endings, d, { key, mode, chordAt, range });
       // (mood notes: each phrase end gets a degree by its job: home, open, hanging)
-      const shaped = trimOverlaps(thirdBars(X ? withEndDegrees(ended, phrases, X, `${sd.endings}|emo`) : ended, phrases, G, sd.thirds, d));
+      const shaped0 = trimOverlaps(thirdBars(X ? withEndDegrees(ended, phrases, X, `${sd.endings}|emo`) : ended, phrases, G, sd.thirds, d));
+      // (the skeleton: each phrase ends on its planned note, where the chord has it)
+      const shaped = skel ? withGoals(shaped0, phrases, skel.goals, chordAt, key) : shaped0;
       // (rule 23: the section's last phrase leads into the next section)
       const led = end >= total ? withLeadIn(shaped, phrases, G, len, sd.endings, d, { key, mode, chordAt, range }) : shaped;
       // (rule 28: a phrase now and then holds one note for 1 to 2 bars)
@@ -186,12 +216,16 @@ export function buildVerse(inp: BuildInput): Built {
       const maxSets = X?.E.maxSets ? setsAllowed(X.E.maxSets, leaf.bars) : 0;
       const moods = maxSets ? limitSets(moods0, phrases, G, maxSets) : moods0;
       // (repeat shapes: last, on the line as it will sound, so nothing after it can pull a repeat apart)
-      const rep = X?.E.on.has('shape')
+      const cellsOn = !!X?.E.cells && CELL_KINDS.has(X.E.kind);
+      const rep = X?.E.on.has('shape') && !cellsOn
         ? withShapes(moods, phrases, G, len, sd.phrases, { key, scale: pent ?? new Set(SCALES[mode].map((i) => (key + i) % 12)), chordAt, range, silence: d.silence, silenceTol: d.silenceTol, short: X.E.on.has('longer'), shortRange: shortRange(X.E.kind), alt: X.E.on.has('shape2') })
         : undefined;
+      // (cells, in the place of the copies: phrases built from a motif in scale steps, a run-up to each held ending, an answer playing its call's cells)
+      const celled = cellsOn ? withCells(moods, phrases, G, { key, scale: pent ?? new Set(SCALES[mode].map((i) => (key + i) % 12)), chordAt, range, up: profileFor(X!.E.mood, X!.E.kind).up, size: profileFor(X!.E.mood, X!.E.kind).size, seed: `${sd.tones}|cells` }, leaf.source !== null ? cellMemos.get(leaf.source) : undefined) : undefined;
       // (and again on the finished line, in case a later rule opened a gap)
-      const notes = maxSets ? limitSets(rep ? rep.notes : moods, phrases, G, maxSets) : rep ? rep.notes : moods;
-      return { notes, phrases, breaks, runs, holds, tones, bars, shapes: rep?.shapes ?? [], skips: rep?.skips ?? {} };
+      const lined = rep ? rep.notes : celled ? celled.notes : moods;
+      const notes = maxSets ? limitSets(lined, phrases, G, maxSets) : lined;
+      return { notes, phrases, breaks, runs, holds, tones, bars, shapes: rep?.shapes ?? [], skips: rep?.skips ?? {}, goals: skel?.goals ?? [], skel, celled };
     };
     const MAX_TRIES = 40;
     const t0 = Math.max(inp.tries?.[leaves.indexOf(leaf)] ?? 0, leaf.source === null ? 0 : tryOf.get(leaf.source) ?? 0);
@@ -201,20 +235,23 @@ export function buildVerse(inp: BuildInput): Built {
       w = write(sd, t >= t0 + MAX_TRIES);
       if (w) { tryOf.set(leaf.id, t); out.tries.push(t); }
     }
-    const { notes, phrases, breaks, runs, holds, tones, bars, shapes, skips } = w;
+    const { notes, phrases, breaks, runs, holds, tones, bars, shapes, skips, goals, skel, celled } = w;
+    if (skel) skels.set(leaf.id, skel);
+    if (celled) { cellMemos.set(leaf.id, celled.memo); out.cells.push(...celled.info.map((c) => ({ ...c, phrase: c.phrase, step: c.step + from }))); out.runUps += celled.runUps; }
     const shift = (g: Gap): Gap => ({ ...g, step: g.step + from });
     out.notes.push(...notes.map((n) => ({ ...n, step: n.step + from })));
     out.phrases.push(...phrases.map(shift));
     out.breaks.push(...breaks.map(shift));
     out.runs.push(...runs.map(shift));
     out.holds.push(...holds.map(shift));
+    out.goals.push(...goals.map((g) => ({ ...g, step: g.step + from })));
     out.tones.push(...tones);
     out.bars.push(...bars);
     for (const [k, v] of Object.entries(skips)) out.skips[k] = (out.skips[k] ?? 0) + v;
     out.shapes.push(...shapes.map((x) => ({ ...x, phrase: x.phrase + from, step: x.step + from })));
   }
   // (more shapes: in a called section a bar or two is sung again across call and response, on the finished section)
-  if (inp.emo?.on.has('shape') && inp.emo.on.has('shape2') && inp.emo.on.has('call') && inp.call && (inp.bars === 8 || inp.bars === 16)) {
+  if (inp.emo?.on.has('shape') && !(inp.emo.cells && CELL_KINDS.has(inp.emo.kind)) && inp.emo.on.has('shape2') && inp.emo.on.has('call') && inp.call && (inp.bars === 8 || inp.bars === 16)) {
     const E = inp.emo;
     const leafEnd = (leaf: Leaf) => (leaf.from + leaf.bars >= inp.bars ? total : G0.start(leaf.from + leaf.bars));
     // (rule 43 holds leaf by leaf: a line the sets limit would change is no good)

@@ -3,7 +3,7 @@
 import { LONG_RULES } from './solorules-long';
 import { PLAIN, type Rule } from './solorules';
 
-/** Melody + read: the plain rule only (nothing changed). */
+/** The plain rule only (nothing changed): used by the checks (`soloCheck: 'player'`). */
 export const NO_RULES: Rule[] = [PLAIN];
 /** Switches the figure composer on (return and bridge, solofigure.ts); it plays nothing itself. */
 export const FIGURES: Rule = { name: 'figures', keeps: 'all', weight: () => 0, realise: () => null };

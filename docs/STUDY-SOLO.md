@@ -1,3 +1,5 @@
+Status: research — real guitar solos against what the app makes.
+
 # Guitar solos: real songs vs the app (study, 2026-10-16)
 
 Paul: one lick keeps coming back in almost every solo. The culprits: the climb into the peak (the shredder's straight scale run, the same 3-4 note cell climbing), one long bent top note at the same spot every time, and the fall to the root at the end. This study asks what real solos actually do, and which licks they share, before a new solo writer.

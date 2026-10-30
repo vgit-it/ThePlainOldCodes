@@ -1,3 +1,5 @@
+Status: live — how playback stays smooth on phones (singer rendered ahead, in a worker).
+
 # Smooth playback on phones
 
 Paul: "stuttering a lot now on normal play on phones". Two causes, measured in Chrome with the CPU slowed 4× (about a phone).

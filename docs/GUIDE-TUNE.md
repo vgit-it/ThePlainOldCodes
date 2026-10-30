@@ -1,4 +1,8 @@
+Status: live — the singer's tune and words (`src/guide/tune.ts`); the Guide card it was made for is gone.
+
 # Vocal tune: the vocal's own tune in the Guide card
+
+> **Note (2026-10-25):** the Guide card and its Guide and Anchor line writers are gone. `src/guide/tune.ts` is still live: the singer uses it. Old text below about the card's menus is history.
 
 A third choice in the Guide card's **Writer** menu: Guide line / Anchor line / **Vocal tune**. Paul: the vocal row's new writers (PR #103: Melody Learned, Real songs pacing for Rhythm Words, real verse vs chorus) should reach the Guide card's sound, without risking the Guide and Anchor writers.
 
