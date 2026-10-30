@@ -162,6 +162,10 @@ export interface FofVoice {
   /** Deep notes (under `lowTop`, with `lowBuzz`): dB an octave flatter in the source, and dB less in the fundamental's hump (left out: 0). */
   lowFlat?: number;
   lowHump?: number;
+  /** The most roughness (jitter, shimmer, rasp noise) a loud note gets, 0-1 (left out: 1, no cap). */
+  roughMax?: number;
+  /** dB less breath noise at full effort, so a loud note isn't hissy (left out: 0). */
+  loudBreath?: number;
   /** Their break (MIDI, about E4) and their way up past it. */
   brk?: number;
   up?: 'belt' | 'falsetto' | 'scream' | 'squeal';
@@ -712,7 +716,7 @@ export function renderFof(notes0: SungNote[], v: FofVoice, pre: number): Float32
       alt = -alt;
       // (a lifted low note keeps steadier: its added overtones would smear with any jitter and sound rough, not full)
       const steady = 1 - 0.7 * lowK;
-      const rough = Math.min(1, roughAdd + 0.25 * scr + grit * effort * (fal ? 1 - upW : 1 + upW * (way === 'scream' ? 2.5 : way === 'squeal' ? 0.4 : 0.8))) * steady;
+      const rough = Math.min(v.roughMax ?? 1, roughAdd + 0.25 * scr + grit * effort * (fal ? 1 - upW : 1 + upW * (way === 'scream' ? 2.5 : way === 'squeal' ? 0.4 : 0.8))) * steady;
       periodK = 1 + (0.003 + 0.004 * hu) * steady * gauss() + 0.015 * rough * alt + fryW * (0.1 * alt + 0.06 * gauss());
       if (vA > 1e-4) {
         const shimmer = (1 + (0.04 + 0.03 * hu) * (1 - 0.6 * lowK) * gauss() + 0.2 * rough * gauss()) * (1 - 0.18 * rough * (alt > 0 ? 1 : 0)) * (1 - 0.65 * fryW * (alt > 0 ? 1 : 0));
@@ -788,7 +792,7 @@ export function renderFof(notes0: SungNote[], v: FofVoice, pre: number): Float32
     raspEnv *= 0.9985;
     // (the deep notes' breath and rasp kept down with the lifted voice: no hiss under a low note)
     const nG = comp * db(-7 * lowK);
-    const aIn = nz * (vA * nG * db(breathNow + 3 * softK + (fal ? 9 - 5 * falFill : 2) * upW) * 4 * open + aspA * 1.2 + raspEnv * nG * (0.3 + open));
+    const aIn = nz * (vA * nG * db(breathNow - (v.loudBreath ?? 0) * effort + 3 * softK + (fal ? 9 - 5 * falFill : 2) * upW) * 4 * open + aspA * 1.2 + raspEnv * nG * (0.3 + open));
     let an = 0;
     for (let k = 0; k < 4; k++) an += aspG[k] * asp[k].run(aIn);
     an += air.run(nz) * vA * nG * db(breathNow - 16) * open * hu * 2.5;
