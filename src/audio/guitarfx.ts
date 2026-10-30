@@ -19,6 +19,15 @@ export const CHIME_LEN = 4;
 export const DRONE_LEN = 8;
 export const SCRAPE_LEN = 1.2;
 
+/**
+ * How a scrape fits the time it has. Never sped up (that squealed: a quick tempo made a 2 kHz zing); a short one
+ * plays only the end of the sound, the low growl, and a long one is slowed down to stretch (down to 0.6x).
+ */
+export function scrapeFit(dur: number): { rate: number; offset: number } {
+  if (dur >= SCRAPE_LEN) return { rate: Math.max(0.6, SCRAPE_LEN / dur), offset: 0 };
+  return { rate: 1, offset: SCRAPE_LEN - Math.max(0.05, dur) };
+}
+
 const hz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
 
 /** A fixed little random sequence (the same sounds every time the app loads). */

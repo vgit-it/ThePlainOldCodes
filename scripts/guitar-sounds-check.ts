@@ -4,7 +4,7 @@
 // and no live lick uses them yet (so the songs are as before).
 //   npm run guitar-sounds-check
 import { readFileSync } from 'node:fs';
-import { CHIME_LEN, DRONE_LEN, FX_NOTES, SCRAPE_LEN, chime, drone, scrape } from '../src/audio/guitarfx';
+import { CHIME_LEN, DRONE_LEN, FX_NOTES, SCRAPE_LEN, chime, drone, scrape, scrapeFit } from '../src/audio/guitarfx';
 import { type PlacedNote, placedHit } from '../src/parts/licks';
 import { techniques } from '../src/recipes/facts';
 import { type LickFile, parseNotes, writeNotes } from '../src/recipes/library';
@@ -70,6 +70,12 @@ const r0 = rasp(0.05, 0.2), r1 = rasp(0.7, 0.85);
 if (r1 >= r0 * 0.7) fail(`scrape: doesn't fall (the rasp at ${r0.toFixed(0)} Hz, then ${r1.toFixed(0)} Hz)`);
 if (rms(s, 0.02, 0.1) < rms(s, 0.3, 0.5) / 3) fail('scrape: too slow to start');
 if (rms(s, SCRAPE_LEN - 0.03, SCRAPE_LEN) > rms(s, 0.3, 0.5) / 5) fail('scrape: ends abruptly');
+// fitted to its time: never sped up (a fast tempo made a high zing), a short one is the low end of the sound
+for (const d of [0.1, 0.25, 0.5, 0.8, 1.2, 2, 4]) {
+  const { rate, offset } = scrapeFit(d);
+  if (rate > 1 || rate < 0.6 || offset < 0 || offset >= SCRAPE_LEN) fail(`scrapeFit(${d}): rate ${rate}, offset ${offset}`);
+  if (d <= SCRAPE_LEN && Math.abs((SCRAPE_LEN - offset) / rate - Math.max(0.05, d)) > 1e-9) fail(`scrapeFit(${d}): doesn't end on the note`);
+}
 
 // the library's marks read back the same, and the facts name them
 const marked = parseNotes('0:0:4:ph,v 4:3:4:nh 8:5:8:dv12 16:7:8:fb12 24:0:8:sc4,b2 32:5:4:ph,dv24');
