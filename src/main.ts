@@ -31,6 +31,7 @@ import { $ } from './page/dom';
 import { readLink, setupShare } from './page/share';
 import { setupExport } from './page/exporter';
 import { setupReal } from './page/real';
+import { setupBackground } from './page/background';
 
 // every idea made the main way (the lead and rhythm guitar's ways of playing, the vocal's writers: MAIN_METHOD)
 const generate = (o: GenOptions, s?: Seeds) => generateIdea({ ...o, ...MAIN_METHOD }, s);
@@ -151,6 +152,7 @@ function render() {
 function setPlaying(on: boolean) {
   playBtn.textContent = on ? 'Stop' : 'Play';
   playBtn.classList.toggle('on', on);
+  background.setPlaying(on);
 }
 
 /* ---- chords you set: tap a bar to open the editor; the band is rewritten around them */
@@ -627,15 +629,24 @@ $('gen').onclick = async () => {
   newIdea();
 };
 
-playBtn.onclick = async () => {
-  if (!engine.playing) {
-    await engine.start();
-    setPlaying(true);
-  } else {
-    engine.stop();
-    setPlaying(false);
-  }
-};
+async function startPlaying() {
+  if (engine.playing) return;
+  await engine.start();
+  setPlaying(true);
+}
+function stopPlaying() {
+  engine.stop();
+  setPlaying(false);
+}
+playBtn.onclick = () => (engine.playing ? stopPlaying() : startPlaying());
+
+// Android: keep playing with the screen off, behind a switch (docs/BACKGROUND.md)
+const background = setupBackground({
+  engine,
+  play: startPlaying,
+  stop: stopPlaying,
+  title: () => `${genreSel.selectedOptions[0]?.text ?? 'Song'} ${track ? 'track' : 'idea'}`,
+});
 
 // boot: open a shared link, or show a new idea right away; enable Play once drums + bass are in
 // piano and strings on by default (Paul), each by section (Auto); a shared link can add more

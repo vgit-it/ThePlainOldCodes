@@ -79,6 +79,8 @@ const PREP_XFADE = 0.03;
  */
 const LOOKAHEAD = 0.25;
 const LOOKAHEAD_PREP = 0.6;
+/** While the screen is off (page hidden): a locked phone's timers run late and in bursts. */
+const LOOKAHEAD_BACKGROUND = 1.5;
 
 export const INSTRUMENT_NAMES: Record<string, string> = {
   piano: 'piano', pad: 'synth pad', acoustic: 'acoustic guitar', electric: 'electric guitar', bass: 'bass', drums: 'drums',
@@ -671,7 +673,16 @@ export class Engine {
   }
 
   private applyLookAhead() {
-    if (!this.offline) this.ctx.lookAhead = this.playing && this.prep?.busy ? LOOKAHEAD_PREP : LOOKAHEAD;
+    if (this.offline) return;
+    this.ctx.lookAhead = this.background ? LOOKAHEAD_BACKGROUND : this.playing && this.prep?.busy ? LOOKAHEAD_PREP : LOOKAHEAD;
+  }
+
+  /** The page is hidden (screen off) and keeps playing: notes are scheduled further ahead, as a hidden page's timers run late (docs/BACKGROUND.md). */
+  private background = false;
+  setBackground(on: boolean) {
+    if (this.background === on) return;
+    this.background = on;
+    this.applyLookAhead();
   }
 
   /**
