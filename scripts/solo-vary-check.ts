@@ -2,7 +2,7 @@
 //  - Off (and a link without the option): nothing changes;
 //  - On: only solos of 16 bars or more get a stretch; it is 4 or 8 bars, on a four-bar phrase, never the first four bars;
 //  - sections other than the solo (and the bars next to it, for the hand-over) are note for note the same;
-//  - the drums really change over the stretch (breakdown: no snare, no ride, hats on the beats only; heavy half-time: one snare, on the 3rd beat; push: ride on every 8th, a crash every bar);
+//  - the drums really change over the stretch (breakdown: no snare, no ride, hats on the beats only; heavy half-time: one snare, on the 3rd beat);
 //  - held chords: the rhythm guitar and the bass play only on the strikes in the stretch, and are as before outside it;
 //  - the other section's chords: the progression stays a valid one (every step has its chord);
 //  - the solo is still a solo (notes, in range, no overlaps) and the same seed gives the same track.
@@ -25,7 +25,7 @@ const build = (j: number, extra: Record<string, unknown>) => {
 };
 const J = JSON.stringify;
 
-const T = { songs: 0, soloSecs: 0, longSolos: 0, long: 0, pairs: 0, long24: 0, varied: 0, drums: { light: 0, half: 0, lift: 0, same: 0 } as Record<string, number>, chords: { other: 0, held: 0, same: 0 } as Record<string, number>, otherDiffers: 0, spans: {} as Record<string, number>, heldRiff: 0 };
+const T = { songs: 0, soloSecs: 0, longSolos: 0, long: 0, pairs: 0, long24: 0, varied: 0, drums: { light: 0, half: 0, same: 0 } as Record<string, number>, chords: { other: 0, held: 0, same: 0 } as Record<string, number>, otherDiffers: 0, spans: {} as Record<string, number>, heldRiff: 0 };
 for (let j = 0; j < N; j++) {
   const base = build(j, {}), off = build(j, { soloVary: 'off' }), on = build(j, { soloVary: 'on' }), again = build(j, { soloVary: 'on' });
   T.songs++;
@@ -48,7 +48,8 @@ for (let j = 0; j < N; j++) {
     if (vs.length === 2) {
       T.pairs++;
       if (vs[1].from - vs[0].to < 4) fail(`${base.s}: stretches ${vs[0].from}-${vs[0].to} and ${vs[1].from}-${vs[1].to} too close`);
-      if (vs[0].drums === vs[1].drums && vs[0].drums !== 'same') fail(`${base.s}: both stretches change the drums the same way`);
+      // (a song that is not in 4/4 has the breakdown only)
+      if (vs[0].drums === vs[1].drums && vs[0].drums !== 'same' && song.bars.every((b: any) => b.len === 16 && b.groups.length === 4)) fail(`${base.s}: both stretches change the drums the same way`);
       if (vs.filter((x: any) => x.chords === 'held').length > 1) fail(`${base.s}: two held stretches`);
     }
     for (const v of vs) {
@@ -74,24 +75,17 @@ for (let j = 0; j < N; j++) {
         let at0 = 0; const beatSteps = new Set<number>(); for (const w of b.groups) { beatSteps.add(b.start + at0); at0 += w; }
         for (let g = b.start; g < b.start + b.len; g++) if (d.hat[g] && !beatSteps.has(g)) { fail(`${base.s}: an off-beat hat in a breakdown bar ${i}`); break; }
       }
-    } else if (v.drums === 'half' || v.drums === 'lift') {
-      let half = 0, lift = 0;
-      for (const { b } of inside) {
-        if (d.snare[b.start + 8] >= 0.5 && d.snare[b.start + 4] < 0.5 && d.snare[b.start + 12] < 0.5) half++;
-        if (d.crash[b.start]) lift++;
-      }
-      // (half-time falls back to a lift where a bar is not 4/4)
-      if (inside.length && half + lift < inside.length * 0.5) fail(`${base.s}: ${v.drums} stretch but only ${half} half-time and ${lift} crashed bars of ${inside.length}`);
+    } else if (v.drums === 'half') {
+      // heavy half-time: one snare, on the 3rd beat (the bars that are not 4/4 fall back to the breakdown)
+      let half = 0;
+      for (const { b } of inside) if (d.snare[b.start + 8] >= 0.5 && d.snare[b.start + 4] < 0.5 && d.snare[b.start + 12] < 0.5) half++;
       for (const { b, i } of inside) {
-        if (v.drums === 'lift') {
-          if (d.hat.slice(b.start, b.start + b.len).some(Boolean)) fail(`${base.s}: closed hat in a push bar ${i}`);
-          for (let g = b.start; g < b.start + b.len; g += 2) if (!d.ride[g] && !d.crash[g]) { fail(`${base.s}: no ride on the 8th at ${g} in a push bar ${i}`); break; }
-        } else if (d.snare[b.start + 8] >= 0.5) {
+        if (d.snare[b.start + 8] >= 0.5) {
           const n = d.snare.slice(b.start, b.start + b.len).filter((x: number) => x > 0).length;
           if (n !== 1) fail(`${base.s}: ${n} snares in a heavy half-time bar ${i}`);
         }
       }
-      if (v.drums === 'lift' && lift < inside.length) fail(`${base.s}: lift without a crash on every bar (${lift}/${inside.length})`);
+      if (inside.length && half < inside.length * 0.5) fail(`${base.s}: half-time stretch but only ${half} half-time bars of ${inside.length}`);
     }
     // chords
     const tl = sec.chords.timeline;

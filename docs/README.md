@@ -18,6 +18,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `TRACKS.md`: how an idea grows into a track of sections.
 - `TENSION.md`: the Mood choice and the tension curve over the song.
 - `PERFORMANCE.md`: smooth playback on phones.
+- `BACKGROUND.md`: keep playing with the screen off (Android, behind a switch).
 - `CLEANUP-PLAN.md`: the clean-up plan, phase by phase.
 
 ## Rhythm guitar and the band's playing
