@@ -1,6 +1,7 @@
 // Per-part strips (volume, mute, solo) into a shared reverb and master bus.
 
 import * as Tone from 'tone';
+import { type VocalFxState, VocalFx, defaultFxState } from './vocalfx';
 
 export type MixPart = 'vocal' | 'backing' | 'chords' | 'guitar2' | 'drums' | 'bass' | 'keys' | 'pad' | 'strings' | 'perc';
 export const MIX_PARTS: MixPart[] = ['vocal', 'backing', 'chords', 'guitar2', 'drums', 'bass', 'keys', 'pad', 'strings', 'perc'];
@@ -78,6 +79,10 @@ export class Mixer {
   readonly ready: Promise<void>;
   /** Per-part taps for stems, which follow the section level too. */
   private stems: Tone.Gain[] = [];
+  /** The vocal effects (vocalfx.ts) in front of the two singers' strips. */
+  private fx = {} as Record<'vocal' | 'backing', VocalFx>;
+  private fxState: VocalFxState = defaultFxState();
+  private bpm = 120;
 
   /**
    * Track sections: overall level by energy, after the limiter so the compressors
@@ -106,6 +111,11 @@ export class Mixer {
       const gate = new Tone.Gain(1);
       const feature = new Tone.Gain(1);
       volume.chain(new Tone.Volume(TRIM[p]), feature, gate);
+      if (p === 'vocal' || p === 'backing') {
+        const f = new VocalFx();
+        f.output.connect(volume);
+        this.fx[p] = f;
+      }
       gate.connect(this.master);
       const reverb = new Tone.Volume(REVERB_SEND[p]).connect(fx);
       gate.connect(reverb);
@@ -163,7 +173,18 @@ export class Mixer {
 
   /** Where a part's instrument should connect. */
   input(part: MixPart): Tone.InputNode {
-    return this.strips[part].volume;
+    return (part === 'vocal' || part === 'backing' ? this.fx[part].input : null) ?? this.strips[part].volume;
+  }
+
+  get vocalFx(): VocalFxState {
+    return this.fxState;
+  }
+
+  /** The vocal effects (the lead's; the backing singer's too if asked). */
+  setVocalFx(state: VocalFxState) {
+    this.fxState = state;
+    this.fx.vocal.apply(state.fx, this.bpm);
+    this.fx.backing.apply(state.backing ? state.fx : null, this.bpm);
   }
 
   /** Tap after mute/solo (for meters). */
@@ -183,6 +204,9 @@ export class Mixer {
 
   /** Keep the echo on the beat: a dotted 8th at this tempo. */
   setTempo(bpm: number) {
+    this.bpm = bpm;
+    this.fx.vocal.setTempo(bpm);
+    this.fx.backing.setTempo(bpm);
     this.delay.delayTime.rampTo((60 / bpm) * 0.75, 0.05);
   }
 

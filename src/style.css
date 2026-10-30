@@ -107,6 +107,18 @@ button.small:disabled { opacity: .45; }
 .part.layer.off .name { color: var(--mute); }
 .toggle.remove:hover { color: var(--text); }
 
+/* vocal effects */
+.fxhead { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.fxhead h2 { margin: 0 auto 0 0; }
+.fxback input { width: auto; margin: 0; }
+.fxback { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--mute); white-space: nowrap; }
+.fxrows { display: grid; gap: 10px; }
+.fxrow { display: grid; grid-template-columns: 96px 1fr 1fr; gap: 12px; align-items: center; }
+.fxrow select { padding: 8px; font-size: 14px; }
+.fxon { padding: 8px 10px; font-size: 14px; background: var(--field); border: 1px solid var(--line); color: var(--mute); border-radius: 10px; }
+.fxon.on { background: var(--accent); border-color: transparent; color: #1a0d06; }
+.fxrow:not(.on) select, .fxrow:not(.on) input[type=range] { opacity: .5; }
+
 .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .pill { background: var(--field); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 13px; }
 .pill b { color: var(--accent); }
@@ -162,6 +174,8 @@ button.bar { display: block; width: 100%; text-align: left; font: inherit; color
   .controls { grid-template-columns: 1fr; }
   .bars { grid-template-columns: repeat(2, 1fr); }
   .locks { grid-template-columns: 1fr 1fr; }
+  .fxrow { grid-template-columns: 96px 1fr; row-gap: 6px; }
+  .fxrow input[type=range] { grid-column: 1 / -1; }
   .part { grid-template-columns: 1fr auto; row-gap: 8px; }
   .part .name { grid-column: 1; }
   .part .toggles { grid-column: 2; grid-row: 1; width: auto; }

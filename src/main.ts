@@ -20,6 +20,8 @@ import {
 } from './track';
 import { type PartKey, buildLockPanel } from './ui/locks';
 import { buildPartsPanel } from './ui/parts';
+import { buildVocalFxPanel } from './ui/vocalfx';
+import { cleanFxState, fxAnyOn } from './audio/vocalfx';
 import { buildChordEditor } from './ui/chordedit';
 import { buildRoll } from './ui/roll';
 import { buildNeck } from './ui/neck';
@@ -203,12 +205,12 @@ chordReset.onclick = () => {
 
 /* ---- shareable link: the address always holds the current idea (and track) */
 
-interface Shared { o: GenOptions; s: Seeds; t?: TrackOptions; l?: LayerSettings; v?: VocalChoice; b?: VocalChoice; w?: TimbreChoice }
+interface Shared { o: GenOptions; s: Seeds; t?: TrackOptions; l?: LayerSettings; v?: VocalChoice; b?: VocalChoice; w?: TimbreChoice; x?: ReturnType<typeof cleanFxState> }
 
 function updateLink() {
   if (!idea) return;
   const layers = engine.layerSettings;
-  const data: Shared = { o: idea.opts, s: idea.seeds, ...(track ? { t: track.opts } : {}), ...(Object.keys(layers).length ? { l: layers } : {}), ...(engine.vocal !== 'off' ? { v: engine.vocal } : {}), ...(engine.vocal !== 'off' && engine.backingVocal !== 'auto' ? { b: engine.backingVocal } : {}), ...(engine.vocal !== 'off' && engine.vocalTimbre !== 'auto' ? { w: engine.vocalTimbre } : {}) };
+  const data: Shared = { o: idea.opts, s: idea.seeds, ...(track ? { t: track.opts } : {}), ...(Object.keys(layers).length ? { l: layers } : {}), ...(engine.vocal !== 'off' ? { v: engine.vocal } : {}), ...(engine.vocal !== 'off' && engine.backingVocal !== 'auto' ? { b: engine.backingVocal } : {}), ...(engine.vocal !== 'off' && engine.vocalTimbre !== 'auto' ? { w: engine.vocalTimbre } : {}), ...(fxAnyOn(engine.vocalFx) ? { x: engine.vocalFx } : {}) };
   try {
     history.replaceState(null, '', `#${btoa(encodeURIComponent(JSON.stringify(data)))}`);
   } catch { /* history blocked: no link */ }
@@ -666,6 +668,8 @@ const partsPanel = buildPartsPanel($('parts'), engine, () => {
   updateLink();
 });
 
+const fxPanel = buildVocalFxPanel($('vocalfx'), engine, () => updateLink());
+
 // dev-only handle for debugging in the browser console
 if (import.meta.env.DEV) Object.assign(window, { engine, Tone, currentIdea: () => idea, currentTrack: () => track, buildExport });
 
@@ -752,6 +756,7 @@ if (shared) {
   // (older links may name voices that are gone: left on Auto)
   if (shared.w && TIMBRE_CHOICES.some((c) => c.id === shared.w)) engine.setVocalTimbre(shared.w);
   if (shared.v) engine.setVocal(shared.v);
+  if (shared.x) { engine.setVocalFx(cleanFxState(shared.x)); fxPanel.sync(); }
   for (const p of shared.l?.throughout ?? []) engine.setLayerThroughout(p, true);
   partsPanel.sync();
   showIdea(generate(shared.o, shared.s));
