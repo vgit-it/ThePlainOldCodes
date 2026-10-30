@@ -59,6 +59,7 @@ One line per doc. Start here, then open only what you need. `HISTORY.md` is the 
 - `RIFF-LAB.md`: the riff lab page and the new riff writer (single-note, chug, big chords, gallop, pedal, stabs + lick, picked hook, clean arpeggio, written in layers: rhythm, a few pitches, answer, form, best of many). In songs behind a switch: `RIFF-WIRE.md`.
 - `RIFF-WIRE.md`: Track options → Riff writer (Classic / New): the riff writer plays the riffs of a track in the four riff genres (4/4; all eight styles, picked and arp too); best of 24.
 - `GUITAR-SOUNDS.md`: the lead's new sounds (pinch and natural harmonics, whammy dive, feedback, pick scrape), made in code.
+- `WAH.md`: the wah pedal in front of the guitar amp (auto-wah on funk rhythm, cocked wah on solos), behind a switch.
 - `SOLO-SOUNDS.md`: solos and lead breaks use those sounds, by genre and player. Behind a switch (Lead guitar sounds).
 - `RECIPE-LAB.md`: the lick library as data (`src/recipes/licks.json`) and the recipe lab (PC only, `npm run recipe-lab`): write licks as tab, mark them, hear them, save.
 

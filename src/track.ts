@@ -23,6 +23,7 @@ import { performSolo } from './parts/soloplayer';
 import { addLeadSounds } from './parts/solosounds';
 import { shapeStory } from './parts/solodynamics';
 import { expressSolo } from './parts/soloexpress';
+import { planWah } from './sections/wah';
 import { heldBacking } from './sections/soloback';
 import { planVary, varySegs, varyTension, varyDrums } from './sections/solovary';
 import { LIVE_RULES, NO_RULES } from './parts/solorules-live';
@@ -98,6 +99,8 @@ export interface TrackOptions {
   soloClimax?: 'on' | 'off';
   /** Every solo writer (docs/SOLO-SOUNDS.md): solos and lead breaks get pinch and natural harmonics, whammy dives, feedback and a pick scrape, by genre (missing in older links: off). */
   soloSounds?: 'on' | 'off';
+  /** Wah pedal in front of the guitar amp: an auto-wah on some funk rhythm guitars, a cocked wah on some solos (docs/WAH.md; missing in older links: off). */
+  wah?: 'on' | 'off';
   /** The solo player's polish on the chosen-bars (core note) modes: the story notes are dressed like the other solo writers' (docs/SOLO-POLISH.md). */
   soloPolish?: 'on' | 'off';
   /** The story's own dynamics on the core note modes: loudness follows the arc, a laid-back start, a closing ring (docs/SOLO-SHAPE.md). */
@@ -984,6 +987,12 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
   const energy = sections.find((x) => x.vocalEnergy)?.vocalEnergy;
   const backing = pickBacking(vocalSeed, mood, src.song.partGenres.strum, energy);
   arrangeBacking(sections, { seed: vocalSeed, backing, mood, energy }, arc.climax);
+
+  // the wah pedal (switch): which sections play through it
+  if (opts.wah === 'on') {
+    const plan = planWah(`${src.seeds.song}-band`, src.song.partGenres.strum, sections.map((x) => x.section!));
+    sections.forEach((x, i) => { if (plan[i]) x.section!.wah = plan[i]; });
+  }
 
   // each section knows the shape of its track (added layers plan where they play from it)
   const all = sections.map((s) => ({ kind: s.section!.kind, energy: s.section!.energy }));
