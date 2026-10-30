@@ -74,8 +74,9 @@ export const voiceDown = (g: Genre) => VOICE_DOWN[g];
 export type Character = 'deep' | 'nasal' | 'scream' | 'cornell' | 'woman' | 'onyx';
 export const CHARACTERS: Record<Character, { label: string; fof: Partial<FofVoice> }> = {
   // big and dark (Vedder-like): a long throat, round vowels, a full low end, a slow wobble, scoops and sags
-  // (less operatic in its normal range, Paul: a less low throat, rounder vowels only a little, brighter, wider)
-  deep: { label: 'Big & dark', fof: { tract: 0.93, bw: 1.4, body: 6, bright: 0, breath: -35, edge: 0.3, cover: 0.2, vib: 24, vibHz: 4.8, drift: 6, scoop: 0.6, sag: 0.5, brk: 66, openMax: 1.3, falMax: 1.4, loudBreath: 8 } },
+  // (less operatic in its normal range, Paul: a less low throat, rounder vowels only a little, brighter, wider;
+  // then a longer throat and more chest, 2026-10-30: Paul, "not very deep")
+  deep: { label: 'Big & dark', fof: { tract: 0.85, bw: 1.4, body: 8, bright: -1, breath: -35, edge: 0.3, cover: 0.2, vib: 24, vibHz: 4.8, drift: 6, scoop: 0.6, sag: 0.5, brk: 66, openMax: 1.3, falMax: 1.4, loudBreath: 8 } },
   // dark and pinched (Staley-like): nasal, a metallic edge, a tight narrow vibrato, bends into notes
   // clean and scream (Chester Bennington-like): bright and forward, a little nasal, little vibrato, breathy
   // when quiet, a distorted scream on pushed notes (Paul: medium distortion, "a bit of nasal feel": strong twang; less breathy; his break a few semitones higher (a tenor's: full voice further up; not the tune moved up 3 semitones, which took it out of the song's key: Paul, "out of tune"); the scream from the distortion, over a belt, not the rough 'scream' register: cracks and noise)
