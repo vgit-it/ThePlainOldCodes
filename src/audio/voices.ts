@@ -49,19 +49,19 @@ export const VOICES: Record<Genre, GenreVoice> = {
       vib: 60, vibHz: 5.6, drift: 10.5, brk: 64, shift: 12, size: 0.99, brkUp: 4, up: 'belt',
     } } },
   pop: { label: 'Pop', recipe: { grit: 0.1, drive: 0, airy: -17, air: 4, tilt: -2, speech: 0.6, vib: 0.3, attack: 0.02 }, brk: 65, up: 'falsetto', three: false,
-    fof: { grit: 0.12, breath: -28, bw: 1.15, bright: 1, brk: 65, up: 'falsetto', vib: 25, openMax: 1.3, falMax: 1.4, loudBreath: 8 } },
+    fof: { grit: 0.12, breath: -28, bw: 1.15, bright: 1, brk: 65, up: 'falsetto', vib: 25, openMax: 1.3, falMax: 1.4, frontMod: 1, loudBreath: 8 } },
   funk: { label: 'Funk', recipe: { grit: 0.25, drive: 0.1, pressed: 0.2, tilt: -2, speech: 0.6, attack: 0.01, vib: 0.25 }, brk: 64, up: 'falsetto', three: false,
     // (Paul: "the funk voice breaks at the pushed parts": its pushed notes sat right on its break, flipping
     // into falsetto and back, a high note dropping 11 dB; now chest voice up to G4 and a mix past it)
-    fof: { grit: 0.25, breath: -31, bw: 1.15, bright: 1, edge: 0.1, brk: 67, up: 'belt', vib: 22, openMax: 1.3, falMax: 1.4, loudBreath: 8 } },
+    fof: { grit: 0.25, breath: -31, bw: 1.15, bright: 1, edge: 0.1, brk: 67, up: 'belt', vib: 22, openMax: 1.3, falMax: 1.4, frontMod: 1, loudBreath: 8 } },
   hardrock: { label: 'Hard rock', recipe: { regMix: 'rock', grit: 0.7, drive: 0.35, pressed: 0.3, tilt: -1, vib: 0.5, vibStart: 0.45 }, brk: 65, up: 'squeal', three: true,
-    fof: { grit: 0.6, breath: -33, bw: 1.2, tract: 0.97, bright: 1, edge: 0.3, brk: 65, up: 'squeal', vib: 35, openMax: 1.3, falMax: 1.4, loudBreath: 8, roughMax: 0.3 } },
+    fof: { grit: 0.6, breath: -33, bw: 1.2, tract: 0.97, bright: 1, edge: 0.3, brk: 65, up: 'squeal', vib: 35, openMax: 1.3, falMax: 1.4, frontMod: 1, loudBreath: 8, roughMax: 0.3 } },
   metal: { label: 'Metal', recipe: { regMix: 'rock', grit: 0.6, drive: 0.4, pressed: 0.4, tilt: -3, vib: 0.6, vibStart: 0.4 }, brk: 65, up: 'belt', three: true,
-    fof: { grit: 0.55, breath: -34, bw: 1.2, tract: 0.96, bright: 0.5, edge: 0.3, brk: 65, up: 'belt', vib: 38, openMax: 1.3, falMax: 1.4, loudBreath: 8, roughMax: 0.3 } },
+    fof: { grit: 0.55, breath: -34, bw: 1.2, tract: 0.96, bright: 0.5, edge: 0.3, brk: 65, up: 'belt', vib: 38, openMax: 1.3, falMax: 1.4, frontMod: 1, loudBreath: 8, roughMax: 0.3 } },
   grunge: { label: 'Grunge', recipe: { grit: 0.7, drive: 0.3, formants: 0.97, tilt: 1, vib: 0.25, vibHz: -0.5, drift: 18 }, brk: 63, up: 'belt', three: true,
-    fof: { grit: 0.6, breath: -31, bw: 1.3, tract: 0.94, bright: 0, edge: 0.2, brk: 63, up: 'belt', vib: 20, drift: 6, openMax: 1.3, falMax: 1.4, loudBreath: 8, roughMax: 0.3 } },
+    fof: { grit: 0.6, breath: -31, bw: 1.3, tract: 0.94, bright: 0, edge: 0.2, brk: 63, up: 'belt', vib: 20, drift: 6, openMax: 1.3, falMax: 1.4, frontMod: 1, loudBreath: 8, roughMax: 0.3 } },
   altmetal: { label: 'Alt metal', recipe: { grit: 0.6, drive: 0.35, pressed: 0.2, formants: 0.98, vib: 0.3 }, brk: 64, up: 'scream', three: true,
-    fof: { grit: 0.55, breath: -33, bw: 1.25, tract: 0.96, bright: 0.5, edge: 0.25, brk: 64, up: 'scream', openMax: 1.3, falMax: 1.4, loudBreath: 8, roughMax: 0.3 } },
+    fof: { grit: 0.55, breath: -33, bw: 1.25, tract: 0.96, bright: 0.5, edge: 0.25, brk: 64, up: 'scream', openMax: 1.3, falMax: 1.4, frontMod: 1, loudBreath: 8, roughMax: 0.3 } },
 };
 
 /** Semitones lower than the clear voice a voice's tunes are written. */
@@ -76,7 +76,7 @@ export const CHARACTERS: Record<Character, { label: string; fof: Partial<FofVoic
   // big and dark (Vedder-like): a long throat, round vowels, a full low end, a slow wobble, scoops and sags
   // (less operatic in its normal range, Paul: a less low throat, rounder vowels only a little, brighter, wider;
   // then a longer throat and more chest, 2026-10-30: Paul, "not very deep")
-  deep: { label: 'Big & dark', fof: { tract: 0.85, bw: 1.4, body: 8, bright: -1, breath: -35, edge: 0.3, cover: 0.2, vib: 24, vibHz: 4.8, drift: 6, scoop: 0.6, sag: 0.5, brk: 66, openMax: 1.3, falMax: 1.4, loudBreath: 8 } },
+  deep: { label: 'Big & dark', fof: { tract: 0.85, bw: 1.4, body: 8, bright: -1, breath: -35, edge: 0.3, cover: 0.2, vib: 24, vibHz: 4.8, drift: 6, scoop: 0.6, sag: 0.5, brk: 66, openMax: 1.3, falMax: 1.4, frontMod: 1, loudBreath: 8 } },
   // dark and pinched (Staley-like): nasal, a metallic edge, a tight narrow vibrato, bends into notes
   // clean and scream (Chester Bennington-like): bright and forward, a little nasal, little vibrato, breathy
   // when quiet, a distorted scream on pushed notes (Paul: medium distortion, "a bit of nasal feel": strong twang; less breathy; his break a few semitones higher (a tenor's: full voice further up; not the tune moved up 3 semitones, which took it out of the song's key: Paul, "out of tune"); the scream from the distortion, over a belt, not the rough 'scream' register: cracks and noise)
@@ -85,7 +85,7 @@ export const CHARACTERS: Record<Character, { label: string; fof: Partial<FofVoic
   // and sags; his break lower, around D#4 with the tenor's lift)
   scream: { label: 'Chester (clean & scream)', fof: {
     tract: 1.04, body: 10, heft: 0.65, bw: 0.9, grit: 0.35, distort: 0.65, fry: 0.65, breath: -27, twang: 1, edge: 0.2, nasal: 0.12,
-    bright: 1, plain: 1, soft: 0.7, expr: 0.5, scoop: 0.65, sag: 0.7, vib: 15, vibHz: 5.8, brk: 60, up: 'belt', size: 1.02, brkUp: 3, lowBuzz: 1, closeFill: 1.8, lowTop: 66, openMax: 1.3, falMax: 1.4, loudBreath: 8,
+    bright: 1, plain: 1, soft: 0.7, expr: 0.5, scoop: 0.65, sag: 0.7, vib: 15, vibHz: 5.8, brk: 60, up: 'belt', size: 1.02, brkUp: 3, lowBuzz: 1, closeFill: 1.8, lowTop: 66, openMax: 1.3, falMax: 1.4, frontMod: 1, loudBreath: 8,
   } },
   // dark and soaring (Chris Cornell-like): built from Paul's notes on what the rock voice was missing (a
   // dark baritone's weight carried up into a full belt, a bluesy rasp and fry, a forward ring), then
@@ -99,7 +99,7 @@ export const CHARACTERS: Record<Character, { label: string; fof: Partial<FofVoic
   cornell: { label: 'Cornell (dark & soaring)', fof: {
     tract: 0.88, body: 6.5, heft: 0.55, bw: 1.55, grit: 0.5, distort: 0.6, fry: 0.7, breath: -35, twang: 0.45, edge: 0.25, nasal: 0.22,
     bright: 0.75, cover: 0.5, spread: 0.65, raw: 0.65, plain: 0.8, soft: 0.5, softPushed: 0.9, expr: 0.75, scoop: 0.65, sag: 0.6, life: 0.8,
-    vib: 47, vibHz: 5.6, drift: 5, brk: 63, up: 'belt', size: 1.03, openMax: 1.3, falMax: 1.4, loudBreath: 8, roughMax: 0.3,
+    vib: 47, vibHz: 5.6, drift: 5, brk: 63, up: 'belt', size: 1.03, openMax: 1.3, falMax: 1.4, frontMod: 1, loudBreath: 8, roughMax: 0.3,
   } },
   // (then tuned by Paul in the voice creator, 2026-10-13: a much longer, darker throat with no extra low
   // end, weight kept up high, some rasp and a little fry, a forward ring rather than the nose, fully
@@ -113,7 +113,7 @@ export const CHARACTERS: Record<Character, { label: string; fof: Partial<FofVoic
   woman: { label: 'Woman (soaring)', fof: {
     tract: 0.86, body: 10, heft: 0.9, bw: 1.55, grit: 0.15, distort: 0.35, fry: 0.05, breath: -39, twang: 1, edge: 0, nasal: 0,
     bright: 3, cover: 0.55, spread: 0.85, raw: 0, plain: 0.05, soft: 1, softPushed: 1, expr: 1, human: 0.65, scoop: 0.65, sag: 0.75,
-    life: 0.8, vib: 43, vibHz: 6.2, drift: 5, brk: 63, up: 'belt', shift: 12, size: 1.23, brkUp: 12, lowBuzz: 1, closeFill: 1.8, lowTop: 68, openMax: 1.3, falMax: 1.4, loudBreath: 8,
+    life: 0.8, vib: 43, vibHz: 6.2, drift: 5, brk: 63, up: 'belt', shift: 12, size: 1.23, brkUp: 12, lowBuzz: 1, closeFill: 1.8, lowTop: 68, openMax: 1.3, falMax: 1.4, frontMod: 1, loudBreath: 8,
   } },
   // Onyx (Paul: "Onyx clean is a good voice"): a real man's vowels, measured from Kokoro's Onyx (prints.ts),
   // as measured (his own size: tract and size 1); clean: little rasp and breath
@@ -121,7 +121,7 @@ export const CHARACTERS: Record<Character, { label: string; fof: Partial<FofVoic
   onyx: { label: 'Onyx (clean)', fof: { print: ONYX, tract: 1, size: 1, grit: 0.08, breath: -42, openMax: 1.3, falMax: 1.4, loudBreath: 8 } },
   nasal: { label: 'Dark & nasal', fof: {
     tract: 0.86, body: 0, heft: 0.45, bw: 1.3, grit: 0.3, fry: 0.15, breath: -29, twang: 0.5, edge: 0.25, nasal: 0.16, bright: -1.25,
-    cover: 1, spread: 0.65, raw: 0.5, plain: 1, scoop: 0.9, sag: 0.7, vib: 12, vibHz: 6, brk: 65, openMax: 1.3, falMax: 1.4, loudBreath: 8,
+    cover: 1, spread: 0.65, raw: 0.5, plain: 1, scoop: 0.9, sag: 0.7, vib: 12, vibHz: 6, brk: 65, openMax: 1.3, falMax: 1.4, frontMod: 1, loudBreath: 8,
   } },
 };
 /**
