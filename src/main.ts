@@ -18,6 +18,8 @@ import {
 } from './track';
 import { type PartKey, buildLockPanel } from './ui/locks';
 import { buildPartsPanel } from './ui/parts';
+import { buildVocalFxPanel } from './ui/vocalfx';
+import { cleanFxState } from './audio/vocalfx';
 import { buildChordEditor } from './ui/chordedit';
 import { buildRoll } from './ui/roll';
 import { buildNeck } from './ui/neck';
@@ -610,6 +612,8 @@ const partsPanel = buildPartsPanel($('parts'), engine, () => {
   updateLink();
 });
 
+const fxPanel = buildVocalFxPanel($('vocalfx'), engine, () => updateLink());
+
 // dev-only handle for debugging in the browser console
 if (import.meta.env.DEV) Object.assign(window, { engine, Tone, currentIdea: () => idea, currentTrack: () => track, buildExport });
 
@@ -664,6 +668,7 @@ if (shared) {
   // (older links may name voices that are gone: left on Auto)
   if (shared.w && TIMBRE_CHOICES.some((c) => c.id === shared.w)) engine.setVocalTimbre(shared.w);
   if (shared.v) engine.setVocal(shared.v);
+  if (shared.x) { engine.setVocalFx(cleanFxState(shared.x)); fxPanel.sync(); }
   for (const p of shared.l?.throughout ?? []) engine.setLayerThroughout(p, true);
   partsPanel.sync();
   showIdea(generate(shared.o, shared.s));

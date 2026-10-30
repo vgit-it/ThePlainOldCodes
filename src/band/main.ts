@@ -1,6 +1,7 @@
 // The band view page (docs/BAND-VIEW.md): write a song, build its track, play it with the engine and
 // draw the band playing it, frame by frame off the audio clock.
 
+import { cleanFxState } from '../audio/vocalfx';
 import * as Tone from 'tone';
 import { Engine } from '../audio/engine';
 import { generate, randomSeeds } from '../generator';
@@ -89,7 +90,7 @@ let songInfo = '';
 engine.onStatus = (s) => status(s || songInfo);
 
 /** A song from the main app's share link (its address hash): the same idea, track, parts and singer. */
-interface Shared { o: GenOptions; s: Seeds; t?: TrackOptions; l?: LayerSettings; v?: VocalChoice; b?: VocalChoice; w?: TimbreChoice }
+interface Shared { o: GenOptions; s: Seeds; t?: TrackOptions; l?: LayerSettings; v?: VocalChoice; b?: VocalChoice; w?: TimbreChoice; x?: unknown }
 function readLink(): Shared | null {
   try {
     const h = location.hash.slice(1);
@@ -112,6 +113,7 @@ function newSong() {
     for (const p of shared.l?.throughout ?? []) engine.setLayerThroughout(p, true);
     if (shared.b) engine.setBackingVocal(shared.b);
     if (shared.w && TIMBRE_CHOICES.some((c) => c.id === shared.w)) engine.setVocalTimbre(shared.w);
+    if (shared.x) engine.setVocalFx(cleanFxState(shared.x));
     if (shared.v) engine.setVocal(shared.v);
     genreSel.value = shared.o.genre;
     idea = generate(shared.o, shared.s);

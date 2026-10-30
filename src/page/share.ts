@@ -1,13 +1,14 @@
 // The shareable link: the address always holds the current idea (and track), and the buttons that use it.
 
 import type { LayerSettings } from '../audio/engine';
+import { type VocalFxState, fxAnyOn } from '../audio/vocalfx';
 import type { TimbreChoice, VocalChoice } from '../audio/singer';
 import type { GenOptions, Seeds } from '../idea';
 import type { TrackOptions } from '../track';
 import { $ } from './dom';
 import type { PageContext } from './context';
 
-export interface Shared { o: GenOptions; s: Seeds; t?: TrackOptions; l?: LayerSettings; v?: VocalChoice; b?: VocalChoice; w?: TimbreChoice }
+export interface Shared { o: GenOptions; s: Seeds; t?: TrackOptions; l?: LayerSettings; v?: VocalChoice; b?: VocalChoice; w?: TimbreChoice; x?: VocalFxState }
 
 /** Open a shared link: what the address holds, or null (no link, or one that doesn't open). */
 export function readLink(): Shared | null {
@@ -30,7 +31,7 @@ export function setupShare(ctx: PageContext) {
     if (!idea) return;
     const track = ctx.track();
     const layers = engine.layerSettings;
-    const data: Shared = { o: idea.opts, s: idea.seeds, ...(track ? { t: track.opts } : {}), ...(Object.keys(layers).length ? { l: layers } : {}), ...(engine.vocal !== 'off' ? { v: engine.vocal } : {}), ...(engine.vocal !== 'off' && engine.backingVocal !== 'auto' ? { b: engine.backingVocal } : {}), ...(engine.vocal !== 'off' && engine.vocalTimbre !== 'auto' ? { w: engine.vocalTimbre } : {}) };
+    const data: Shared = { o: idea.opts, s: idea.seeds, ...(track ? { t: track.opts } : {}), ...(Object.keys(layers).length ? { l: layers } : {}), ...(engine.vocal !== 'off' ? { v: engine.vocal } : {}), ...(engine.vocal !== 'off' && engine.backingVocal !== 'auto' ? { b: engine.backingVocal } : {}), ...(engine.vocal !== 'off' && engine.vocalTimbre !== 'auto' ? { w: engine.vocalTimbre } : {}), ...(fxAnyOn(engine.vocalFx) ? { x: engine.vocalFx } : {}) };
     try {
       history.replaceState(null, '', `#${btoa(encodeURIComponent(JSON.stringify(data)))}`);
     } catch { /* history blocked: no link */ }

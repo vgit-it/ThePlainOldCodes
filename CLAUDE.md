@@ -28,7 +28,7 @@ Options + seeds → `src/generator.ts` (the idea: chords, strum, drums, bass, 8 
 - `verse/`: the lead vocal's melody writer (forms, mood notes, sets, shapes, intervals, bass-led).
 - `guide/`: what the singer uses from the old Guide card: `tune.ts`, `words.ts`, `feel.ts`, and `line.ts` (types and numbers only). The Guide writers are gone (`docs/ARCHIVE.md`).
 - `realism/`: numbers measured from real songs (patterns, targets, licks) that the writers lean on.
-- `audio/`: playback engine, mixer, samples, real amps, the singer (formant / FOF voices) and its workers.
+- `audio/`: playback engine, mixer, samples, real amps, the singer (formant / FOF voices) and its workers, the vocal effects chain (`vocalfx.ts`, `docs/VOCAL-FX.md`).
 - `band/`: pixel band view and video render (`band.html`).
 - `page/`: the page's link, export and real-sound buttons (`share.ts`, `exporter.ts`, `real.ts`). `main.ts` keeps the state and the rest of the wiring.
 - `ui/`: page cards (controls, roll, neck view, chord editor, locks).

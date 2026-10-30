@@ -20,6 +20,7 @@ import { AUTO_PAD, Pad, type PadChoice } from './pad';
 import { AUTO_CHORDS, AUTO_GUITAR2 } from '../sounds';
 import { type KeysChoice, type Layer, type LayerNote, type PercChoice, type StringsChoice, byStep, writeLayer } from '../parts/layers';
 import { GuitarPrep, type PrepItem, type Prepared } from './prep';
+import { type VocalFxState, cleanFxState } from './vocalfx';
 import { REAL_PARTS, realAmpsSupported } from './realamp';
 
 export interface EngineSettings {
@@ -39,6 +40,8 @@ export interface EngineSettings {
   backing?: VocalChoice;
   /** The lead singer's voice (missing in older ones: Auto). */
   timbre?: TimbreChoice;
+  /** The vocal effects panel (vocalfx.ts; missing: all off). */
+  vocalFx?: VocalFxState;
 }
 
 /** The layers you've added (left out = removed) and their style or tone. */
@@ -173,7 +176,7 @@ export class Engine {
     return {
       chord: this.chordChoice, guitar2: this.g2Choice, bass: this.bassChoice, drumSynth: this.drums.useSynth,
       mix: this.mixer.state(), layers: this.layerSettings, realAmps: this.realAmps, realVoice: this.realVoice, vocal: this.vocalChoice,
-      backing: this.backingChoice, timbre: this.timbreChoice,
+      backing: this.backingChoice, timbre: this.timbreChoice, vocalFx: this.mixer.vocalFx,
     };
   }
 
@@ -193,6 +196,7 @@ export class Engine {
     this.layers.throughout = [...(s.layers.throughout ?? [])];
     this.backingChoice = s.backing ?? 'auto';
     this.timbreChoice = s.timbre ?? 'auto';
+    this.mixer.setVocalFx(cleanFxState(s.vocalFx));
     this.setVocal(s.vocal ?? 'off');
   }
 
@@ -224,6 +228,15 @@ export class Engine {
   private timbreChoice: TimbreChoice = 'auto';
   get vocalTimbre(): TimbreChoice {
     return this.timbreChoice;
+  }
+
+  get vocalFx(): VocalFxState {
+    return this.mixer.vocalFx;
+  }
+
+  /** The vocal effects panel: which are on, how much (vocalfx.ts). */
+  setVocalFx(state: VocalFxState) {
+    this.mixer.setVocalFx(state);
   }
 
   setVocalTimbre(choice: TimbreChoice) {
