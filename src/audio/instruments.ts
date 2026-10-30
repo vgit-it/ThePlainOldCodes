@@ -10,6 +10,7 @@ import { inContext } from './context';
 import { squeaks } from './squeak';
 import { fxSets, SCRAPE_LEN, scrapeFit } from './guitarfx';
 import { SampleVoice } from './voice';
+import { Wah, type WahMode } from './wah';
 
 const midiNote = (m: number) => Tone.Frequency(m, 'midi').toNote();
 const jitter = (ms: number) => (Math.random() - 0.5) * 2 * (ms / 1000);
@@ -79,6 +80,8 @@ export interface ChordInstrument {
   squeak?(time: number, vel: number, up: boolean): void;
   /** A pick scrape from `time`, `dur` seconds long, ending as the next note is picked (docs/GUITAR-SOUNDS.md). Guitars only. */
   scrape?(time: number, dur: number, vel: number, clean?: boolean): void;
+  /** The wah pedal in front of the amp, from `time` (docs/WAH.md). Electric guitars only. */
+  setWah?(mode: WahMode | undefined, time?: number): void;
   /** Stop everything ringing (at `time`, or now). */
   releaseAll(time?: number): void;
 }
@@ -371,6 +374,8 @@ export class Guitar implements ChordInstrument {
   /** Which take is the clean one (electric). */
   private cleanIdx = -1;
   private doubled = false;
+  /** The wah pedal of each take (electric). */
+  private wahs: Wah[] = [];
   /** Built with a double-tracked take (driven rhythm guitars). */
   private hasDouble = false;
   private tone: AmpTone = 'clean';
@@ -403,7 +408,10 @@ export class Guitar implements ChordInstrument {
       if (type === 'electric') {
         // (Guitar 2's clean channel isn't voiced as a lead, but it's still Guitar 2's)
         const amp = new Amp(panner, lead && role !== 'clean', lead);
-        head.connect(amp.input);
+        // (the wah pedal sits ahead of the amp, as on a real board: the drive then bites into it)
+        const wah = new Wah(amp.input);
+        head.connect(wah.input);
+        this.wahs.push(wah);
         if (role !== 'clean') this.amps.push(amp);
         else { amp.set('clean'); this.cleanAmp = amp; }
       } else {
@@ -495,6 +503,10 @@ export class Guitar implements ChordInstrument {
       const offset = i === 0 ? 0 : 0.006 + Math.random() * 0.012;
       this.strumTake(take, { ...a, time: a.time + offset, vel: a.vel * (i === 0 ? 1 : 0.95) }, this.tone !== 'clean');
     });
+  }
+
+  setWah(mode: WahMode | undefined, time?: number) {
+    this.wahs.forEach((w) => w.set(mode, time));
   }
 
   squeak(time: number, vel: number, up: boolean) {
