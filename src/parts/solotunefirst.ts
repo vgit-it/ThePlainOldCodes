@@ -21,7 +21,7 @@ import { chordTones } from './guitar2';
 import { lickFit, placedHit } from './licks';
 import { BUSY, DENSITY, ENERGY_WORDS, energyAt, pickEnergy } from './solo2';
 import { readHarmony } from './soloharmony';
-import { planPlot, plotEnergyAt } from './soloplot';
+import { type StoryIn, planPlot, plotEnergyAt } from './soloplot';
 import { type GapNote, findGaps, pickGaps } from './solomelody-gaps';
 import { BREATH_GENRE, BREATH_MOOD, type PlanOpts } from './soloplan';
 import { SOLO_MOOD, aimFor, moodScale } from './solomood';
@@ -84,7 +84,7 @@ const TEMPLATES: Record<number, [Cell[], number][]> = {
   ],
 };
 
-export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean; story?: boolean } = {}): Guitar2Part {
+export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean; story?: StoryIn | false } = {}): Guitar2Part {
   // (`moody`, Solo mood: the mood's own character in the intervals, jumps, pace, colour notes and the score; docs/SOLO-MOOD.md)
   const tries = x.tries ?? TUNE_TRIES, moody = !!x.moody;
   const { key, bars, total } = song;
@@ -131,7 +131,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   en.paceC = 1;
   en.pitch = 7 + 3 * intensity;
   // (Story from chords, docs/SOLO-HARMONY.md: the plot from the chords, the section's tension and the mood takes the place of the random energy shape)
-  const plot = x.story ? planPlot({ map: readHarmony(chords.timeline, total, song.mode), bars, total, tension: o.tension, mood, rng: new Rng(`plot-${rng.next()}`) }) : null;
+  const plot = x.story ? planPlot({ map: readHarmony(chords.timeline, total, song.mode), bars, total, tension: o.tension, mood, genre, rng: new Rng(`plot-${rng.next()}`), story: x.story }) : null;
   if (plot) { en.pitch = (7 + 3 * intensity) * plot.amp; en.pace = clamp(0.15 + 0.45 * plot.amp * 0.6, 0.15, 0.6); }
   const E = plot ? (g: number) => plotEnergyAt(plot, bars, g) : (g: number) => energyAt(en, clamp(g / total, 0, 1));
   const shapeWord = plot ? plot.word : ENERGY_WORDS[en.shape](en);
@@ -427,7 +427,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     // ---- the skeleton: the strong notes, one path through the chords' notes
     // (Solo mood: an open ending may land on a colour note, the 9th or the 6th, where one chord sounds under the whole hold)
     const wantColour = ph.map((p) => moody && p.role === 'call' && r.chance(PM.colourGoal));
-    const target = (p: Phrase) => centerAt(p.goalStep) + (p.role === 'climax' ? 5 : p.role === 'call' ? 1.5 : p.role === 'answer' ? -1.5 : -2);
+    const target = (p: Phrase) => centerAt(p.goalStep) + (p.role === 'climax' ? 5 * (plot ? plot.prom : 1) : p.role === 'call' ? 1.5 : p.role === 'answer' ? -1.5 : -2);
     const cands = (p: Phrase, cap: number): number[] => {
       const near = (m: number, w: number) => m >= 50 && m <= Math.min(86, cap) && m >= target(p) - w && m <= target(p) + w;
       if (p.role === 'end') {
@@ -450,7 +450,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     if (climaxAt >= 0 && ph.length > 1) {
       const top = cands(ph[climaxAt], 86).reduce((b, m) => (Math.abs(m - target(ph[climaxAt])) < Math.abs(b - target(ph[climaxAt])) ? m : b));
       ph[climaxAt].goal = top;
-      capAll = top - 3;
+      capAll = top - (plot ? plot.gap : 3);
     }
     const local = (p: Phrase, m: number) => {
       let c = 0.45 * Math.abs(m - target(p));
