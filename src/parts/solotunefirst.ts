@@ -39,6 +39,8 @@ export const STORY_WINDOW = 0.05;
 export const MOOD_SCALE_BARE = 0.5;
 /** How much the mood's liking of a move counts against the rest of a note's cost. */
 const MOOD_W = 0.35;
+/** Tension notes (docs/SOLO-HARMONY.md, step 3c): the degrees over the key that want to move (2nd, 4th, flat 5th, flat 6th, 7th; the leading note is 11). The others rest. */
+const UNSTABLE = new Set([1, 2, 5, 6, 8, 11]);
 /** The pick of a cell: how sharply it follows the costs. */
 const PICK_T = 1.3;
 const VEL_SWING = 0.14;
@@ -88,7 +90,7 @@ const TEMPLATES: Record<number, [Cell[], number][]> = {
   ],
 };
 
-export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean; story?: StoryIn | false; storyNotes?: boolean; hand?: number[]; storyScore?: boolean } = {}): Guitar2Part {
+export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean; story?: StoryIn | false; storyNotes?: boolean; hand?: number[]; storyScore?: boolean; tense?: boolean } = {}): Guitar2Part {
   // (`moody`, Solo mood: the mood's own character in the intervals, jumps, pace, colour notes and the score; docs/SOLO-MOOD.md)
   const tries = x.tries ?? TUNE_TRIES, moody = !!x.moody;
   const { key, bars, total } = song;
@@ -139,6 +141,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const plot = hmap && x.story ? planPlot({ map: hmap, bars, total, tension: o.tension, mood, genre, rng: new Rng(`plot-${rng.next()}`), story: x.story }) : null;
   // (Notes follow the chords, docs/SOLO-HARMONY.md step 3: each strong note is picked for the chord it lands on)
   const roleNotes = !!(x.storyNotes && hmap && plot);
+  const tenseOn = !!(x.tense && hmap && plot);
   if (plot) { en.pitch = (7 + 3 * intensity) * plot.amp; en.pace = clamp(0.15 + 0.45 * plot.amp * 0.6, 0.15, 0.6); }
   const E = plot ? (g: number) => plotEnergyAt(plot, bars, g) : (g: number) => energyAt(en, clamp(g / total, 0, 1));
   const shapeWord = plot ? plot.word : ENERGY_WORDS[en.shape](en);
@@ -161,6 +164,18 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
 
   // ---- what one note costs: out of the height, a strong place on a note that is not a chord note, a clash, an ugly move
   interface N0 { step: number; len: number; m: number }
+  /**
+   * Tension notes: the notes inside a phrase follow the chord's pull. Over a chord that wants to move the line plays notes that want to move
+   * (the leading note, the 2nd, the 4th) and avoids the notes that rest; over home or an arrival it rests. A note on a beat or held counts double.
+   */
+  const tenseCost = (n: N0): number => {
+    if (!tenseOn) return 0;
+    const b = beatAt(hmap!, n.step), u = UNSTABLE.has(mod(n.m - key, 12)), w = strongAt(n.step, n.len) ? 1 : 0.5;
+    if (b.role === 'tense') return (u ? -1.6 : 0.9) * w * (0.5 + 0.5 * b.pull);
+    if (b.arrival > 0 || b.role === 'home') return (u ? 1.3 : -0.3) * w;
+    if (b.role === 'away' && b.pull >= 0.4) return (u ? -0.5 : 0.3) * w;
+    return 0;
+  };
   const noteCost = (n: N0, prev: number | null, lastMove: number) => {
     let c = n.m < 50 || n.m > 86 ? 20 : 0;
     const [lo, hi] = rawWindow(n.step);
@@ -169,6 +184,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     if (strong) { if (!coreOver(n.m, n.step, n.len)) c += 4.5 + (fit.rubs(n.m, n.step) ? 1.5 : 0); }
     else if (n.len >= 4 && !coreOver(n.m, n.step, n.len)) c += 1;
     if (fit.clash(n.m, n.step)) c += 1;
+    c += tenseCost(n);
     if (prev !== null) {
       c += (moody ? PM.weight : MOOD_W) * intervalCost(prof(n.step), prev, n.m, lastMove, false);
       const a = Math.abs(n.m - prev);
@@ -192,6 +208,8 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     if (moody && prevN && ns.length && !isCore(prevN.m, prevN.step)) c += Math.abs(ns[0].m - prevN.m) > 4 ? 2.2 : Math.abs(ns[0].m - prevN.m) > 2 ? 0.6 : 0;
     ns.forEach((n, i) => {
       c += noteCost(n, prev, lm);
+      // (Tension notes: the leading note over a chord that wants to move goes up to the root, or steps down; it is not jumped away from)
+      if (tenseOn && ns[i + 1] && mod(n.m - key, 12) === 11 && beatAt(hmap!, n.step).role === 'tense') { const dm = ns[i + 1].m - n.m; c += dm === 1 ? -0.4 : dm === -1 || dm === -2 ? 0 : Math.abs(dm) > 2 ? 0.7 : 0.3; }
       if (moody) {
         // a note that is not a chord note is passing: it moves on by a step, and is not jumped into; the leading tone goes up to the root
         const nx = ns[i + 1];
@@ -705,6 +723,6 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const echoes = phrases.filter((p) => p.src >= 0).length;
   return {
     hits, curve,
-    notes: [`Guitar 2: a solo (tune first${moody ? `, ${mood} character` : ''}${plot ? ', story from chords' : ''}${roleNotes ? ', notes follow the chords' : ''}${x.hand?.length ? ', last note leads into the next chord' : ''}): ${shapeWord}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune${x.storyScore && plot ? ' and a story' : ''} (${bestScore.toFixed(2)}${x.storyScore && plot ? `, story ${bestStory.toFixed(2)}` : ''})`, ...(plot ? plot.lines : [])],
+    notes: [`Guitar 2: a solo (tune first${moody ? `, ${mood} character` : ''}${plot ? ', story from chords' : ''}${roleNotes ? ', notes follow the chords' : ''}${tenseOn ? ', tension notes' : ''}${x.hand?.length ? ', last note leads into the next chord' : ''}): ${shapeWord}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune${x.storyScore && plot ? ' and a story' : ''} (${bestScore.toFixed(2)}${x.storyScore && plot ? `, story ${bestStory.toFixed(2)}` : ''})`, ...(plot ? plot.lines : [])],
   };
 }

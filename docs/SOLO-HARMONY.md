@@ -1,4 +1,4 @@
-Status: step 1 (reader, baseline), step 2 (the plot, wired into Tune first behind a switch), step 2b (seven energy shapes, a menu to force one), the expression add-on step 3 (notes follow the chords) and step 3b (the last note leads into the next section) and step 4 (the story score), each behind its own switch, built 2026-10-31. Paul has not heard it.
+Status: step 1 (reader, baseline), step 2 (the plot, wired into Tune first behind a switch), step 2b (seven energy shapes, a menu to force one), the expression add-on step 3 (notes follow the chords) and step 3b (the last note leads into the next section), step 3c (tension notes inside the phrases) and step 4 (the story score), each behind its own switch, built 2026-10-31. Paul has not heard it.
 
 # Solo harmony: the chords tell the story (brief, step 1 built)
 
@@ -117,7 +117,7 @@ Numbers (120 solos, Solo story on, notes off → on):
 - Sounds like a tune: 0.76 → 0.76, 90% → 92% pass.
 - The plot (phrases, peak bar, shape) is the same in every solo; default unchanged; same seed, same notes.
 
-Not tried: tension notes inside phrases (only the strong notes are picked by role).
+Not tried: tension notes in the expression pass.
 
 ## Step 3b: the last note leads into the next section (built, `hand` in `src/parts/solotunefirst.ts`, `handFor` in `src/track.ts`)
 Switch: Track options → **Last note leads into the next section** → On (`soloStoryHand: 'on'`). Needs Solo story on. Off by default; an old link plays as before. Works alone or with Notes follow the chords. Check: `npm run solo-hand-check`.
@@ -136,6 +136,29 @@ Numbers (120 solos, 96 with a section after; Solo story on):
 - The plot is the same in every solo; default unchanged 96/96; same seed, same notes.
 
 Not tried: the last note's length (real solos end short, half a beat, and lead on; here the note still rings through the next section's first bar), a run-up into the next chord's note.
+
+## Step 3c: tension notes inside the phrases (built, `tenseCost` in `src/parts/solotunefirst.ts`)
+Switch: Track options → **Tension notes** → On (`soloStoryTense: 'on'`). Needs Solo story on. Off by default; an old link plays as before. Works alone or with the other switches. Check: `npm run solo-tense-check`.
+
+Step 3 picked the strong note at the end of each phrase by its chord. The notes inside the phrases (the cells and the run-ups) still ignored the chord's pull. Now they follow it:
+- **Notes that want to move:** the degrees over the key that are not at rest: the 2nd, 4th, flat 5th, flat 6th and the leading note (7th).
+- **Over a chord that wants to move** (V, a 7th, a suspended chord; the more it pulls the more it counts) the line favours notes that want to move and avoids the ones that rest.
+- **Over home or an arrival** it does the opposite: notes that want to move cost, notes that rest are liked a little.
+- **Over an away chord with some pull** a light lean the same way as over a tense one.
+- A note on a beat or held counts double a passing note.
+- **The leading note over a chord that wants to move** goes up a semitone (to the root) or steps down; it is not jumped away from.
+- It is a cost on each note (the same cost the cells already use), so nothing is forced and nothing new is drawn: the plot, the strong notes and the rhythm are as before.
+
+Numbers (120 solos, Solo story on, off → on; the notes inside the phrases only, not the phrase ends):
+- Notes that want to move, over a chord that wants to move: 33% → 39%. Over home or an arrival: 34% → 26%. The gap goes from −1 to +13 points.
+- The bars' pull against the share of such notes (r): 0.02 → 0.30.
+- With Notes follow the chords on: 30% → 38% over a chord that wants to move, 36% → 27% over home.
+- With Solo mood on the effect is stronger (41% → 51% over a chord that wants to move, 22% → 17% over home).
+- Sounds like a tune: 0.83 → 0.83, 98% → 98% pass (Solo mood on: 0.76 → 0.75, 90% → 90%).
+- The plot is the same in every solo; default unchanged 96/96; same seed, same notes.
+- The leading note is rare (13 in 120 solos), so its figures are noise.
+
+Not tried: the tension notes in the expression pass (bends into the leading note), resolving a tension note into the next chord's note across a chord change.
 
 ## Step 4: the story score (built, `storyFit` in `src/parts/solotunefirst.ts`)
 Switch: Track options → **Story score** → On (`soloStoryScore: 'on'`). Needs Solo story on. Off by default; an old link plays as before. Works alone or with the other two switches. Check: `npm run solo-story-score-check`.
