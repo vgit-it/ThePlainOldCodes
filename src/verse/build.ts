@@ -1,6 +1,7 @@
 // The verse melody, built (experiment): the whole rule pipeline over a verse, one leaf of the form at a time (form.ts).
 // Pure: the same input gives the same notes.
 
+import { withWalk } from './walk';
 import { SCALES, type Chord, type Mode } from '../theory';
 import { planForm, leafSeeds, PITCH_RULES, RULES, type Leaf, type Rule, type Variation } from './form';
 import { withVariant } from './tune';
@@ -214,7 +215,9 @@ export function buildVerse(inp: BuildInput): Built {
       const moods0 = X ? withSuspensions(flavoured, X, `${sd.bends}|emo`) : flavoured;
       // (rule 43: no more sets of notes in the leaf than the slider allows, on the line as it will sound, before the shapes are repeated)
       const maxSets = X?.E.maxSets ? setsAllowed(X.E.maxSets, leaf.bars) : 0;
-      const moods = maxSets ? limitSets(moods0, phrases, G, maxSets) : moods0;
+      const moods1 = maxSets ? limitSets(moods0, phrases, G, maxSets) : moods0;
+      // (walk between chord notes: repeats and strong-beat chord notes loosened, before the repeated shapes copy the line)
+      const moods = X?.E.walk ? withWalk(moods1, phrases, G, { key, scale: pent ?? new Set(SCALES[mode].map((i) => (key + i) % 12)), chordAt, range }, `${sd.neighbours}|walk`) : moods1;
       // (repeat shapes: last, on the line as it will sound, so nothing after it can pull a repeat apart)
       const cellsOn = !!X?.E.cells && CELL_KINDS.has(X.E.kind);
       const rep = X?.E.on.has('shape') && !cellsOn
