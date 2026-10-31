@@ -105,7 +105,8 @@
     "band-pack": "rolldown scripts/band-art.ts --platform node --format esm -o node_modules/.cache/band-art.mjs && node node_modules/.cache/band-art.mjs pack",
     "video-check": "node scripts/video-check.mjs",
     "solo-harmony-check": "rolldown scripts/solo-harmony-check.ts --platform node --format esm -o node_modules/.cache/solo-harmony-check.mjs && node node_modules/.cache/solo-harmony-check.mjs",
-    "solo-follow-check": "rolldown scripts/solo-follow-check.ts --platform node --format esm -o node_modules/.cache/solo-follow-check.mjs && node node_modules/.cache/solo-follow-check.mjs"
+    "solo-follow-check": "rolldown scripts/solo-follow-check.ts --platform node --format esm -o node_modules/.cache/solo-follow-check.mjs && node node_modules/.cache/solo-follow-check.mjs",
+    "solo-notes-check": "rolldown scripts/solo-notes-check.ts --platform node --format esm -o node_modules/.cache/solo-notes-check.mjs && node node_modules/.cache/solo-notes-check.mjs"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",

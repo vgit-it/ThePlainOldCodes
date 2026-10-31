@@ -89,7 +89,7 @@ function invariants(label: string, sec: any, plainSec: any) {
 }
 
 for (let j = 0; j < N; j++) {
-  const base = { soloStory: 'on', soloExpress: 'on' };
+  const base = { soloStory: 'on', soloExpress: 'on', ...JSON.parse(process.env.EXTRA ?? '{}') };
   const off = build(j, base), offTrue = build(j, { ...base, soloStoryFollow: 'off' }), on = build(j, { ...base, soloStoryFollow: 'on' }), again = build(j, { ...base, soloStoryFollow: 'on' });
   // follow does nothing without Solo story, or without Solo expression
   const noStory = build(j, { soloStory: 'off', soloExpress: 'on' }), noStoryF = build(j, { soloStory: 'off', soloExpress: 'on', soloStoryFollow: 'on' });
