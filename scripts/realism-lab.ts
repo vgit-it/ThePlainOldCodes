@@ -22,11 +22,15 @@ import { HISTS, HIST_LABEL, type Profile, type RNote, type RSong, type SongMeasu
 
 const GENRES: Genre[] = ['rock', 'pop', 'funk', 'hardrock', 'metal', 'grunge', 'altmetal'];
 const N = Number(process.env.N ?? 6);
+// (the first twelve are the old Guide writers: they only run with the lead vocal set to Classic; the default lead vocal is the verse melody
+// writer, which ignores their switches. Before this was set, every row below measured the verse writer.)
+const CLASSIC = { vocalWriter: 'classic' } as const;
 const WRITERS = [
-  ['classic', {}], ['grid', { vocalRhythm: 'grid' }], ['words', { vocalRhythm: 'words' }],
-  ['shaped', { vocalMelody: 'shaped' }], ['grid+shaped', { vocalRhythm: 'grid', vocalMelody: 'shaped' }], ['words+shaped', { vocalRhythm: 'words', vocalMelody: 'shaped' }],
-  ['first', { vocalMelody: 'first' }], ['grid+first', { vocalRhythm: 'grid', vocalMelody: 'first' }], ['words+first', { vocalRhythm: 'words', vocalMelody: 'first' }],
-  ['learned', { vocalMelody: 'learned' }], ['grid+learned', { vocalRhythm: 'grid', vocalMelody: 'learned' }], ['words+learned', { vocalRhythm: 'words', vocalMelody: 'learned' }],
+  ['classic', { ...CLASSIC }], ['grid', { ...CLASSIC, vocalRhythm: 'grid' }], ['words', { ...CLASSIC, vocalRhythm: 'words' }],
+  ['shaped', { ...CLASSIC, vocalMelody: 'shaped' }], ['grid+shaped', { ...CLASSIC, vocalRhythm: 'grid', vocalMelody: 'shaped' }], ['words+shaped', { ...CLASSIC, vocalRhythm: 'words', vocalMelody: 'shaped' }],
+  ['first', { ...CLASSIC, vocalMelody: 'first' }], ['grid+first', { ...CLASSIC, vocalRhythm: 'grid', vocalMelody: 'first' }], ['words+first', { ...CLASSIC, vocalRhythm: 'words', vocalMelody: 'first' }],
+  ['learned', { ...CLASSIC, vocalMelody: 'learned' }], ['grid+learned', { ...CLASSIC, vocalRhythm: 'grid', vocalMelody: 'learned' }], ['words+learned', { ...CLASSIC, vocalRhythm: 'words', vocalMelody: 'learned' }],
+  ['verse', {}],
 ] as const;
 const T = targets as unknown as Record<string, Profile>;
 

@@ -14,6 +14,7 @@ import { songOptions, writeSong, type SectionVoice } from '../src/verse/sing';
 import { chordsKey, chordsOf, isChorus, songGrid } from '../src/verse/section';
 import { VOCAL_TUNE_PASS, vocalTune } from '../src/verse/tune';
 import { fixUnits } from '../src/verse/verse';
+import { keyStep } from '../src/verse/final';
 
 const N = Number(process.env.N ?? 60);
 const GENRES = ['rock', 'pop', 'funk', 'hardrock', 'metal', 'grunge', 'altmetal'];
@@ -55,7 +56,7 @@ for (let i = 0; i < N; i++) {
       for (let j = 1; j < ns.length; j++) if (ns[j].step < ns[j - 1].step + ns[j - 1].len - 1e-6) fail(`${s} ${k}: overlap at ${ns[j].step} (${name})`);
       if (!fixUnits(ns, v.built.phrases, chordsOf(sec), G, false).ok) fail(`${s} ${k}: a lone short unit (${name})`);
       if (isChorus(sec)) {
-        const key = `${chordsKey(sec)}|${ns.length}`, notes = ns.map((n) => `${n.step}:${n.len}:${n.midi}`).join(',');
+        const key = `${chordsKey(sec)}|${ns.length}`, notes = ns.map((n) => `${n.step}:${n.len}:${n.midi - keyStep(list[0].song.key, sec.song.key)}`).join(',');
         const seen = chorusNotes.get(key);
         if (seen !== undefined && seen !== notes) fail(`${s}: choruses over the same chords differ (${name})`);
         chorusNotes.set(key, notes);

@@ -88,3 +88,9 @@ Still off: the Guide line's same note (its quick notes step away and back), the 
 ## Next
 - Paul listens: switch on vs off, per genre.
 - Then option 2 (pattern library), scored with this lab.
+
+## Fixed 2026-10-31: the writer rows
+- `npm run realism-lab` set only the old writers' switches (`vocalRhythm`, `vocalMelody`), but the default lead vocal is now the verse melody writer, which ignores them. Every row measured the verse writer, so all twelve gave the same numbers.
+- The old rows now set `vocalWriter: 'classic'`; a `verse` row is the default writer. Six songs a genre, against real songs: classic 83, learned 83, **verse 76**.
+- The verse writer against real songs: the same note again 41% (real 29%), strong notes on a chord note 92% (real 69%), a turn back after a leap 26% (real 61%), range 16 (real 12), peak early 44% (real 59%). The learned writer: 29%, 77%, 59%, 14, 42%.
+

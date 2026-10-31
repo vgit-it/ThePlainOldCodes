@@ -1,7 +1,7 @@
 // Checks the vocal's Tune pick (docs/VOCAL-TUNE.md) on real songs: a verse and a chorus written in several versions, the best as a tune kept.
 //  - the score (src/verse/tune.ts) of the verses and choruses: one version (off) against the best of 4, 8, 12,
 //  - the rest still holds with the pick on: nothing overlaps, every sung section has notes, the notes stay in the voice's limits, no lone
-//    short unit, the choruses of a song are one melody (the same notes over the same chords), the phrasing of a section is the baseline's.
+//    short unit, the choruses of a song are one melody (the same notes over the same chords, moved by the step of a key change), the phrasing of a section is the baseline's.
 //   npm run vocal-tune-check        (N=60 songs; PICKS=4,8,12)
 import { MAIN_GUITARS, generate } from '../src/generator';
 import { buildTrack, defaultTrackOptions } from '../src/track';
@@ -12,6 +12,7 @@ import { barOf, chordsKey, chordsOf, isChorus, songGrid } from '../src/verse/sec
 import { VOCAL_TUNE_PASS, vocalTune } from '../src/verse/tune';
 import { fixUnits } from '../src/verse/verse';
 import type { Idea } from '../src/idea';
+import { keyStep } from '../src/verse/final';
 
 const N = Number(process.env.N ?? 60);
 const PICKS = (process.env.PICKS ?? '4,8,12').split(',').map(Number);
@@ -54,7 +55,7 @@ for (let i = 0; i < N; i++) {
       void total; void barOf;
       if (isChorus(sec)) {
         const key = `${chordsKey(sec)}|${ns.length}`;
-        const notes = ns.map((n) => `${n.step}:${n.len}:${n.midi}`).join(',');
+        const notes = ns.map((n) => `${n.step}:${n.len}:${n.midi - keyStep(list[0].song.key, sec.song.key)}`).join(',');
         const seen = chorusNotes.get(key);
         if (seen !== undefined && seen !== notes) fail(`${s}: choruses over the same chords differ (${name})`);
         chorusNotes.set(key, notes);
