@@ -543,7 +543,7 @@ export interface SectionInfo {
   /** The instruments it plays on (when the parts are on Auto). */
   sound?: SectionSound;
   /** The wah pedal on the guitars here, when the Wah pedal switch is on (src/sections/wah.ts, docs/WAH.md). */
-  wah?: { chords?: 'auto' | 'cocked'; guitar2?: 'auto' | 'cocked' };
+  wah?: { chords?: 'auto' | 'cocked' | 'rock'; guitar2?: 'auto' | 'cocked' | 'rock' };
   /** Step where the band comes in (intros that start with the guitar alone); layers like the piano wait for it. */
   bandFrom?: number;
   /** Guitar 2 plays a solo here (the mix lifts it). */
