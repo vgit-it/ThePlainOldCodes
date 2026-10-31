@@ -1,4 +1,4 @@
-Status: step 1 (reader, baseline) and step 2 (the plot, wired into Tune first behind a switch) built 2026-10-31. Paul has not heard it. Notes are not yet picked by chord role (step 3).
+Status: step 1 (reader, baseline), step 2 (the plot, wired into Tune first behind a switch) and step 2b (seven energy shapes, a menu to force one) built 2026-10-31. Paul has not heard it. Notes are not yet picked by chord role (step 3).
 
 # Solo harmony: the chords tell the story (brief, step 1 built)
 
@@ -66,9 +66,34 @@ What changes when it is on: the random energy shape (`pickEnergy`) is not used. 
 | sounds like a tune (0.65+) | 93% | 93% |
 The climax comes much less often in the first 40% than the baseline (32%) because the old random shape often peaked early; real solos are around 55% in the first 30% (STUDY-SOLO), so the early chance may need to go up after listening.
 
+## Step 2b: seven shapes (built, `src/parts/soloplot.ts`)
+Why: the first plot always rose to one peak and fell (0% of solos had two crests, 0% held near the top). The old random shapes had waves, saw, steps, rising and falling; dropping them took the variety away.
+Switch: Track options, **Solo story shape** (`soloStoryShape`: Auto or one shape; an unknown value from an old link is Auto). Works with Solo story on.
+- **The shapes:** *arch* (up to one peak, then down), *rounds* (one wave a time through the chord loop, each crest higher, the last the main peak), *climb* (up, then stay up to the hand-over), *fall* (an early peak, then low), *valley* (high, drops, low, back up to the main peak), *level* (steady with one small lift), *steps* (hold, lift, hold; each lift ends a phrase).
+- **Auto picks by what the song says** (weights; the card says why): the base mix follows real solos (level, falling, rising, arch, dip, plus rounds and steps); the mood (triumphant climbs, dreamy and melancholic stay level or low, happy goes in rounds, angry and tense hold or step); the genre (metal and hard rock climb and step, grunge stays level or low, pop goes in rounds, funk level); the chord loop (2+ loops of 2+ bars: rounds twice as likely); the length (16+ bars: rounds, steps, valley more likely); the sections either side (after a quiet section: climb; into a bigger one: climb; into a quieter one: fall); the song's climax (climb, arch).
+- **Start and end levels** follow the neighbours: a solo after a quiet bridge starts lower, one going into a big chorus ends higher.
+- **Needs bars:** arch 4, climb 5, fall 6, level 6, rounds 6, valley 8, steps 8. A shorter solo falls back to arch (the card says so).
+- **Crests and cuts:** every crest is a bar a phrase ends on (the cut search is told them all). The main peak's phrase is the climax; the others are calls and answers whose energy is high.
+- **How far under the main peak the other phrases stay** (the writer's cap, was always 3 semitones): arch, fall, valley, rounds 3; steps 2; climb and level 1. And how much the main peak stands out: 1, except level 0.35 (its climax target goes up 2 semitones, not 5).
+- The card: `plot (arrive and soar; shape: rounds — triumphant, 3 loops of 4 bars): ... crests at the end of bars 4, 8, 12; energy ...`.
+
+### Numbers (111 solos, Auto)
+| shape | share | shows in the played energy | played height follows the plan (r) |
+|---|---|---|---|
+| fall | 21% | 100% | 0.67 |
+| rounds | 19% | 90% | 0.65 |
+| arch | 18% | 100% | 0.64 |
+| level | 17% | 100% | 0.28 (flat on purpose) |
+| valley | 10% | 100% | 0.49 |
+| climb | 10% | 100% | 0.68 |
+| steps | 5% | 100% | 0.76 |
+- Every shape forced by hand shows in 95-100% of the played energy, the climax sits on the main peak bar in 100%, and 84-95% still sound like a tune (level and steps 84%).
+- Level is 17% here against 38% of real solos (their measure is the pitch by quarter, ours the energy plan, so not the same ruler). It may need to go up after listening.
+- Climax in the first 40% of the solo: 32% (story off) -> 20% (story on); energy against the section's tension r 0.36 -> 0.45 (it was 0.80 with the one arch; the shapes now go their own way).
+
 ## Plan (each step behind a switch, Paul listens after step 3)
 1. Reader and baseline. **Done.**
-2. **Plot** (**done**): from the chord map (micro), the section tension across loops (macro: first loop states, then develops, peaks, releases) and the mood (what plot: arrive-and-soar, keep-asking, resolve-late, float). The peak goes on the place of strongest pull or arrival, not on the random wave. Each phrase gets an intent: ask, answer, push, peak, rest. Shown on the card.
+2. **Plot** (**done**, 2b shapes **done**): from the chord map (micro), the section tension across loops (macro: first loop states, then develops, peaks, releases) and the mood (what plot: arrive-and-soar, keep-asking, resolve-late, float). The peak goes on the place of strongest pull or arrival, not on the random wave. Each phrase gets an intent: ask, answer, push, peak, rest. Shown on the card.
 3. **Writer**: a flag on Tune first ("Story from chords"). Phrase cuts follow the chord turns; strong notes by role (tense chord: tension note, arrival: root or 3rd); the motif moves with the chords; the last phrase leads into the next section. The random energy curve is not used on this path.
 4. **Story score** next to the tune score (peak on a high-pull place, ends resolve where the chords resolve, the build follows the tension curve); best of 12 uses both.
 5. Later: quote the vocal hook at the start.
