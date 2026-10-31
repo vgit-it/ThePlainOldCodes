@@ -38,7 +38,12 @@ export function aimFor(mood: Mood, kind: string): VocalAim {
   return { steps: Math.max(0.35, Math.min(0.85, 1.05 - 0.14 * P.size)), leaps: Math.max(0.04, Math.min(0.3, 0.05 * (P.size - 1.5))), up: P.up, w: P.w, fill: P.fill };
 }
 
-export interface VocalTuneCtx { key: number; grid: BarGrid; chordAt: Chord[]; /** Left out: the same tune for every mood. */ aim?: VocalAim }
+/** The real-song parts' weights (docs/VOCAL-REAL.md): near the real share of repeated notes, of chord notes on strong beats, and of phrases peaking early. */
+export const VOCAL_REAL_WEIGHTS: Record<string, number> = { realSame: 2, realChord: 2, realPeak: 1 };
+/** What real vocal lines do (src/realism/targets.json, Lakh MIDI): repeated notes ~29% of moves, chord notes on ~69% of strong beats, ~59% of phrases peak in their first half. */
+export const REAL = { same: 0.29, chord: 0.69, peak: 0.59 };
+
+export interface VocalTuneCtx { key: number; grid: BarGrid; chordAt: Chord[]; /** Left out: the same tune for every mood. */ aim?: VocalAim; /** Also score how near the line is to real songs (VOCAL_REAL_WEIGHTS). */ real?: boolean }
 /** Each part, 0 (not a tune) to 1 (a tune); `score` is their weighted mean. */
 export interface VocalTune { notes: number; score: number; parts: Record<string, number> }
 
@@ -149,12 +154,20 @@ export function vocalTune(notes: BandNote[], phrases: Gap[], c: VocalTuneCtx): V
     same: clamp01((0.55 - sameNote) / 0.2),
     top: clamp01((1 - topPhrases) / 0.4),
   };
+  if (c.real) {
+    const strong = line.filter((x) => c.grid.isStrong(x.step));
+    // (the phrase's top note in its first half: where the first note with the top pitch starts, against the phrase's span)
+    const early = share(ph.filter((p) => { const hi = Math.max(...p.map((x) => x.midi)), a = p[0].step, z = p[p.length - 1].step + p[p.length - 1].len; return p.find((x) => x.midi === hi)!.step - a < (z - a) / 2; }).length, ph.length, REAL.peak);
+    parts.realSame = band(sameNote, REAL.same - 0.22, REAL.same - 0.06, REAL.same + 0.06, REAL.same + 0.22);
+    parts.realChord = band(share(strong.filter(toneAt).length, strong.length, REAL.chord), REAL.chord - 0.3, REAL.chord - 0.1, REAL.chord + 0.1, REAL.chord + 0.3);
+    parts.realPeak = band(early, REAL.peak - 0.3, REAL.peak - 0.1, REAL.peak + 0.1, REAL.peak + 0.3);
+  }
   if (aim) {
     parts.moodFit = clamp01((moodFit - 0.45) / 0.6);
     parts.size = band(leapShare, aim.leaps - 0.12, Math.max(0, aim.leaps - 0.05), aim.leaps + 0.05, aim.leaps + 0.14);
     parts.dir = band(upShare, aim.up - 0.25, aim.up - 0.1, aim.up + 0.1, aim.up + 0.25);
   }
-  const weights = aim ? { ...VOCAL_TUNE_WEIGHTS, ...VOCAL_MOOD_WEIGHTS } : VOCAL_TUNE_WEIGHTS;
+  const weights = { ...VOCAL_TUNE_WEIGHTS, ...(aim ? VOCAL_MOOD_WEIGHTS : {}), ...(c.real ? VOCAL_REAL_WEIGHTS : {}) };
   let wsum = 0, ssum = 0;
   for (const k of Object.keys(weights)) { wsum += weights[k]; ssum += weights[k] * clamp01(parts[k]); }
   return { notes: n, score: ssum / wsum, parts };

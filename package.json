@@ -53,6 +53,7 @@
     "vocal-skeleton-check": "rolldown scripts/vocal-skeleton-check.ts --platform node --format esm -o node_modules/.cache/vocal-skeleton-check.mjs && node node_modules/.cache/vocal-skeleton-check.mjs",
     "vocal-cells-check": "rolldown scripts/vocal-cells-check.ts --platform node --format esm -o node_modules/.cache/vocal-cells-check.mjs && node node_modules/.cache/vocal-cells-check.mjs",
     "vocal-final-check": "rolldown scripts/vocal-final-check.ts --platform node --format esm -o node_modules/.cache/vocal-final-check.mjs && node node_modules/.cache/vocal-final-check.mjs",
+    "vocal-real-check": "rolldown scripts/vocal-real-check.ts --platform node --format esm -o node_modules/.cache/vocal-real-check.mjs && node node_modules/.cache/vocal-real-check.mjs",
     "vocal-mood-check": "rolldown scripts/vocal-mood-check.ts --platform node --format esm -o node_modules/.cache/vocal-mood-check.mjs && node node_modules/.cache/vocal-mood-check.mjs",
     "vocal-tune-check": "rolldown scripts/vocal-tune-check.ts --platform node --format esm -o node_modules/.cache/vocal-tune-check.mjs && node node_modules/.cache/vocal-tune-check.mjs",
     "bass-vocal-check": "rolldown scripts/bass-vocal-check.ts --platform node --format esm -o node_modules/.cache/bass-vocal-check.mjs && node node_modules/.cache/bass-vocal-check.mjs",

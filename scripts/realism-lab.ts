@@ -30,7 +30,7 @@ const WRITERS = [
   ['shaped', { ...CLASSIC, vocalMelody: 'shaped' }], ['grid+shaped', { ...CLASSIC, vocalRhythm: 'grid', vocalMelody: 'shaped' }], ['words+shaped', { ...CLASSIC, vocalRhythm: 'words', vocalMelody: 'shaped' }],
   ['first', { ...CLASSIC, vocalMelody: 'first' }], ['grid+first', { ...CLASSIC, vocalRhythm: 'grid', vocalMelody: 'first' }], ['words+first', { ...CLASSIC, vocalRhythm: 'words', vocalMelody: 'first' }],
   ['learned', { ...CLASSIC, vocalMelody: 'learned' }], ['grid+learned', { ...CLASSIC, vocalRhythm: 'grid', vocalMelody: 'learned' }], ['words+learned', { ...CLASSIC, vocalRhythm: 'words', vocalMelody: 'learned' }],
-  ['verse', {}],
+  ['verse', {}], ['verse+walk', { vocalWalk: true }], ['verse+walk+pick', { vocalWalk: true, vocalTune: 12, vocalRealPick: true }],
 ] as const;
 const T = targets as unknown as Record<string, Profile>;
 

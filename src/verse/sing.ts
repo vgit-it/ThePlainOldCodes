@@ -122,7 +122,7 @@ export function writeSong(list: Idea[], o: SectionOptions): Map<Idea, SectionVoi
       k = 0;
       for (let v = 0; v < tries; v++) {
         const b = buildSection(master, o, accOf(master), undefined, verse, chorus, { self: v });
-        const s = vocalTune(b.notes, b.phrases, { key: master.song.key, grid: songGrid(master), chordAt: chordsOf(master), aim: aimFor(moodOf(master, o), kind) }).score;
+        const s = vocalTune(b.notes, b.phrases, { key: master.song.key, grid: songGrid(master), chordAt: chordsOf(master), aim: aimFor(moodOf(master, o), kind), real: !!o.emo?.realPick }).score;
         if (s > best + 1e-9) { best = s; k = v; }
       }
       picked.set(key, k);
