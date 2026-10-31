@@ -33,6 +33,17 @@ export interface FretNote {
   tremolo?: boolean;
   mute?: 'palm' | 'dead';
   rake?: number;
+  /** Lead guitar sounds (docs/GUITAR-SOUNDS.md): a pinch or natural harmonic, a whammy dive (semitones),
+   * feedback (semitones up), a pick scrape (16ths before the note). */
+  harm?: 'pinch' | 'natural';
+  dive?: number;
+  feedback?: number;
+  scrape?: number;
+  /** Held, then pushed up this many semitones; and the writer's bend dials (steps into the note, ms, shape). */
+  lateBend?: number;
+  bendAt?: number;
+  bendRise?: number;
+  bendEase?: number;
   /** Picked over the chord the rhythm guitarist holds (the fretting hand stays on the shape). */
   onHold?: boolean;
 }
@@ -182,6 +193,8 @@ function hitNotes(hits: GuitarHit[], base: number, shift: number, open: number[]
     if (h.bend) n.bend = h.bend;
     if (n.bend && n.grip === 'single') n.grip = 'bend';
     n.unbend = h.unbend; n.trill = h.trill; n.tremolo = h.tremolo; n.mute = h.mute ?? (h.chug ? 'palm' : undefined); n.rake = h.rake;
+    n.harm = h.harm; n.dive = h.dive; n.feedback = h.feedback; n.scrape = h.scrape;
+    n.lateBend = h.lateBend; n.bendAt = h.bendAt; n.bendRise = h.bendRise; n.bendEase = h.bendEase;
     if (h.vib !== undefined) n.vib = h.vib;
     return n;
   });

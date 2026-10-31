@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "recipe-lab": "vite --open /recipe-lab.html",
+    "band-sounds-check": "rolldown scripts/band-sounds-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/band-sounds-check.mjs && node node_modules/.cache/band-sounds-check.mjs",
     "guitar-sounds-check": "rolldown scripts/guitar-sounds-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/guitar-sounds-check.mjs && node node_modules/.cache/guitar-sounds-check.mjs",
     "solo-sounds-check": "rolldown scripts/solo-sounds-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/solo-sounds-check.mjs && node node_modules/.cache/solo-sounds-check.mjs",
     "wah-check": "rolldown scripts/wah-check.ts --no-code-splitting --platform node --format esm -o node_modules/.cache/wah-check.mjs && node node_modules/.cache/wah-check.mjs",
