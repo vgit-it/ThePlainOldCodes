@@ -25,7 +25,7 @@ import { type StoryIn, planPlot, plotEnergyAt } from './soloplot';
 import { type GapNote, findGaps, pickGaps } from './solomelody-gaps';
 import { BREATH_GENRE, BREATH_MOOD, type PlanOpts } from './soloplan';
 import { SOLO_MOOD, aimFor, moodScale } from './solomood';
-import { tuneScore } from './solotune';
+import { TUNE_PASS, tuneScore } from './solotune';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
@@ -33,6 +33,8 @@ const sign = (x: number) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 
 /** How many versions of a solo are written; the best as a tune is played. */
 export const TUNE_TRIES = 12;
+/** Story score: how far under the best tune score a version may be and still win on its story. */
+export const STORY_WINDOW = 0.05;
 /** Mood scale applies when this share of the solo sits on chords with no third. */
 export const MOOD_SCALE_BARE = 0.5;
 /** How much the mood's liking of a move counts against the rest of a note's cost. */
@@ -86,7 +88,7 @@ const TEMPLATES: Record<number, [Cell[], number][]> = {
   ],
 };
 
-export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean; story?: StoryIn | false; storyNotes?: boolean; hand?: number[] } = {}): Guitar2Part {
+export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean; story?: StoryIn | false; storyNotes?: boolean; hand?: number[]; storyScore?: boolean } = {}): Guitar2Part {
   // (`moody`, Solo mood: the mood's own character in the intervals, jumps, pace, colour notes and the score; docs/SOLO-MOOD.md)
   const tries = x.tries ?? TUNE_TRIES, moody = !!x.moody;
   const { key, bars, total } = song;
@@ -376,6 +378,8 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   };
 
   // ---- the whole solo, once
+  /** Story score (docs/SOLO-HARMONY.md, step 4): how well each version tells the plot, kept beside it (a version is a list of phrases). */
+  const storyOf = new WeakMap<Phrase[], number>();
   const compose = (r: Rng) => {
     const nB = bars.length;
     // phrases of 2, 3 or 4 bars
@@ -470,6 +474,31 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
       if (b.role === 'tense') return lean ? 0 : fifth ? 1.7 : root ? 2.8 : 3.5;
       if (p.role === 'answer' || p.role === 'end') return root ? 0.2 : third ? 0.3 : fifth ? 1.2 : 2.5;
       return third ? 0 : fifth ? 0.5 : root ? 1.8 : 2.5;
+    };
+    /**
+     * Story score (step 4): how well one version tells the plot, 0 to 1.
+     *  - the build: the bars' mean height follows the plot's energy;
+     *  - the peak: the solo's highest note is in the peak phrase, and the peak's strong note stands above the others' by the plot's gap;
+     *  - the ends: each phrase's strong note is what its chord asks for (the cost of Notes follow the chords, whether that switch is on or not).
+     */
+    const storyFit = (v: Phrase[]): number => {
+      const all = v.flatMap((p, i) => p.notes.map((n) => ({ step: n.step, midi: n.midi, i })));
+      const played = bars.map((b) => { const ns = all.filter((n) => n.step >= b.start && n.step < b.start + b.len); return ns.length ? ns.reduce((a, n) => a + n.midi, 0) / ns.length : NaN; });
+      const q = played.map((m, k) => (Number.isNaN(m) ? -1 : k)).filter((k) => k >= 0);
+      const a = q.map((k) => played[k]), e = q.map((k) => plot!.eBar[k]);
+      const ma = a.reduce((t, y) => t + y, 0) / Math.max(1, a.length), me = e.reduce((t, y) => t + y, 0) / Math.max(1, e.length);
+      let cv = 0, va = 0, ve = 0;
+      a.forEach((y, k) => { cv += (y - ma) * (e[k] - me); va += (y - ma) ** 2; ve += (e[k] - me) ** 2; });
+      // (a level plot has no build to follow: neutral)
+      const build = a.length >= 3 && va > 1e-9 && ve > 1e-9 ? clamp((cv / Math.sqrt(va * ve) - 0.1) / 0.7, 0, 1) : 0.5;
+      let peak = 1;
+      if (plot!.climax >= 0 && v.length > 1) {
+        const top = Math.max(...all.map((n) => n.midi));
+        const others = Math.max(...v.filter((_, i) => i !== plot!.climax).map((p) => p.goal));
+        peak = 0.5 * (all.some((n) => n.i === plot!.climax && n.midi === top) ? 1 : 0.3) + 0.5 * clamp((v[plot!.climax].goal - others) / Math.max(1, plot!.gap), 0, 1);
+      }
+      const ends = v.reduce((t, p) => t + Math.exp(-roleCost(p, p.goal) / 1.5), 0) / v.length;
+      return 0.4 * build + 0.3 * peak + 0.3 * ends;
     };
     const cands = (p: Phrase, cap: number): number[] => {
       const near = (m: number, w: number) => m >= 50 && m <= Math.min(86, cap) && m >= target(p) - w && m <= target(p) + w;
@@ -625,6 +654,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
       prevM = p.goal; lastIx = ixOf(p.goal); lastN = { step: p.goalStep, len: p.hold, m: p.goal };
       void pi;
     });
+    if (x.storyScore && plot && hmap) storyOf.set(ph, storyFit(ph));
     return ph;
   };
 
@@ -632,11 +662,18 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const seedBase = rng.next();
   const asHits = (ph: Phrase[]) => ph.flatMap((p) => p.notes).map((n) => ({ step: n.step, len: n.len, notes: [n.midi], strings: [0], vel: 0.8 }) as GuitarHit);
   const aim = moody ? aimFor(mood, profs[0].w) : undefined;
-  let bestPh: Phrase[] | null = null, bestScore = -1;
+  let bestPh: Phrase[] | null = null, bestScore = -1, bestStory = 0;
+  const tried: { ph: Phrase[]; s: number; st: number }[] = [];
   for (let k = 0; k < Math.max(1, tries); k++) {
     const ph = compose(new Rng(`tune-${seedBase}-${k}`));
-    const s = tuneScore(asHits(ph), { bars, key, chordAt: fit.chordAt }, aim).score;
-    if (s > bestScore + 1e-9) { bestScore = s; bestPh = ph; }
+    tried.push({ ph, s: tuneScore(asHits(ph), { bars, key, chordAt: fit.chordAt }, aim).score, st: storyOf.get(ph) ?? 0 });
+  }
+  const top = Math.max(...tried.map((t) => t.s));
+  // (Story score: among the versions that sound nearly as much like a tune as the best one, and pass as a tune if the best does, the one that tells the plot best)
+  const floor = x.storyScore ? Math.max(top - STORY_WINDOW, top >= TUNE_PASS ? TUNE_PASS : -1) : top;
+  for (const t of tried) {
+    if (t.s < floor - 1e-9) continue;
+    if (!bestPh || (x.storyScore ? t.st > bestStory + 1e-9 || (Math.abs(t.st - bestStory) <= 1e-9 && t.s > bestScore + 1e-9) : t.s > bestScore + 1e-9)) { bestPh = t.ph; bestScore = t.s; bestStory = t.st; }
   }
   const phrases = bestPh!;
 
@@ -668,6 +705,6 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const echoes = phrases.filter((p) => p.src >= 0).length;
   return {
     hits, curve,
-    notes: [`Guitar 2: a solo (tune first${moody ? `, ${mood} character` : ''}${plot ? ', story from chords' : ''}${roleNotes ? ', notes follow the chords' : ''}${x.hand?.length ? ', last note leads into the next chord' : ''}): ${shapeWord}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune (${bestScore.toFixed(2)})`, ...(plot ? plot.lines : [])],
+    notes: [`Guitar 2: a solo (tune first${moody ? `, ${mood} character` : ''}${plot ? ', story from chords' : ''}${roleNotes ? ', notes follow the chords' : ''}${x.hand?.length ? ', last note leads into the next chord' : ''}): ${shapeWord}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune${x.storyScore && plot ? ' and a story' : ''} (${bestScore.toFixed(2)}${x.storyScore && plot ? `, story ${bestStory.toFixed(2)}` : ''})`, ...(plot ? plot.lines : [])],
   };
 }

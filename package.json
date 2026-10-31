@@ -107,7 +107,8 @@
     "solo-harmony-check": "rolldown scripts/solo-harmony-check.ts --platform node --format esm -o node_modules/.cache/solo-harmony-check.mjs && node node_modules/.cache/solo-harmony-check.mjs",
     "solo-follow-check": "rolldown scripts/solo-follow-check.ts --platform node --format esm -o node_modules/.cache/solo-follow-check.mjs && node node_modules/.cache/solo-follow-check.mjs",
     "solo-notes-check": "rolldown scripts/solo-notes-check.ts --platform node --format esm -o node_modules/.cache/solo-notes-check.mjs && node node_modules/.cache/solo-notes-check.mjs",
-    "solo-hand-check": "rolldown scripts/solo-hand-check.ts --platform node --format esm -o node_modules/.cache/solo-hand-check.mjs && node node_modules/.cache/solo-hand-check.mjs"
+    "solo-hand-check": "rolldown scripts/solo-hand-check.ts --platform node --format esm -o node_modules/.cache/solo-hand-check.mjs && node node_modules/.cache/solo-hand-check.mjs",
+    "solo-story-score-check": "rolldown scripts/solo-story-score-check.ts --platform node --format esm -o node_modules/.cache/solo-story-score-check.mjs && node node_modules/.cache/solo-story-score-check.mjs"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",

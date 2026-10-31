@@ -1,4 +1,4 @@
-Status: step 1 (reader, baseline), step 2 (the plot, wired into Tune first behind a switch), step 2b (seven energy shapes, a menu to force one), the expression add-on step 3 (notes follow the chords) and step 3b (the last note leads into the next section), each behind its own switch, built 2026-10-31. Paul has not heard it.
+Status: step 1 (reader, baseline), step 2 (the plot, wired into Tune first behind a switch), step 2b (seven energy shapes, a menu to force one), the expression add-on step 3 (notes follow the chords) and step 3b (the last note leads into the next section) and step 4 (the story score), each behind its own switch, built 2026-10-31. Paul has not heard it.
 
 # Solo harmony: the chords tell the story (brief, step 1 built)
 
@@ -117,7 +117,7 @@ Numbers (120 solos, Solo story on, notes off → on):
 - Sounds like a tune: 0.76 → 0.76, 90% → 92% pass.
 - The plot (phrases, peak bar, shape) is the same in every solo; default unchanged; same seed, same notes.
 
-Not tried: a score that checks the story (step 4), tension notes inside phrases (only the strong notes are picked by role).
+Not tried: tension notes inside phrases (only the strong notes are picked by role).
 
 ## Step 3b: the last note leads into the next section (built, `hand` in `src/parts/solotunefirst.ts`, `handFor` in `src/track.ts`)
 Switch: Track options → **Last note leads into the next section** → On (`soloStoryHand: 'on'`). Needs Solo story on. Off by default; an old link plays as before. Works alone or with Notes follow the chords. Check: `npm run solo-hand-check`.
@@ -137,11 +137,33 @@ Numbers (120 solos, 96 with a section after; Solo story on):
 
 Not tried: the last note's length (real solos end short, half a beat, and lead on; here the note still rings through the next section's first bar), a run-up into the next chord's note.
 
+## Step 4: the story score (built, `storyFit` in `src/parts/solotunefirst.ts`)
+Switch: Track options → **Story score** → On (`soloStoryScore: 'on'`). Needs Solo story on. Off by default; an old link plays as before. Works alone or with the other two switches. Check: `npm run solo-story-score-check`.
+
+Tune first writes twelve versions and played the one that sounds most like a tune. The plot is the same for all twelve (it is made once), so the versions differ only in their notes. With this switch the pick also asks which version tells the plot best:
+- **Which versions can win:** the ones within 0.05 of the best tune score (`STORY_WINDOW`), and, if the best passes as a tune, only ones that pass. So the tune never gets worse than 0.05 and a solo that passed still passes.
+- **The story score (0 to 1):**
+  - 40% the build: the bars' mean height follows the plot's energy (a level plot is neutral);
+  - 30% the peak: the solo's highest note is in the peak phrase, and the peak's strong note stands above the other phrases' by the plot's gap;
+  - 30% the ends: each phrase's strong note is what its chord asks for (the same cost as Notes follow the chords, whether that switch is on or not).
+- Nothing else changes: the plot, the cells, the rhythm. The card says "the best of 12 as a tune and a story (0.78, story 0.71)".
+
+Numbers (120 solos, Solo story on, off → on; the effect is small, it only chooses among twelve versions):
+- Height follows the plot (r): 0.65 → 0.68 (with Notes follow the chords: 0.65 → 0.68).
+- The highest note is in the peak phrase: 83% → 91% (86% → 92% with notes).
+- Calls on a chord that wants to move lean: 53% → 59% (74% → 76% with notes). Answers on home on the root or 3rd: 81% → 80% (82% with notes).
+- Peak above the others: 7.8 → 7.8 semitones (the plot sets that gap).
+- Sounds like a tune: 0.83 → 0.82, 98% → 98% pass.
+- With Solo mood on the writer ranks by a mood-aware tune score the check does not know, so the unaided figure drifts more (0.76 → 0.74, 90% → 86% pass); the writer's own score stays within 0.05 of its best.
+- The plot is the same in every solo; default unchanged 96/96; same seed, same notes.
+
+Not tried: more than twelve versions when the story score is on (more choice, more time), a story score for the expression pass, the hook quote (step 5).
+
 ## Plan (each step behind a switch, Paul listens after step 3)
 1. Reader and baseline. **Done.**
 2. **Plot** (**done**, 2b shapes **done**): from the chord map (micro), the section tension across loops (macro: first loop states, then develops, peaks, releases) and the mood (what plot: arrive-and-soar, keep-asking, resolve-late, float). The peak goes on the place of strongest pull or arrival, not on the random wave. Each phrase gets an intent: ask, answer, push, peak, rest. Shown on the card.
 3. **Writer** (**done**: the switch Notes follow the chords, and the switch Last note leads into the next section): a flag on Tune first ("Story from chords"). Phrase cuts follow the chord turns; strong notes by role (tense chord: tension note, arrival: root or 3rd); the motif moves with the chords; the last phrase leads into the next section. The random energy curve is not used on this path.
-4. **Story score** next to the tune score (peak on a high-pull place, ends resolve where the chords resolve, the build follows the tension curve); best of 12 uses both.
+4. **Story score** (**done**, as the switch Story score) next to the tune score (the build follows the plot's energy, the peak stands out, ends fit their chords); the best of 12 uses both.
 5. Later: quote the vocal hook at the start.
 
 Caution: the score is a proxy; Paul's ear decides.
