@@ -84,6 +84,8 @@ export interface TrackOptions {
   soloStory?: 'on' | 'off';
   /** With Solo story: the shape of the energy, picked by the song (auto) or chosen (docs/SOLO-HARMONY.md). */
   soloStoryShape?: ShapeChoice;
+  /** With Solo story and Solo expression: the expression follows the story's energy (quick notes, bends and breaths rise and fall with it; docs/SOLO-EXPRESSION-FOLLOW.md). Missing in older links: off. */
+  soloStoryFollow?: 'on' | 'off';
   /** Mood song (docs/MOOD-SONG.md): the song's mode and/or its tempo and drum feel follow the mood chosen (not on Auto). Missing in older links: off. */
   moodSong?: 'off' | 'tempo' | 'mode' | 'both';
   /** Mood riff (docs/MOOD-RIFF.md): the mood picks the riff styles (sad: single notes, arpeggios, low pedal; bold: gallops, big chords) and a major key's riff takes the major 3rd. Missing in older links: off. */
@@ -547,7 +549,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     performSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind, breath: opts.soloBreath === 'on' || coreOn || tuneFirst, grid: opts.soloGrid === 'on' || coreOn || tuneFirst, light: coreOn || tuneFirst }, play ? LIVE_RULES : NO_RULES);
   // Solo expression (docs/SOLO-EXPRESSION.md): the Tune first melody played again in windows, bent and held, run and breathed
   const expressTune = (sol: Guitar2Part, seed: string, idea: Idea, mood: Mood, tension: number[]): Guitar2Part =>
-    expressSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind }, { dials: opts.soloBends === 'dials', recast: opts.soloRecast === 'on', echo: opts.soloEcho === 'on', amount: opts.soloAmount === 'light' || opts.soloAmount === 'full' ? opts.soloAmount : 'normal' });
+    expressSolo(sol, { seed, band: bandSeed, song: idea.song, chords: idea.chords, lead, hands: leadHands(bandSeed, lead), mood, tension, drums: idea.drums, energy: idea.section!.energy, kind: idea.section!.kind }, { dials: opts.soloBends === 'dials', recast: opts.soloRecast === 'on', echo: opts.soloEcho === 'on', follow: opts.soloStory === 'on' && opts.soloStoryFollow === 'on', amount: opts.soloAmount === 'light' || opts.soloAmount === 'full' ? opts.soloAmount : 'normal' });
   // Lead guitar sounds (docs/SOLO-SOUNDS.md): harmonics, dives, feedback and a pick scrape put on the finished solo (its own seed: nothing else changes)
   // (the amp is the section's own Guitar 2 sound, as on Auto; `before` and `after` are the sections either side)
   const withSounds = (sol: Guitar2Part, seed: string, idea: Idea, lick: LickKind, intensity: number, solo: boolean, said: string[], si: number): Guitar2Part => {

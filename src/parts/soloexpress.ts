@@ -32,6 +32,9 @@ export const KEEP_MIN = 0.6;
 export const AMOUNTS = { light: 0.35, normal: 1, full: 1.5 } as const;
 /** At this tempo (bpm) and under, runs of 32nds are fine. Above it 32nds come only as a pair at the start or the end of a run of 16ths (the hands can't fly through them). */
 export const FREE_32_BPM = 100;
+/** Follow the story (Solo story + Expression follows story): how hard the heat is pulled by the energy, and the weight of "the quick notes follow the energy" in the plan's score. */
+export const FOLLOW_PULL = 0.5;
+export const FOLLOW_SCORE = 0.3;
 /** The palm-muted burst of 32nds (a bar or two): how much each genre and mood is up for it. Rare everywhere; in hard rock very rare, never in pop or funk. */
 const BURST_G: Record<string, number> = { metal: 0.9, altmetal: 0.5, hardrock: 0.1, grunge: 0.05, rock: 0.03, pop: 0, funk: 0 };
 const BURST_M: Record<string, number> = { angry: 1, tense: 0.75, dark: 0.6, triumphant: 0.5, happy: 0.15, nostalgic: 0.08, melancholic: 0.04, dreamy: 0.04 };
@@ -107,7 +110,7 @@ const KINDS: Record<Pattern, ('hold' | 'run')[]> = {
 /** What one try came to, for the score and the card. */
 export interface Try { wins: Win[]; events: PEvent[][]; score: number; keep: number }
 
-export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number; dials?: boolean; recast?: boolean; echo?: boolean; amount?: keyof typeof AMOUNTS } = {}): Guitar2Part {
+export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number; dials?: boolean; recast?: boolean; echo?: boolean; follow?: boolean; amount?: keyof typeof AMOUNTS } = {}): Guitar2Part {
   const { events: ev0, notes } = readBase(base.hits, base.curve);
   if (notes.length < 4) return base;
   const { song } = c;
@@ -121,6 +124,10 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   const tuning = (song.tuning ?? TUNINGS.standard).strings;
   const { pcs: scalePcs } = scaleOf(song);
   const energyAt = (t: number) => base.curve?.energy?.[Math.min(song.total - 1, Math.max(0, Math.floor(t)))] ?? 0;
+  // (Follow the story, docs/SOLO-EXPRESSION-FOLLOW.md: the solo's own energy from 0 (its quietest) to 1 (its crest), whatever its range)
+  const follow = !!o.follow && !!base.curve?.energy;
+  const eMin = follow ? Math.min(...base.curve!.energy!) : 0, eSpan = follow ? Math.max(...base.curve!.energy!) - eMin : 0;
+  const relE = (t: number) => (eSpan > 0.05 ? clamp((energyAt(t) - eMin) / eSpan, 0, 1) : 0.5);
   const barIx = (t: number) => { for (let i = song.bars.length - 1; i >= 0; i--) if (t >= song.bars[i].start - 1e-6) return i; return 0; };
   const chordAt = (t: number) => (c.chords ? c.chords.timeline[c.chords.chordIdx[Math.min(song.total - 1, Math.max(0, Math.floor(t + 1e-6)))]]?.chord : undefined);
   const cSteps = (c.chords?.timeline ?? []).map((e) => e.step);
@@ -166,9 +173,11 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       const n = notes[i];
       const e01 = (energyAt(n.t) + 1) / 2;
       // the heat drifts toward what the solo's energy and the player's fire say, and now and then jumps
-      const target = clamp(T.fire + 0.55 * (e01 - 0.5), 0, 1);
-      heat = clamp(heat + 0.35 * (target - heat) + gauss(r) * 0.12 * (0.5 + T.contrast), 0, 1);
-      if (r.chance(0.07 * (0.4 + T.contrast))) heat = clamp(heat + (r.chance(0.55) ? 1 : -1) * (0.25 + 0.2 * r.next()), 0, 1);
+      // (following the story: the pull on the heat is stronger, the dice noisier less, and a jump goes the way the energy goes)
+      const eRel = relE(n.t);
+      const target = follow ? clamp(T.fire + FOLLOW_PULL * (eRel - 0.5), 0, 1) : clamp(T.fire + 0.55 * (e01 - 0.5), 0, 1);
+      heat = clamp(heat + (follow ? 0.6 : 0.35) * (target - heat) + gauss(r) * 0.12 * (0.5 + T.contrast) * (follow ? 0.6 : 1), 0, 1);
+      if (r.chance(0.07 * (0.4 + T.contrast))) heat = clamp(heat + (follow ? (eRel > 0.5 ? 1 : -1) : (r.chance(0.55) ? 1 : -1)) * (0.25 + 0.2 * r.next()), 0, 1);
       // the burst: once in a solo that is up for it, at a hot high-energy spot, a bar or two of palm-muted notes; it stops short of a goal note
       if (burstOn && !burstDone && !isGoal(n) && i >= 2 && heat >= 0.6 && e01 >= 0.55 && r.chance(0.45)) {
         const want = (r.chance(0.55) ? 1 : 2) * (song.bars[barIx(n.t)]?.len ?? 16);
@@ -204,7 +213,8 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
       const frozenish = isGoal(n) || n.len < 2;
       const wt: [Pattern, number][] = [
         ['plain', (0.7 + 0.5 * (1 - T.fire)) / Math.pow(amt, 2)],
-        ['decor', n.len >= 3 ? holdLike * 0.6 : 0],
+        // (a held goal note at a high point is dressed, not left bare: vibrato, and a bend where it fits)
+        ['decor', n.len >= 3 ? (follow && isGoal(n) ? 1 + 3 * eRel * eRel : holdLike * 0.6) : 0],
         ['hold+run', !frozenish && W >= 4 ? 0.9 * both : 0],
         ['run+hold', !frozenish && W >= 4 ? 0.7 * both : 0],
         ['run', !frozenish && W >= 2 ? 0.8 * runLike : 0],
@@ -576,7 +586,17 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
     let fl = 0, rel = 0;
     f.forEach((x, k) => { if (x.fast >= 6) { fl++; if (f.slice(k, k + 3).some((y) => y.holdSteps >= 4)) rel++; } });
     const reliefS = fl ? rel / fl : 0.8;
-    const s = 0.25 * contrastS + 0.25 * mixedS + 0.2 * regularS + 0.1 * varietyS + 0.2 * reliefS + (burstOn && wins.some((w) => w.pattern === 'burst') ? 0.15 : 0) - (keep < keepMin ? 1 : 0) - (changedShare < 0.25 * Math.min(1, amt * amt) ? 0.5 : 0);
+    // following the story: the quick notes of a bar rise and fall with the bar's energy
+    let followS = 0;
+    if (follow && song.bars.length >= 4) {
+      const eb = song.bars.map((b) => { let a = 0; for (let g = b.start; g < b.start + b.len; g++) a += energyAt(g); return a / b.len; });
+      const m = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+      const ma = m(barFast), mb = m(eb);
+      let sab = 0, saa = 0, sbb = 0;
+      for (let i = 0; i < eb.length; i++) { sab += (barFast[i] - ma) * (eb[i] - mb); saa += (barFast[i] - ma) ** 2; sbb += (eb[i] - mb) ** 2; }
+      followS = FOLLOW_SCORE * clamp(((saa && sbb ? sab / Math.sqrt(saa * sbb) : 0) + 0.2) / 0.8, 0, 1);
+    }
+    const s = followS + 0.25 * contrastS + 0.25 * mixedS + (follow ? 0.4 : 0.2) * regularS + 0.1 * varietyS + 0.2 * reliefS + (burstOn && wins.some((w) => w.pattern === 'burst') ? 0.15 : 0) - (keep < keepMin ? 1 : 0) - (changedShare < 0.25 * Math.min(1, amt * amt) ? 0.5 : 0);
     return { score: s, keep };
   };
 
@@ -983,7 +1003,7 @@ export function expressSolo(base: Guitar2Part, c: PlayerCtx, o: { tries?: number
   const fine = hits.some((h) => h.shift || h.exact);
   return {
     hits,
-    notes: [...base.notes, `Solo expression (${words}${amt < 1 ? ', light' : amt > 1 ? ', full' : ''}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were${slid ? `; ${slid} slides from note to note` : ''}${o.dials ? `; ${dialed} bends with their own speed and shape` : ''}${o.recast ? `; recast: ${recastWords()}` : ''}${o.echo ? `; echo: ${echoWords()}` : ''}`],
+    notes: [...base.notes, `Solo expression (${words}${amt < 1 ? ', light' : amt > 1 ? ', full' : ''}${follow ? ', follows the story' : ''}): ${changed.length} of ${chosen.wins.length} windows played another way (${[...tally].map(([k, n]) => `${k} ${n}`).join(', ') || 'none'}); ${Math.round(keep * 100)}% of the tune's notes kept where they were${slid ? `; ${slid} slides from note to note` : ''}${o.dials ? `; ${dialed} bends with their own speed and shape` : ''}${o.recast ? `; recast: ${recastWords()}` : ''}${o.echo ? `; echo: ${echoWords()}` : ''}`],
     curve: base.curve ? { ...base.curve, express: chosen.wins.map((w) => ({ t0: w.t0, t1: w.t1, pattern: w.pattern, heat: Math.round(w.heat * 100) / 100 })), ...(echoed.size ? { echo: [...echoed].map(([q, x]) => ({ from: chosen.wins[x.from].t0, fromEnd: chosen.wins[x.from].t1, t0: chosen.wins[q].t0, t1: chosen.wins[q].t1, via: x.via })) } : {}), ...(fine ? { fine: true } : {}) } : undefined,
   };
 }
