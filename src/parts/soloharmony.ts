@@ -107,14 +107,16 @@ export const beatAt = (m: HarmonyMap, g: number): HarmonyBeat => {
 
 const ROMAN = ['I', 'bII', 'II', 'bIII', 'III', 'IV', '#IV', 'V', 'bVI', 'VI', 'bVII', 'VII'];
 
+/** A chord as a numeral: `I`, `vi`, `V`, `bVII5`. */
+export function chordName(b: HarmonyBeat): string {
+  const minorQ = ['min', 'm7', 'm9', 'dim', 'm7b5'].includes(b.chord.q);
+  const r = ROMAN[b.chord.root % 12];
+  return `${minorQ ? r.toLowerCase() : r}${b.chord.q === '5' ? '5' : ''}`;
+}
+
 /** One line for the card: `I home → vi rest → IV away → V tense ⇒ I arrives`. */
 export function harmonyLine(m: HarmonyMap): string {
-  const name = (b: HarmonyBeat) => {
-    const minorQ = ['min', 'm7', 'm9', 'dim', 'm7b5'].includes(b.chord.q);
-    const r = ROMAN[b.chord.root % 12];
-    return `${minorQ ? r.toLowerCase() : r}${b.chord.q === '5' ? '5' : ''}`;
-  };
-  const parts = m.beats.map((b) => `${name(b)} ${b.arrival ? 'arrives' : b.twist ? 'twist' : b.role}`);
+  const parts = m.beats.map((b) => `${chordName(b)} ${b.arrival ? 'arrives' : b.twist ? 'twist' : b.role}`);
   // (a loop shows once)
   const shown = m.loop ? m.beats.filter((b) => b.step < m.loop).map((b) => parts[m.beats.indexOf(b)]) : parts.slice(0, 12);
   return `${shown.join(' → ')}${m.loop ? ` (loops ${m.loops}x)` : parts.length > 12 ? ' …' : ''}${m.endsOpen ? ', ends open' : ''}`;

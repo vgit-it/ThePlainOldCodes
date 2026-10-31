@@ -78,6 +78,8 @@ export interface TrackOptions {
   soloMood?: 'on' | 'off';
   /** Tune first with Solo mood: the mood turns the scale's 3rd and 6th over chords with no third (missing in older links: off). */
   soloMoodScale?: 'on' | 'off';
+  /** Tune first: the plot comes from the chords, the section's tension and the mood, not a random energy shape (docs/SOLO-HARMONY.md). */
+  soloStory?: 'on' | 'off';
   /** Mood song (docs/MOOD-SONG.md): the song's mode and/or its tempo and drum feel follow the mood chosen (not on Auto). Missing in older links: off. */
   moodSong?: 'off' | 'tempo' | 'mode' | 'both';
   /** Mood riff (docs/MOOD-RIFF.md): the mood picks the riff styles (sad: single notes, arpeggios, low pedal; bold: gallops, big chords) and a major key's riff takes the major 3rd. Missing in older links: off. */
@@ -707,7 +709,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     // A short melodic solo, quoting the hook, lower and sparer than a full one (a lead break, or a lead line in a bridge or breakdown)
     const writeBreakSolo = (tag: string) => {
       let sol = tuneFirst
-        ? generateSoloTune(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on' })
+        ? generateSoloTune(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on', story: opts.soloStory === 'on' })
         : melody
         ? generateSoloMelody(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(isCoreMode(opts.soloCores) ? { cores: opts.soloCores, ...(opts.soloClimax === 'on' ? { climax: 'played' as const } : {}) } : {}) }, melody.mode)
         : opts.soloPlan === 'on'
@@ -759,7 +761,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
       const intensity = si === arc.climax ? 1 : Math.max(0, Math.min(1, (tt.reduce((a, b) => a + b, 0) / tt.length - MP.base) / Math.max(0.1, MP.peak - MP.base)));
       const soloHook = s.kind === 'solo' && soloOverChorus && hook.length ? hook : null;
       let sol = tuneFirst
-        ? generateSoloTune(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, intensity, { mood: arc.mood, tension: tt, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on' })
+        ? generateSoloTune(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, intensity, { mood: arc.mood, tension: tt, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on', story: opts.soloStory === 'on' })
         : melody
         ? generateSoloMelody(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity, { mood: arc.mood, tension: tt, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(isCoreMode(opts.soloCores) ? { cores: opts.soloCores, ...(opts.soloClimax === 'on' ? { climax: 'played' as const } : {}) } : {}) }, melody.mode)
         : opts.soloPlan === 'on'
@@ -773,7 +775,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
       idea.soloCurve = sol.curve;
       idea.section!.solo = true;
       g2 = sol.notes[0];
-      if (melody && coreOn || tuneFirst && opts.soloExpress === 'on') g2more = sol.notes.slice(1);
+      if (melody && coreOn || tuneFirst && (opts.soloExpress === 'on' || opts.soloStory === 'on')) g2more = sol.notes.slice(1);
       if (s.kind === 'solo') notes.push(`Guitar solo, ${idea.song.bars.length} bars over the ${soloOverChorus ? 'chorus' : 'verse'} chords; the rhythm guitar backs off`);
       else notes.push('Guitar 2 solos over the outro');
     } else if (s.g2 === 'break') {
