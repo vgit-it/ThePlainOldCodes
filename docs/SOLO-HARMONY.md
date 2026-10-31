@@ -91,6 +91,9 @@ Switch: Track options, **Solo story shape** (`soloStoryShape`: Auto or one shape
 - Level is 17% here against 38% of real solos (their measure is the pitch by quarter, ours the energy plan, so not the same ruler). It may need to go up after listening.
 - Climax in the first 40% of the solo: 32% (story off) -> 20% (story on); energy against the section's tension r 0.36 -> 0.45 (it was 0.80 with the one arch; the shapes now go their own way).
 
+## Expression follows the story (2026-10-31)
+Solo expression now has a switch to play the story's energy: `SOLO-EXPRESSION-FOLLOW.md`.
+
 ## Plan (each step behind a switch, Paul listens after step 3)
 1. Reader and baseline. **Done.**
 2. **Plot** (**done**, 2b shapes **done**): from the chord map (micro), the section tension across loops (macro: first loop states, then develops, peaks, releases) and the mood (what plot: arrive-and-soar, keep-asking, resolve-late, float). The peak goes on the place of strongest pull or arrival, not on the random wave. Each phrase gets an intent: ask, answer, push, peak, rest. Shown on the card.
