@@ -86,7 +86,7 @@ const TEMPLATES: Record<number, [Cell[], number][]> = {
   ],
 };
 
-export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean; story?: StoryIn | false; storyNotes?: boolean } = {}): Guitar2Part {
+export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean; story?: StoryIn | false; storyNotes?: boolean; hand?: number[] } = {}): Guitar2Part {
   // (`moody`, Solo mood: the mood's own character in the intervals, jumps, pace, colour notes and the score; docs/SOLO-MOOD.md)
   const tries = x.tries ?? TUNE_TRIES, moody = !!x.moody;
   const { key, bars, total } = song;
@@ -444,6 +444,17 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     // (Solo mood: an open ending may land on a colour note, the 9th or the 6th, where one chord sounds under the whole hold)
     const wantColour = ph.map((p) => moody && p.role === 'call' && r.chance(PM.colourGoal));
     const target = (p: Phrase) => centerAt(p.goalStep) + (p.role === 'climax' ? 5 * (plot ? plot.prom : 1) : p.role === 'call' ? 1.5 : p.role === 'answer' ? -1.5 : -2);
+    /**
+     * Hand-over (docs/SOLO-HARMONY.md, step 3b): the last note rings on into the next section's first chord, so it is picked to be a note of that
+     * chord, or a semitone from one (the bend at the bar line, `carrySolo`, then has little to travel). `hand` is that chord's notes, as pitch classes.
+     */
+    const lastPh = ph[ph.length - 1];
+    const handCost = (p: Phrase, m: number): number => {
+      if (!x.hand?.length || p !== lastPh) return 0;
+      let near = 6;
+      for (const t of x.hand) { const d = mod(m - t, 12); near = Math.min(near, d, 12 - d); }
+      return near === 0 ? 0 : near === 1 ? 0.8 : near === 2 ? 2 : near === 3 ? 3 : 3.6;
+    };
     /** The chord a phrase's strong note ends on. */
     const endBeat = (p: Phrase) => beatAt(hmap!, clamp(p.goalStep + p.hold - p.rest - 1, 0, total - 1));
     /**
@@ -463,7 +474,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     const cands = (p: Phrase, cap: number): number[] => {
       const near = (m: number, w: number) => m >= 50 && m <= Math.min(86, cap) && m >= target(p) - w && m <= target(p) + w;
       // (Notes follow the chords: the last note still rests on the root, unless its chord wants to move on)
-      if (p.role === 'end' && (!roleNotes || (endBeat(p).role !== 'tense' && !endBeat(p).twist))) {
+      if (p.role === 'end' && !(x.hand?.length && p === lastPh) && (!roleNotes || (endBeat(p).role !== 'tense' && !endBeat(p).twist))) {
         const root = ladder.filter((m) => near(m, 12) && mod(m - chordPc(key, fit.chordAt(p.goalStep)), 12) === 0 && coreOver(m, p.goalStep, p.hold));
         if (root.length) return root;
       }
@@ -482,7 +493,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     let capAll = 86;
     if (climaxAt >= 0 && ph.length > 1) {
       // (Notes follow the chords: among the notes near the peak's height, the one its chord asks for)
-      const distCost = (m: number) => Math.abs(m - target(ph[climaxAt])) * (roleNotes ? 0.45 : 1) + (roleNotes ? roleCost(ph[climaxAt], m) : 0);
+      const distCost = (m: number) => Math.abs(m - target(ph[climaxAt])) * (roleNotes ? 0.45 : 1) + (roleNotes ? roleCost(ph[climaxAt], m) : 0) + handCost(ph[climaxAt], m);
       const top = cands(ph[climaxAt], 86).reduce((b, m) => (distCost(m) < distCost(b) ? m : b));
       ph[climaxAt].goal = top;
       capAll = top - (plot ? plot.gap : 3);
@@ -491,6 +502,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
       let c = 0.45 * Math.abs(m - target(p));
       const rootPc = chordPc(key, fit.chordAt(p.goalStep));
       if (moody && !isCore(m, p.goalStep)) c -= 2.5 * (PM.colour[mod(m - rootPc, 12)] ?? 0);
+      c += handCost(p, m);
       if (roleNotes) return c + roleCost(p, m);
       if (p.role === 'answer' || p.role === 'end') c += mod(m - rootPc, 12) === 0 ? 0 : 2.5; else if (p.role === 'call') c += mod(m - rootPc, 12) === 0 ? 1.8 : 0;
       return c;
@@ -656,6 +668,6 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const echoes = phrases.filter((p) => p.src >= 0).length;
   return {
     hits, curve,
-    notes: [`Guitar 2: a solo (tune first${moody ? `, ${mood} character` : ''}${plot ? ', story from chords' : ''}${roleNotes ? ', notes follow the chords' : ''}): ${shapeWord}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune (${bestScore.toFixed(2)})`, ...(plot ? plot.lines : [])],
+    notes: [`Guitar 2: a solo (tune first${moody ? `, ${mood} character` : ''}${plot ? ', story from chords' : ''}${roleNotes ? ', notes follow the chords' : ''}${x.hand?.length ? ', last note leads into the next chord' : ''}): ${shapeWord}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune (${bestScore.toFixed(2)})`, ...(plot ? plot.lines : [])],
   };
 }

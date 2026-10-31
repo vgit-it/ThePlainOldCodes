@@ -463,6 +463,7 @@ const optSel = {
   soloStoryShape: $<HTMLSelectElement>('t-solostoryshape'),
   soloStoryFollow: $<HTMLSelectElement>('t-solostoryfollow'),
   soloStoryNotes: $<HTMLSelectElement>('t-solostorynotes'),
+  soloStoryHand: $<HTMLSelectElement>('t-solostoryhand'),
   soloSounds: $<HTMLSelectElement>('t-solosounds'),
   wah: $<HTMLSelectElement>('t-wah'),
   soloCores: $<HTMLSelectElement>('t-solocores'),
@@ -511,6 +512,8 @@ function syncTrackOptions() {
   optSel.soloStoryShape.disabled = track.opts.soloStory !== 'on';
   optSel.soloStoryNotes.value = track.opts.soloStoryNotes === 'on' ? 'on' : 'off';
   optSel.soloStoryNotes.disabled = track.opts.soloStory !== 'on';
+  optSel.soloStoryHand.value = track.opts.soloStoryHand === 'on' ? 'on' : 'off';
+  optSel.soloStoryHand.disabled = track.opts.soloStory !== 'on';
   optSel.soloStoryFollow.value = track.opts.soloStoryFollow === 'on' ? 'on' : 'off';
   optSel.soloStoryFollow.disabled = track.opts.soloStory !== 'on' || track.opts.soloExpress !== 'on';
   optSel.soloSounds.value = track.opts.soloSounds === 'on' ? 'on' : 'off';
@@ -540,7 +543,7 @@ for (const [k, sel] of Object.entries(optSel)) {
     if (k === 'soloVary') return rebuildTrack({ ...track.opts, soloVary: sel.value === 'on' ? 'on' : 'off' }, shown, true);
     if (k === 'soloBacking') return rebuildTrack({ ...track.opts, soloBacking: sel.value === 'held' ? 'held' : 'written' }, shown, true);
     if (k === 'moodSong') return rebuildTrack({ ...track.opts, moodSong: sel.value as TrackOptions['moodSong'] }, shown, true);
-    if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax' || k === 'soloPolish' || k === 'soloShape' || k === 'soloExpress' || k === 'soloMood' || k === 'soloMoodScale' || k === 'soloStory' || k === 'soloStoryFollow' || k === 'soloStoryNotes' || k === 'soloSounds') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
+    if (k === 'soloMotif' || k === 'soloBreath' || k === 'soloGrid' || k === 'soloClimax' || k === 'soloPolish' || k === 'soloShape' || k === 'soloExpress' || k === 'soloMood' || k === 'soloMoodScale' || k === 'soloStory' || k === 'soloStoryFollow' || k === 'soloStoryNotes' || k === 'soloStoryHand' || k === 'soloSounds') return rebuildTrack({ ...track.opts, [k]: sel.value as 'on' | 'off' }, shown, true);
     if (k === 'soloStoryShape') return rebuildTrack({ ...track.opts, soloStoryShape: isShapeChoice(sel.value) ? sel.value : 'auto' }, shown, true);
     if (k === 'wah') return rebuildTrack({ ...track.opts, wah: sel.value as 'on' | 'off' | 'subtle' | 'strong' }, shown, true);
     const opts: TrackOptions = { ...track.opts, order: undefined };

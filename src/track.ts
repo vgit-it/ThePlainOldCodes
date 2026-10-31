@@ -88,6 +88,8 @@ export interface TrackOptions {
   soloStoryFollow?: 'on' | 'off';
   /** With Solo story: each phrase's strong note is picked for the chord it lands on (a note that leans on a chord that wants to move, a root or 3rd on a place to rest), and a phrase one chord loop later plays the figure again (docs/SOLO-HARMONY.md step 3). Missing in older links: off. */
   soloStoryNotes?: 'on' | 'off';
+  /** With Solo story: the solo's last note is picked to be a note of the next section's first chord, or a semitone from one (docs/SOLO-HARMONY.md step 3b). Missing in older links: off. */
+  soloStoryHand?: 'on' | 'off';
   /** Mood song (docs/MOOD-SONG.md): the song's mode and/or its tempo and drum feel follow the mood chosen (not on Auto). Missing in older links: off. */
   moodSong?: 'off' | 'tempo' | 'mode' | 'both';
   /** Mood riff (docs/MOOD-RIFF.md): the mood picks the riff styles (sad: single notes, arpeggios, low pedal; bold: gallops, big chords) and a major key's riff takes the major 3rd. Missing in older links: off. */
@@ -656,6 +658,13 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
   const keyUp = opts.keyChange === 'off' || !canChange && opts.keyChange !== 'on' ? 0
     : opts.keyChange === 'on' || (keyRoll && (genre !== 'hardrock' || rng.chance(0.6))) ? (genre === 'pop' && rng.chance(0.5) ? 1 : 2) : 0;
   const finalAt = slots.findIndex((s) => s.final);
+  // (Solo story, hand-over: the notes of the next section's first chord, as pitch classes in this solo's own key; the last chorus goes up a key)
+  const handFor = (i: number): number[] | undefined => {
+    const nx = slots[i + 1]?.segs[0]?.idea;
+    if (opts.soloStory !== 'on' || opts.soloStoryHand !== 'on' || !nx) return undefined;
+    const up = keyUp && finalAt >= 0 && i + 1 >= finalAt && i < finalAt ? keyUp : 0;
+    return chordTones(nx.song.key, nx.chords.timeline[0].chord).map((t) => (t + up) % 12);
+  };
 
   // instruments: one sound per part all song, sometimes one featured section (see orchestrate)
   const soundList = slots.map((s) => ({ kind: s.kind, energy: s.energy, final: s.final, intro: s.intro, hook: s.g2 === 'hook' }));
@@ -725,7 +734,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
     // A short melodic solo, quoting the hook, lower and sparer than a full one (a lead break, or a lead line in a bridge or breakdown)
     const writeBreakSolo = (tag: string) => {
       let sol = tuneFirst
-        ? generateSoloTune(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on', story: storyFor(si), storyNotes: opts.soloStory === 'on' && opts.soloStoryNotes === 'on' })
+        ? generateSoloTune(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on', story: storyFor(si), storyNotes: opts.soloStory === 'on' && opts.soloStoryNotes === 'on', hand: handFor(si) })
         : melody
         ? generateSoloMelody(new Rng(`${soloSeed}-${tag}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, hook.length ? hook : null, 0.3, { mood: arc.mood, tension: arc.sections[si].tension, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(isCoreMode(opts.soloCores) ? { cores: opts.soloCores, ...(opts.soloClimax === 'on' ? { climax: 'played' as const } : {}) } : {}) }, melody.mode)
         : opts.soloPlan === 'on'
@@ -777,7 +786,7 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
       const intensity = si === arc.climax ? 1 : Math.max(0, Math.min(1, (tt.reduce((a, b) => a + b, 0) / tt.length - MP.base) / Math.max(0.1, MP.peak - MP.base)));
       const soloHook = s.kind === 'solo' && soloOverChorus && hook.length ? hook : null;
       let sol = tuneFirst
-        ? generateSoloTune(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, intensity, { mood: arc.mood, tension: tt, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on', story: storyFor(si), storyNotes: opts.soloStory === 'on' && opts.soloStoryNotes === 'on' })
+        ? generateSoloTune(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, intensity, { mood: arc.mood, tension: tt, drums: idea.drums }, { tries: opts.soloTuneTries, moody: opts.soloMood === 'on', scale: opts.soloMoodScale === 'on', story: storyFor(si), storyNotes: opts.soloStory === 'on' && opts.soloStoryNotes === 'on', hand: handFor(si) })
         : melody
         ? generateSoloMelody(new Rng(`${soloSeed}-${si}`), idea.song, idea.chords, idea.guitar ?? null, lead.lick, soloHook, intensity, { mood: arc.mood, tension: tt, drums: idea.drums, rhythmMotif: opts.soloMotif === 'on', ...(isCoreMode(opts.soloCores) ? { cores: opts.soloCores, ...(opts.soloClimax === 'on' ? { climax: 'played' as const } : {}) } : {}) }, melody.mode)
         : opts.soloPlan === 'on'

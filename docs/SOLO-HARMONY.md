@@ -1,4 +1,4 @@
-Status: step 1 (reader, baseline), step 2 (the plot, wired into Tune first behind a switch), step 2b (seven energy shapes, a menu to force one), the expression add-on and step 3 (notes follow the chords, behind its own switch) built 2026-10-31. Paul has not heard it.
+Status: step 1 (reader, baseline), step 2 (the plot, wired into Tune first behind a switch), step 2b (seven energy shapes, a menu to force one), the expression add-on step 3 (notes follow the chords) and step 3b (the last note leads into the next section), each behind its own switch, built 2026-10-31. Paul has not heard it.
 
 # Solo harmony: the chords tell the story (brief, step 1 built)
 
@@ -107,7 +107,7 @@ What it does (only the strong notes and the figure; the plot is unchanged):
 - **The run-up leans the way the chord goes:** into a chord that wants to move the line comes up to the note from below; into a place to rest it comes down.
 - **Each round says it again:** when the chords loop, a phrase one loop after another of the same length plays that phrase's figure again (same rhythm, same cells, moved to where its strong note goes) and ends the same way (same hold and rest). Before, an answer could only copy the phrase just before it.
 - The motif already moves with the chords: a repeated cell is put on a chord note of the chord it starts on. Not changed.
-- Not done: the last phrase reading the next section's first chord (it reads its own chord only).
+- The last phrase reading the next section's first chord: step 3b below.
 
 Numbers (120 solos, Solo story on, notes off → on):
 - Calls on a chord that wants to move land on a note that leans: 44% → 68% (34 calls).
@@ -119,10 +119,28 @@ Numbers (120 solos, Solo story on, notes off → on):
 
 Not tried: a score that checks the story (step 4), tension notes inside phrases (only the strong notes are picked by role).
 
+## Step 3b: the last note leads into the next section (built, `hand` in `src/parts/solotunefirst.ts`, `handFor` in `src/track.ts`)
+Switch: Track options → **Last note leads into the next section** → On (`soloStoryHand: 'on'`). Needs Solo story on. Off by default; an old link plays as before. Works alone or with Notes follow the chords. Check: `npm run solo-hand-check`.
+
+The last note rings on into the next section's first bar and bends to a note of that chord at the bar line (`carrySolo`, `src/sections/energy.ts`). Before, it was picked for its own chord only, so the bend was often a whole step, or none and a clash.
+- **The last note is picked with the next section's first chord in mind.** The tune writer is given that chord's notes (in this solo's key, a key change in the last chorus counted). A note of that chord costs nothing, a semitone from one a little, a whole step more, three semitones more still.
+- **It stays a note of its own chord.** The choice is made among the notes the solo's last chord allows (root, 3rd, 5th; the root-only shortcut for the last note is lifted when the hand-over is on). A little cost still prefers the root on home.
+- Only the last phrase's strong note changes. The plot, the other phrases and the expression are not touched.
+- The last section (nothing after it) has no hand-over: nothing changes.
+
+Numbers (120 solos, 96 with a section after; Solo story on):
+- The last note on a note of the next chord, or a semitone from one: 52% → 71% (alone); 53% → 79% (with Notes follow the chords on).
+- A whole step away: 38% → 25% (alone); 40% → 21% (with notes).
+- Three semitones or more: 10% → 4% (alone); 7% → 0% (with notes).
+- Still a note of its own chord: 95% → 95%. Sounds like a tune: 0.76 → 0.76, 90% → 91% pass.
+- The plot is the same in every solo; default unchanged 96/96; same seed, same notes.
+
+Not tried: the last note's length (real solos end short, half a beat, and lead on; here the note still rings through the next section's first bar), a run-up into the next chord's note.
+
 ## Plan (each step behind a switch, Paul listens after step 3)
 1. Reader and baseline. **Done.**
 2. **Plot** (**done**, 2b shapes **done**): from the chord map (micro), the section tension across loops (macro: first loop states, then develops, peaks, releases) and the mood (what plot: arrive-and-soar, keep-asking, resolve-late, float). The peak goes on the place of strongest pull or arrival, not on the random wave. Each phrase gets an intent: ask, answer, push, peak, rest. Shown on the card.
-3. **Writer** (**done**, as the switch Notes follow the chords; the last phrase reading the next section is left): a flag on Tune first ("Story from chords"). Phrase cuts follow the chord turns; strong notes by role (tense chord: tension note, arrival: root or 3rd); the motif moves with the chords; the last phrase leads into the next section. The random energy curve is not used on this path.
+3. **Writer** (**done**: the switch Notes follow the chords, and the switch Last note leads into the next section): a flag on Tune first ("Story from chords"). Phrase cuts follow the chord turns; strong notes by role (tense chord: tension note, arrival: root or 3rd); the motif moves with the chords; the last phrase leads into the next section. The random energy curve is not used on this path.
 4. **Story score** next to the tune score (peak on a high-pull place, ends resolve where the chords resolve, the build follows the tension curve); best of 12 uses both.
 5. Later: quote the vocal hook at the start.
 
