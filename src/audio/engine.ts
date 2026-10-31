@@ -3,6 +3,7 @@
 import { Singer, type TimbreChoice, type VocalChoice } from './singer';
 import { LeadVoice } from './leadVoice';
 import * as Tone from 'tone';
+import { ROCK_MIN_LEN } from './wah';
 import type { Genre } from '../genres';
 import type { GuitarHit, Idea } from '../idea';
 import { cymbalAccent, groupStarts } from '../rhythm';
@@ -903,6 +904,8 @@ export class Engine {
 
   /** `ring` overrides how long the hit rings (the final chord of a track). */
   private playHit(inst: ChordInstrument, h: GuitarHit, time: number, six: number, dyn = 1, ring?: number, legato = false) {
+    const dur = ring ?? (h.touch?.tied ? h.len * six + 0.03
+        : (legato ? Math.min(h.len * six + 0.05, 5) : Math.min(h.len * six * 0.97, h.bendAt !== undefined ? 8 : 4)) - (h.touch?.lift ?? 0) / 1000);
     inst.strum({
       stroke: h.mute === 'palm' || h.chug ? 'p' : h.mute === 'dead' ? 'x' : 'D',
       notes: h.notes,
@@ -910,8 +913,7 @@ export class Engine {
       time,
       // driven guitars sustain into the next hit (a gap is loud through the drive); others breathe.
       // The player's hands: a note rings right into a legato note after it, or stops as the finger lifts
-      dur: ring ?? (h.touch?.tied ? h.len * six + 0.03
-        : (legato ? Math.min(h.len * six + 0.05, 5) : Math.min(h.len * six * 0.97, h.bendAt !== undefined ? 8 : 4)) - (h.touch?.lift ?? 0) / 1000),
+      dur,
       vel: h.vel * dyn,
       sixteenth: six,
       clean: h.clean,
@@ -922,6 +924,8 @@ export class Engine {
       bend: h.bend, unbend: h.unbend, lateBend: h.lateBend, bendAt: h.bendAt !== undefined ? h.bendAt * six : undefined, bendRise: h.bendRise !== undefined ? h.bendRise / 1000 : undefined, bendEase: h.bendEase, trill: h.trill, tremolo: h.tremolo, rake: h.rake,
       harm: h.harm, dive: h.dive, feedback: h.feedback,
     });
+    // the wah pedal rocks through a long held single note
+    if (h.notes.length === 1 && !h.mute && h.len >= ROCK_MIN_LEN) inst.wahRock?.(time, dur, six);
   }
 
   /** A new item starts: on Auto, instruments follow the section's sound. */

@@ -82,6 +82,8 @@ export interface ChordInstrument {
   scrape?(time: number, dur: number, vel: number, clean?: boolean): void;
   /** The wah pedal in front of the amp, from `time` (docs/WAH.md). Electric guitars only. */
   setWah?(mode: WahMode | undefined, time?: number): void;
+  /** A held note of the lead: the wah pedal (if it's the rocking kind) rocks through it. */
+  wahRock?(time: number, dur: number, six: number): void;
   /** Stop everything ringing (at `time`, or now). */
   releaseAll(time?: number): void;
 }
@@ -507,6 +509,10 @@ export class Guitar implements ChordInstrument {
 
   setWah(mode: WahMode | undefined, time?: number) {
     this.wahs.forEach((w) => w.set(mode, time));
+  }
+
+  wahRock(time: number, dur: number, six: number) {
+    this.wahs.forEach((w) => w.rock(time, dur, six, this.tone === 'dist'));
   }
 
   squeak(time: number, vel: number, up: boolean) {
