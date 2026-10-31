@@ -45,7 +45,7 @@ Chosen in the app: **Rhythm: Words** (the vocal row).
 4. **Loose repetition:** a line that comes back (the form's letters) gets new words of about the same
    length and stress, set close to the first line's rhythm (sometimes exactly, sometimes a syllable
    more or less), so lines rhyme in rhythm without being clones. Later verses: new words to the first
-   verse's rhythm, as lyricists write second verses.
+   verse's rhythm, as lyricists write second verses. (The verse melody writer, the default, lost this until 2026-10-31: verse 2 sang verse 1's words. Fixed in `docs/VOCAL-FINAL.md`.)
 5. **The words stay with their notes** through the pitches, the ornaments and the fit to the band (no
    syllable dropped to make room); long and high notes open their vowels (ee to ay, oo to oh) once the
    pitches are known.

@@ -97,7 +97,7 @@ The verse melody writer (`src/verse/`) writes the song's lead vocal, one rule at
 - **Scoops only go up (2026-10-20).** Rule 13 no longer starts a note above and bends down onto it: phrase-start and chord-change scoops always come from below; a walk's arrival and a glide only scoop when the melody climbs (a step down is just sung).
 
 ## Next
-Verse 2 answering verse 1, a lifted last chorus, breakdown (same recipe as above).
+Verse 2 answering verse 1, breakdown (same recipe as above). A lifted last chorus is built (a switch; `docs/VOCAL-FINAL.md`).
 
 ## Rule 25: octave choice (2026-10-20)
 - At every core note (the first note of a bar, or where the chord note or the chord changes part way through) there is a chance it is sung in the other octave of the main range instead of the nearest one (`voiceLead` in `verse.ts`, dials `octave` and `octaveUp`). Never the extended zone. The rest of that core note's notes stay in the new octave; the next core note then takes the nearest octave to it.

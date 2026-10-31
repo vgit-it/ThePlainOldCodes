@@ -15,6 +15,7 @@ import { aimFor, vocalTune, TUNE_KINDS, TUNE_MAX } from './tune';
 import { accentsOf, buildSection, chordsKey, chorusMaster, chordsOf, hookSig, isChorus, isInterlude, isOutro, isShared, kindOf, moodOf, personalityOf, songGrid, verseSeed, type SectionOptions, type SungKind } from './section';
 import { DEFAULT_RANGE, type BandNote, type Range } from './verse';
 import { writeWords, type Words } from './words';
+import { fits, keyStep, liftBuilt, moveKey, LAST_LIFT } from './final';
 
 /** How many words a section sings, against the verse's. */
 const DENSITY: Record<SungKind, number> = { chorus: 0.9, prechorus: 0.75, bridge: 0.5, interlude: 0.4, outro: 0.5, verse: 0.6 };
@@ -89,12 +90,21 @@ function linesOf(vocal: VocalNote[], w: Words): GuideSungLine[] {
 }
 
 /**
+ * The seed a verse's words are written from: the first verse's is the verse's own, a later one adds its place among the verses, so a
+ * verse sung to the same tune (the same notes, the same rhythm) has new words, as lyricists write second verses (docs/VOCAL-WORDS.md).
+ */
+function wordsSeed(idea: Idea, o: SectionOptions, list: Idea[]): string {
+  const nth = list.filter((i) => i.section?.kind === 'verse').indexOf(idea);
+  return nth > 0 ? `${verseSeed(idea, o)}|verse ${nth + 1}` : verseSeed(idea, o);
+}
+
+/**
  * The melody and words of every section in `list` the writer sings (a map from the idea). Choruses (and the other shared kinds) are one
  * melody per song, built like the song's last: sections with the same chords share a build.
  */
 export function writeSong(list: Idea[], o: SectionOptions): Map<Idea, SectionVoice> {
   const out = new Map<Idea, SectionVoice>();
-  const hooks = new Map<string, Built>(), hookWords = new Map<string, Words>();
+  const hooks = new Map<string, { built: Built; key: number }>(), hookWords = new Map<string, Words>();
   const acc = new WeakMap<Idea, number[]>();
   const accOf = (i: Idea) => { let a = acc.get(i); if (!a) { a = accentsOf(i, !!o.bass); acc.set(i, a); } return a; };
   const verse = list.find((i) => i.section?.kind === 'verse'), chorus = [...list].reverse().find(isChorus);
@@ -125,17 +135,26 @@ export function writeSong(list: Idea[], o: SectionOptions): Map<Idea, SectionVoi
     const shared = isShared(idea), kind = kindOf(idea);
     const master = shared ? chorusMaster(list, idea, o) : idea;
     const sig = shared ? `${hookSig(idea, o)}|${chordsKey(idea)}` : '';
-    let built = sig ? hooks.get(sig) : undefined;
+    const hit = sig ? hooks.get(sig) : undefined;
+    // (a chorus after a key change is the same tune in the new key: the notes of the one written before, moved by the step the band moved;
+    // if that would pass the voice's limits, it is written again in its own key)
+    const by = hit ? keyStep(hit.key, idea.song.key) : 0;
+    let built: Built | undefined = hit && (!by || fits(hit.built, by, o.range)) ? moveKey(hit.built, by) : undefined;
     if (!built) {
       built = buildSection(idea, o, accOf(master), master !== idea ? master : undefined, verse, chorus, { self: versionOf(idea, master), chorus: chorusVer });
-      if (sig) hooks.set(sig, built);
+      if (sig && !hit) hooks.set(sig, { built, key: idea.song.key });
+    }
+    // (Last chorus lifts: with the key staying, the last chorus is sung a step higher; a key change has lifted it already)
+    if (o.emo?.lastLift && idea === chorus && !(by && hit)) {
+      const first = list.find(isChorus);
+      if (first && first !== idea && first.song.key === idea.song.key) built = liftBuilt(built, LAST_LIFT, idea.song.key, idea.song.mode, chordsOf(idea), o.range);
     }
     // (choruses with the same rhythm sing the same words; one over other chords that moves a note has its own)
     const wsig = shared ? `${hookSig(idea, o)}|${built.notes.map((n) => `${n.step}:${n.len}`).join(',')}` : '';
     let words = wsig ? hookWords.get(wsig) : undefined;
     if (!words) {
       words = writeWords(built.notes, built.phrases, songGrid(idea), { mood: moodOf(idea, o), genre: idea.song.genre, real: true },
-        o.range.hi + dialsFor(kind, personalityOf(idea, o.seed, moodOf(idea, o))).lift - 4, shared ? hookSig(idea, o) : verseSeed(idea, o), accOf(idea), DENSITY[kind]);
+        o.range.hi + dialsFor(kind, personalityOf(idea, o.seed, moodOf(idea, o))).lift - 4, shared ? hookSig(idea, o) : wordsSeed(idea, o, list), accOf(idea), DENSITY[kind]);
       if (wsig) hookWords.set(wsig, words);
     }
     const vocal = vocalOf(built.notes, words, idea.section?.energy ?? 3);

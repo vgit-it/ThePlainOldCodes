@@ -76,6 +76,8 @@ export interface GenOptions {
   vocalSkeleton?: boolean;
   /** Cell motifs (src/verse/cells.ts, docs/VOCAL-TUNE.md): a phrase is built from a motif in scale steps (stated, moved, changed, turned over), runs up to its held ending, and an answer plays its call's cells again; in the place of rule 39's copies. Left out: off. */
   vocalCells?: boolean;
+  /** Last chorus lifts (src/verse/final.ts, docs/VOCAL-FINAL.md): when the key stays, the song's last chorus is sung about a third higher (each chord note moved up to a chord note); a key change is always followed by the singer. Left out: off. */
+  vocalLastLift?: boolean;
   /** Real strum mix (docs/STUDY-RHYTHM.md): strumming patterns from a library widened to what real guitarists play: held chords, quarters, 8ths in many shapes, 16ths, stabs. */
   strumMix?: boolean;
   /** Guitar 2 (the lead player) plays whole lines, mostly by step, as well as short licks (docs/LEAD-LINES.md). Off: as before. */
