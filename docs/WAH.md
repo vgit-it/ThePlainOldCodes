@@ -1,6 +1,6 @@
 # Wah pedal
 
-Status: steps 1 and 2 built (2026-10-30 and 31), behind the **Wah pedal** switch (Track options). Not heard yet: Paul to listen.
+Status: steps 1 and 2 built (2026-10-30 and 31), step 3 (strengths) built 2026-10-31, behind the **Wah pedal** switch (Track options). Not heard yet: Paul to listen. Paul found the first wah too tame, hence step 3.
 
 ## What it is
 A wah pedal in front of the guitar's amp, as on a real board, so the drive bites into it. Two kinds:
@@ -28,6 +28,23 @@ A song decides once (seeded): either it has the wah or not. A funk song with the
 
 ## Check
 `npm run wah-check`: off changes nothing; on changes only the wah marks; auto only on funk rhythm, electric, after the guitar-alone intro; cocked and rocking only on solos and lead breaks (a song is one or the other); the rocking pedal's plan (a rock fits the note, about a beat long, same note same rock, short notes stay parked) and curve (heel to heel, smooth, in range; narrower sweep is narrower); same seed, same plan; the sweep rises with the picking and stays in range.
+
+## Strengths (step 3)
+The switch is Off / Subtle / On / Strong. **On is the sound as first built** (old links and `song-check` are untouched). Why the first wah was tame: only about a fifth of a rocking solo moved at all (just the long notes), the rest sat parked like a fixed EQ; the peak was broad (Q 3.5); a distorted amp got a narrower sweep.
+
+| | Subtle | On | Strong |
+|---|---|---|---|
+| Peak (Q) | 2.5-3, more dry guitar | 3.5-4.5 | 6-7, less dry guitar |
+| Songs with a wah | as On | as On | about 1.4 times as many (cap 90%) |
+| Lead wah | as On | parked or rocking | every lead wah rocks (pop stays parked) |
+| Pedal range (rock) | as On | 450-2000 Hz | 380-2400 Hz (distorted: 520-1900) |
+| Funk rhythm | softer | auto-wah (picking opens it) | auto-wah plus a chick-a pedal stroke on every hit |
+
+- The strong pedal is moved by a foot (`footMove` in `wah.ts`): each lead note moves it, up and down in turn, a different reach each time, never faster than about 2 moves a beat (0.2 s a stroke at the least). A run gets a sweep, a long note (1.6 beats or more) rocks it, one rock in about three is left open (down at the toe), and after a rest it starts from half way. The same note always moves the same way.
+- The strong pedal moves through about 60-70% of the lead's note time (On: about a fifth).
+- The chick-a (`Wah.chick`): on a funk rhythm hit the pedal opens to 250-1500 Hz in the first third of the hit and shuts on the tail, added to the picking-driven sweep.
+- Mark: `section.wah.amount` ('subtle' | 'strong'; missing is On). Link: `wah` is `subtle`, `on`, `strong`.
+- Not done: the rock does not follow the solo's climax (faster into it); it only follows the notes.
 
 ## Not heard yet, to listen for
 - Does the funk quack sound like a wah, or too thin or too loud? (`WAH.auto` in `wah.ts`: Q, range, sensitivity, dry and wet levels.)

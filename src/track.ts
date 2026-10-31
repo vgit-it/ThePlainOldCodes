@@ -100,7 +100,7 @@ export interface TrackOptions {
   /** Every solo writer (docs/SOLO-SOUNDS.md): solos and lead breaks get pinch and natural harmonics, whammy dives, feedback and a pick scrape, by genre (missing in older links: off). */
   soloSounds?: 'on' | 'off';
   /** Wah pedal in front of the guitar amp: an auto-wah on some funk rhythm guitars, a cocked wah on some solos (docs/WAH.md; missing in older links: off). */
-  wah?: 'on' | 'off';
+  wah?: 'on' | 'off' | 'subtle' | 'strong';
   /** The solo player's polish on the chosen-bars (core note) modes: the story notes are dressed like the other solo writers' (docs/SOLO-POLISH.md). */
   soloPolish?: 'on' | 'off';
   /** The story's own dynamics on the core note modes: loudness follows the arc, a laid-back start, a closing ring (docs/SOLO-SHAPE.md). */
@@ -989,8 +989,10 @@ export function buildTrack(srcIn: Idea, given: TrackOptions = defaultTrackOption
   arrangeBacking(sections, { seed: vocalSeed, backing, mood, energy }, arc.climax);
 
   // the wah pedal (switch): which sections play through it
-  if (opts.wah === 'on') {
-    const plan = planWah(`${src.seeds.song}-band`, src.song.partGenres.strum, sections.map((x) => x.section!));
+  // ('on' is the normal strength; any other value from an old link is off)
+  const wahAmount = ({ on: 'normal', subtle: 'subtle', strong: 'strong' } as const)[opts.wah as 'on'];
+  if (wahAmount) {
+    const plan = planWah(`${src.seeds.song}-band`, src.song.partGenres.strum, sections.map((x) => x.section!), wahAmount);
     sections.forEach((x, i) => { if (plan[i]) x.section!.wah = plan[i]; });
   }
 
