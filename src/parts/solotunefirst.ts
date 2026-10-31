@@ -20,12 +20,12 @@ import type { Guitar2Part } from './guitar2';
 import { chordTones } from './guitar2';
 import { lickFit, placedHit } from './licks';
 import { BUSY, DENSITY, ENERGY_WORDS, energyAt, pickEnergy } from './solo2';
-import { readHarmony } from './soloharmony';
+import { beatAt, readHarmony } from './soloharmony';
 import { type StoryIn, planPlot, plotEnergyAt } from './soloplot';
 import { type GapNote, findGaps, pickGaps } from './solomelody-gaps';
 import { BREATH_GENRE, BREATH_MOOD, type PlanOpts } from './soloplan';
 import { SOLO_MOOD, aimFor, moodScale } from './solomood';
-import { tuneScore } from './solotune';
+import { TUNE_PASS, tuneScore } from './solotune';
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
@@ -33,10 +33,14 @@ const sign = (x: number) => (x > 0 ? 1 : x < 0 ? -1 : 0);
 
 /** How many versions of a solo are written; the best as a tune is played. */
 export const TUNE_TRIES = 12;
+/** Story score: how far under the best tune score a version may be and still win on its story. */
+export const STORY_WINDOW = 0.05;
 /** Mood scale applies when this share of the solo sits on chords with no third. */
 export const MOOD_SCALE_BARE = 0.5;
 /** How much the mood's liking of a move counts against the rest of a note's cost. */
 const MOOD_W = 0.35;
+/** Tension notes (docs/SOLO-HARMONY.md, step 3c): the degrees over the key that want to move (2nd, 4th, flat 5th, flat 6th, 7th; the leading note is 11). The others rest. */
+const UNSTABLE = new Set([1, 2, 5, 6, 8, 11]);
 /** The pick of a cell: how sharply it follows the costs. */
 const PICK_T = 1.3;
 const VEL_SWING = 0.14;
@@ -53,6 +57,8 @@ interface Phrase {
   role: 'call' | 'answer' | 'climax' | 'end';
   /** The phrase this one answers (same cells, same rhythm), or -1. */
   src: number;
+  /** Notes follow the chords: this phrase plays over the same chords as its source, one loop later (it ends the same way too). */
+  mate?: boolean;
   cells: Cell[];
   /** The strong note: where the hold starts, how long the hold is, the rest after it, and the note. */
   goalStep: number; hold: number; rest: number; goal: number;
@@ -84,7 +90,7 @@ const TEMPLATES: Record<number, [Cell[], number][]> = {
   ],
 };
 
-export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean; story?: StoryIn | false } = {}): Guitar2Part {
+export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean; story?: StoryIn | false; storyNotes?: boolean; hand?: number[]; storyScore?: boolean; tense?: boolean } = {}): Guitar2Part {
   // (`moody`, Solo mood: the mood's own character in the intervals, jumps, pace, colour notes and the score; docs/SOLO-MOOD.md)
   const tries = x.tries ?? TUNE_TRIES, moody = !!x.moody;
   const { key, bars, total } = song;
@@ -131,7 +137,11 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   en.paceC = 1;
   en.pitch = 7 + 3 * intensity;
   // (Story from chords, docs/SOLO-HARMONY.md: the plot from the chords, the section's tension and the mood takes the place of the random energy shape)
-  const plot = x.story ? planPlot({ map: readHarmony(chords.timeline, total, song.mode), bars, total, tension: o.tension, mood, genre, rng: new Rng(`plot-${rng.next()}`), story: x.story }) : null;
+  const hmap = x.story ? readHarmony(chords.timeline, total, song.mode) : null;
+  const plot = hmap && x.story ? planPlot({ map: hmap, bars, total, tension: o.tension, mood, genre, rng: new Rng(`plot-${rng.next()}`), story: x.story }) : null;
+  // (Notes follow the chords, docs/SOLO-HARMONY.md step 3: each strong note is picked for the chord it lands on)
+  const roleNotes = !!(x.storyNotes && hmap && plot);
+  const tenseOn = !!(x.tense && hmap && plot);
   if (plot) { en.pitch = (7 + 3 * intensity) * plot.amp; en.pace = clamp(0.15 + 0.45 * plot.amp * 0.6, 0.15, 0.6); }
   const E = plot ? (g: number) => plotEnergyAt(plot, bars, g) : (g: number) => energyAt(en, clamp(g / total, 0, 1));
   const shapeWord = plot ? plot.word : ENERGY_WORDS[en.shape](en);
@@ -154,6 +164,18 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
 
   // ---- what one note costs: out of the height, a strong place on a note that is not a chord note, a clash, an ugly move
   interface N0 { step: number; len: number; m: number }
+  /**
+   * Tension notes: the notes inside a phrase follow the chord's pull. Over a chord that wants to move the line plays notes that want to move
+   * (the leading note, the 2nd, the 4th) and avoids the notes that rest; over home or an arrival it rests. A note on a beat or held counts double.
+   */
+  const tenseCost = (n: N0): number => {
+    if (!tenseOn) return 0;
+    const b = beatAt(hmap!, n.step), u = UNSTABLE.has(mod(n.m - key, 12)), w = strongAt(n.step, n.len) ? 1 : 0.5;
+    if (b.role === 'tense') return (u ? -1.6 : 0.9) * w * (0.5 + 0.5 * b.pull);
+    if (b.arrival > 0 || b.role === 'home') return (u ? 1.3 : -0.3) * w;
+    if (b.role === 'away' && b.pull >= 0.4) return (u ? -0.5 : 0.3) * w;
+    return 0;
+  };
   const noteCost = (n: N0, prev: number | null, lastMove: number) => {
     let c = n.m < 50 || n.m > 86 ? 20 : 0;
     const [lo, hi] = rawWindow(n.step);
@@ -162,6 +184,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     if (strong) { if (!coreOver(n.m, n.step, n.len)) c += 4.5 + (fit.rubs(n.m, n.step) ? 1.5 : 0); }
     else if (n.len >= 4 && !coreOver(n.m, n.step, n.len)) c += 1;
     if (fit.clash(n.m, n.step)) c += 1;
+    c += tenseCost(n);
     if (prev !== null) {
       c += (moody ? PM.weight : MOOD_W) * intervalCost(prof(n.step), prev, n.m, lastMove, false);
       const a = Math.abs(n.m - prev);
@@ -185,6 +208,8 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     if (moody && prevN && ns.length && !isCore(prevN.m, prevN.step)) c += Math.abs(ns[0].m - prevN.m) > 4 ? 2.2 : Math.abs(ns[0].m - prevN.m) > 2 ? 0.6 : 0;
     ns.forEach((n, i) => {
       c += noteCost(n, prev, lm);
+      // (Tension notes: the leading note over a chord that wants to move goes up to the root, or steps down; it is not jumped away from)
+      if (tenseOn && ns[i + 1] && mod(n.m - key, 12) === 11 && beatAt(hmap!, n.step).role === 'tense') { const dm = ns[i + 1].m - n.m; c += dm === 1 ? -0.4 : dm === -1 || dm === -2 ? 0 : Math.abs(dm) > 2 ? 0.7 : 0.3; }
       if (moody) {
         // a note that is not a chord note is passing: it moves on by a step, and is not jumped into; the leading tone goes up to the root
         const nx = ns[i + 1];
@@ -371,6 +396,8 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   };
 
   // ---- the whole solo, once
+  /** Story score (docs/SOLO-HARMONY.md, step 4): how well each version tells the plot, kept beside it (a version is a list of phrases). */
+  const storyOf = new WeakMap<Phrase[], number>();
   const compose = (r: Rng) => {
     const nB = bars.length;
     // phrases of 2, 3 or 4 bars
@@ -403,6 +430,15 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
       else if (same && p.role !== 'climax' && i >= 2 && r.chance(clamp(0.45 * ak, 0, 0.9))) p.src = 0;
       if (p.src >= 0 && ph[p.src].b1 - ph[p.src].b0 !== p.b1 - p.b0) p.src = -1;
     });
+    // (Notes follow the chords: when the chords loop, a phrase one loop later plays the figure of the phrase over the same chords again,
+    // so each round says it again, moved to where its strong note goes)
+    if (roleNotes && hmap!.loop > 0) ph.forEach((p, i) => {
+      if (p.role === 'climax') return;
+      for (let j = i - 1; j >= 0; j--) {
+        const d = p.S - ph[j].S;
+        if (d > 0 && Math.abs(d % hmap!.loop) < 1e-6 && ph[j].b1 - ph[j].b0 === p.b1 - p.b0) { if (r.chance(0.85)) { p.src = j; p.mate = true; } break; }
+      }
+    });
     // cells
     ph.forEach((p, i) => {
       const len = p.b1 - p.b0 + 1;
@@ -416,6 +452,8 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
       const cadW = p.cells[p.cells.length - 1].w;
       const cs = posOf(p.b0, p.b1 - p.b0 + 1 - cadW);
       if (last) { p.goalStep = bars[nB - 1].start; p.hold = bars[nB - 1].len; p.rest = 0; return; }
+      // (a phrase one loop after its source ends the same way: the same hold, the same rest)
+      if (p.mate && p.src >= 0 && p.src < i && ph[p.src].hold > 0 && p.E - ph[p.src].hold >= cs) { p.hold = ph[p.src].hold; p.rest = ph[p.src].rest; p.goalStep = p.E - p.hold; return; }
       const B = p.E - cs, bs = beatOf(cs);
       const holds = [bs * 2, bs * 3, barAt(cs).len].filter((h) => h <= B - (B >= bs * 2 ? bs : 0) && h >= bs * 1.5);
       const hold = holds.length ? (moody ? r.weighted(holds.map((h, q) => [h, PM.hold ** q] as [number, number])) : r.pick(holds)) : Math.max(2, B);
@@ -428,9 +466,62 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     // (Solo mood: an open ending may land on a colour note, the 9th or the 6th, where one chord sounds under the whole hold)
     const wantColour = ph.map((p) => moody && p.role === 'call' && r.chance(PM.colourGoal));
     const target = (p: Phrase) => centerAt(p.goalStep) + (p.role === 'climax' ? 5 * (plot ? plot.prom : 1) : p.role === 'call' ? 1.5 : p.role === 'answer' ? -1.5 : -2);
+    /**
+     * Hand-over (docs/SOLO-HARMONY.md, step 3b): the last note rings on into the next section's first chord, so it is picked to be a note of that
+     * chord, or a semitone from one (the bend at the bar line, `carrySolo`, then has little to travel). `hand` is that chord's notes, as pitch classes.
+     */
+    const lastPh = ph[ph.length - 1];
+    const handCost = (p: Phrase, m: number): number => {
+      if (!x.hand?.length || p !== lastPh) return 0;
+      let near = 6;
+      for (const t of x.hand) { const d = mod(m - t, 12); near = Math.min(near, d, 12 - d); }
+      return near === 0 ? 0 : near === 1 ? 0.8 : near === 2 ? 2 : near === 3 ? 3 : 3.6;
+    };
+    /** The chord a phrase's strong note ends on. */
+    const endBeat = (p: Phrase) => beatAt(hmap!, clamp(p.goalStep + p.hold - p.rest - 1, 0, total - 1));
+    /**
+     * Notes follow the chords: what a strong note costs by the part its chord plays. A place to rest (home, an arrival) is a root or a 3rd;
+     * a chord that wants to move (V, a 7th, a suspended chord) is a note that leans (the 3rd, the leading note of V, the 7th) and not the root;
+     * a calm or away chord asks (a call: the 3rd or 5th) or answers (the root or 3rd). A deceptive turn (V to vi) is a 3rd.
+     */
+    const roleCost = (p: Phrase, m: number): number => {
+      const b = endBeat(p), d = mod(m - chordPc(key, b.chord), 12), sus = b.chord.q === 'sus4' || b.chord.q === 'sus2';
+      const root = d === 0, third = d === 3 || d === 4, fifth = d === 7, lean = third || d === 10 || d === 11 || (sus && (d === 5 || d === 2));
+      if (b.twist) return third ? 0 : root ? 0.9 : fifth ? 1.4 : 2.5;
+      if (b.arrival > 0 || b.role === 'home') return p.role === 'climax' ? (third ? 0 : root ? 0.3 : fifth ? 1.4 : 2.8) : p.role === 'end' ? (root ? 0 : third ? 1.8 : fifth ? 3 : 4) : root ? 0 : third ? 0.6 : fifth ? 2.4 : 3.5;
+      if (b.role === 'tense') return lean ? 0 : fifth ? 1.7 : root ? 2.8 : 3.5;
+      if (p.role === 'answer' || p.role === 'end') return root ? 0.2 : third ? 0.3 : fifth ? 1.2 : 2.5;
+      return third ? 0 : fifth ? 0.5 : root ? 1.8 : 2.5;
+    };
+    /**
+     * Story score (step 4): how well one version tells the plot, 0 to 1.
+     *  - the build: the bars' mean height follows the plot's energy;
+     *  - the peak: the solo's highest note is in the peak phrase, and the peak's strong note stands above the others' by the plot's gap;
+     *  - the ends: each phrase's strong note is what its chord asks for (the cost of Notes follow the chords, whether that switch is on or not).
+     */
+    const storyFit = (v: Phrase[]): number => {
+      const all = v.flatMap((p, i) => p.notes.map((n) => ({ step: n.step, midi: n.midi, i })));
+      const played = bars.map((b) => { const ns = all.filter((n) => n.step >= b.start && n.step < b.start + b.len); return ns.length ? ns.reduce((a, n) => a + n.midi, 0) / ns.length : NaN; });
+      const q = played.map((m, k) => (Number.isNaN(m) ? -1 : k)).filter((k) => k >= 0);
+      const a = q.map((k) => played[k]), e = q.map((k) => plot!.eBar[k]);
+      const ma = a.reduce((t, y) => t + y, 0) / Math.max(1, a.length), me = e.reduce((t, y) => t + y, 0) / Math.max(1, e.length);
+      let cv = 0, va = 0, ve = 0;
+      a.forEach((y, k) => { cv += (y - ma) * (e[k] - me); va += (y - ma) ** 2; ve += (e[k] - me) ** 2; });
+      // (a level plot has no build to follow: neutral)
+      const build = a.length >= 3 && va > 1e-9 && ve > 1e-9 ? clamp((cv / Math.sqrt(va * ve) - 0.1) / 0.7, 0, 1) : 0.5;
+      let peak = 1;
+      if (plot!.climax >= 0 && v.length > 1) {
+        const top = Math.max(...all.map((n) => n.midi));
+        const others = Math.max(...v.filter((_, i) => i !== plot!.climax).map((p) => p.goal));
+        peak = 0.5 * (all.some((n) => n.i === plot!.climax && n.midi === top) ? 1 : 0.3) + 0.5 * clamp((v[plot!.climax].goal - others) / Math.max(1, plot!.gap), 0, 1);
+      }
+      const ends = v.reduce((t, p) => t + Math.exp(-roleCost(p, p.goal) / 1.5), 0) / v.length;
+      return 0.4 * build + 0.3 * peak + 0.3 * ends;
+    };
     const cands = (p: Phrase, cap: number): number[] => {
       const near = (m: number, w: number) => m >= 50 && m <= Math.min(86, cap) && m >= target(p) - w && m <= target(p) + w;
-      if (p.role === 'end') {
+      // (Notes follow the chords: the last note still rests on the root, unless its chord wants to move on)
+      if (p.role === 'end' && !(x.hand?.length && p === lastPh) && (!roleNotes || (endBeat(p).role !== 'tense' && !endBeat(p).twist))) {
         const root = ladder.filter((m) => near(m, 12) && mod(m - chordPc(key, fit.chordAt(p.goalStep)), 12) === 0 && coreOver(m, p.goalStep, p.hold));
         if (root.length) return root;
       }
@@ -448,7 +539,9 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     };
     let capAll = 86;
     if (climaxAt >= 0 && ph.length > 1) {
-      const top = cands(ph[climaxAt], 86).reduce((b, m) => (Math.abs(m - target(ph[climaxAt])) < Math.abs(b - target(ph[climaxAt])) ? m : b));
+      // (Notes follow the chords: among the notes near the peak's height, the one its chord asks for)
+      const distCost = (m: number) => Math.abs(m - target(ph[climaxAt])) * (roleNotes ? 0.45 : 1) + (roleNotes ? roleCost(ph[climaxAt], m) : 0) + handCost(ph[climaxAt], m);
+      const top = cands(ph[climaxAt], 86).reduce((b, m) => (distCost(m) < distCost(b) ? m : b));
       ph[climaxAt].goal = top;
       capAll = top - (plot ? plot.gap : 3);
     }
@@ -456,6 +549,8 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
       let c = 0.45 * Math.abs(m - target(p));
       const rootPc = chordPc(key, fit.chordAt(p.goalStep));
       if (moody && !isCore(m, p.goalStep)) c -= 2.5 * (PM.colour[mod(m - rootPc, 12)] ?? 0);
+      c += handCost(p, m);
+      if (roleNotes) return c + roleCost(p, m);
       if (p.role === 'answer' || p.role === 'end') c += mod(m - rootPc, 12) === 0 ? 0 : 2.5; else if (p.role === 'call') c += mod(m - rootPc, 12) === 0 ? 1.8 : 0;
       return c;
     };
@@ -508,6 +603,8 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
           for (let q = 0, s = 0; s < runUp; q++) { const x = Math.min(ref[q % ref.length], runUp - s); if (x < 2 && lensR.length) lensR[lensR.length - 1] += x; else lensR.push(x); s += x; }
           if (runUp >= 2 && lensR.length) {
             let dir = p.role === 'call' || p.role === 'climax' ? (r.chance(0.65) ? -1 : 1) : (r.chance(0.8) ? 1 : -1);
+            // (Notes follow the chords: into a chord that wants to move the line leans up to the note; into a place to rest it comes down)
+            if (roleNotes && p.role !== 'climax') { const eb = endBeat(p); if (eb.role === 'tense') dir = r.chance(0.8) ? -1 : 1; else if (eb.arrival > 0 || eb.role === 'home') dir = r.chance(0.85) ? 1 : -1; }
             // (near the edge of the range the line comes in from the inside)
             if (p.goal <= 56) dir = 1; else if (p.goal >= 80) dir = -1;
             // (Solo mood: now and then a jump into the held note, from below or above, instead of a run of steps)
@@ -575,6 +672,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
       prevM = p.goal; lastIx = ixOf(p.goal); lastN = { step: p.goalStep, len: p.hold, m: p.goal };
       void pi;
     });
+    if (x.storyScore && plot && hmap) storyOf.set(ph, storyFit(ph));
     return ph;
   };
 
@@ -582,11 +680,18 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const seedBase = rng.next();
   const asHits = (ph: Phrase[]) => ph.flatMap((p) => p.notes).map((n) => ({ step: n.step, len: n.len, notes: [n.midi], strings: [0], vel: 0.8 }) as GuitarHit);
   const aim = moody ? aimFor(mood, profs[0].w) : undefined;
-  let bestPh: Phrase[] | null = null, bestScore = -1;
+  let bestPh: Phrase[] | null = null, bestScore = -1, bestStory = 0;
+  const tried: { ph: Phrase[]; s: number; st: number }[] = [];
   for (let k = 0; k < Math.max(1, tries); k++) {
     const ph = compose(new Rng(`tune-${seedBase}-${k}`));
-    const s = tuneScore(asHits(ph), { bars, key, chordAt: fit.chordAt }, aim).score;
-    if (s > bestScore + 1e-9) { bestScore = s; bestPh = ph; }
+    tried.push({ ph, s: tuneScore(asHits(ph), { bars, key, chordAt: fit.chordAt }, aim).score, st: storyOf.get(ph) ?? 0 });
+  }
+  const top = Math.max(...tried.map((t) => t.s));
+  // (Story score: among the versions that sound nearly as much like a tune as the best one, and pass as a tune if the best does, the one that tells the plot best)
+  const floor = x.storyScore ? Math.max(top - STORY_WINDOW, top >= TUNE_PASS ? TUNE_PASS : -1) : top;
+  for (const t of tried) {
+    if (t.s < floor - 1e-9) continue;
+    if (!bestPh || (x.storyScore ? t.st > bestStory + 1e-9 || (Math.abs(t.st - bestStory) <= 1e-9 && t.s > bestScore + 1e-9) : t.s > bestScore + 1e-9)) { bestPh = t.ph; bestScore = t.s; bestStory = t.st; }
   }
   const phrases = bestPh!;
 
@@ -618,6 +723,6 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const echoes = phrases.filter((p) => p.src >= 0).length;
   return {
     hits, curve,
-    notes: [`Guitar 2: a solo (tune first${moody ? `, ${mood} character` : ''}${plot ? ', story from chords' : ''}): ${shapeWord}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune (${bestScore.toFixed(2)})`, ...(plot ? plot.lines : [])],
+    notes: [`Guitar 2: a solo (tune first${moody ? `, ${mood} character` : ''}${plot ? ', story from chords' : ''}${roleNotes ? ', notes follow the chords' : ''}${tenseOn ? ', tension notes' : ''}${x.hand?.length ? ', last note leads into the next chord' : ''}): ${shapeWord}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune${x.storyScore && plot ? ' and a story' : ''} (${bestScore.toFixed(2)}${x.storyScore && plot ? `, story ${bestStory.toFixed(2)}` : ''})`, ...(plot ? plot.lines : [])],
   };
 }
