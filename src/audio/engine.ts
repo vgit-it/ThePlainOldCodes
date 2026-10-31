@@ -469,6 +469,7 @@ export class Engine {
     this.hitsAt2 = list.map((i) => index(i.guitar2, i.song.total));
     this.applyChordInstrument();
     this.applyGuitar2();
+    this.applyWah(this.ctx.now());
     this.ensureCover();
     this.applyPadTone();
     // the singer renders its lines ahead
@@ -873,6 +874,7 @@ export class Engine {
     if (this.chordIdFor() !== this.chordId) this.applyChordInstrument();
     if (this.guitar2IdFor() !== this.g2Id) this.applyGuitar2();
     const at = this.ctx.now() + 0.1;
+    this.applyWah(at);
     this.mixer.open(at - 0.005);
     this.transport.start(at);
     this.playing = true;
@@ -901,6 +903,8 @@ export class Engine {
 
   /** `ring` overrides how long the hit rings (the final chord of a track). */
   private playHit(inst: ChordInstrument, h: GuitarHit, time: number, six: number, dyn = 1, ring?: number, legato = false) {
+    const dur = ring ?? (h.touch?.tied ? h.len * six + 0.03
+        : (legato ? Math.min(h.len * six + 0.05, 5) : Math.min(h.len * six * 0.97, h.bendAt !== undefined ? 8 : 4)) - (h.touch?.lift ?? 0) / 1000);
     inst.strum({
       stroke: h.mute === 'palm' || h.chug ? 'p' : h.mute === 'dead' ? 'x' : 'D',
       notes: h.notes,
@@ -908,8 +912,7 @@ export class Engine {
       time,
       // driven guitars sustain into the next hit (a gap is loud through the drive); others breathe.
       // The player's hands: a note rings right into a legato note after it, or stops as the finger lifts
-      dur: ring ?? (h.touch?.tied ? h.len * six + 0.03
-        : (legato ? Math.min(h.len * six + 0.05, 5) : Math.min(h.len * six * 0.97, h.bendAt !== undefined ? 8 : 4)) - (h.touch?.lift ?? 0) / 1000),
+      dur,
       vel: h.vel * dyn,
       sixteenth: six,
       clean: h.clean,
@@ -920,6 +923,9 @@ export class Engine {
       bend: h.bend, unbend: h.unbend, lateBend: h.lateBend, bendAt: h.bendAt !== undefined ? h.bendAt * six : undefined, bendRise: h.bendRise !== undefined ? h.bendRise / 1000 : undefined, bendEase: h.bendEase, trill: h.trill, tremolo: h.tremolo, rake: h.rake,
       harm: h.harm, dive: h.dive, feedback: h.feedback,
     });
+    // the wah pedal: a chick-a stroke on a rhythm hit (strong auto-wah), rocked through a single lead note (long ones only, but for the strong wah)
+    if (!h.mute) inst.wahChick?.(time, dur, six);
+    if (h.notes.length === 1 && !h.mute) inst.wahRock?.(time, dur, six, h.len);
   }
 
   /** A new item starts: on Auto, instruments follow the section's sound. */
@@ -928,10 +934,19 @@ export class Engine {
     if (this.chordIdFor() !== this.chordId) this.applyChordInstrument(false);
     if (this.guitar2IdFor() !== this.g2Id) this.applyGuitar2(false);
     this.applyLevel(time);
+    this.applyWah(time);
     if (this.offline) return;
     // a timer, not Tone's Draw: Draw skips callbacks while the tab is in the background
     const i = this.idx;
     setTimeout(() => { if (this.playing && this.idx === i) this.onSection(i); }, Math.max(0, (time - this.ctx.now()) * 1000));
+  }
+
+  /** The wah pedal for the item playing, from `time` (the guitars it isn't for are plain: docs/WAH.md). */
+  private applyWah(time: number) {
+    const w = this.list[this.idx]?.section?.wah;
+    this.chordInst?.setWah?.(w?.chords, time, w?.amount);
+    this.g2Inst?.setWah?.(w?.guitar2, time, w?.amount);
+    this.g2Twin?.setWah?.(w?.guitar2, time, w?.amount);
   }
 
   private tick(time: number) {
