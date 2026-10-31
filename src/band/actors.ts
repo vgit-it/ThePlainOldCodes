@@ -284,17 +284,29 @@ function fingersOnNotes(notes: FretNote[], t: number, six: number, role: Role, s
   let fret = n.fret, lift = 0, dx = 0;
   if (n.from && local >= 0 && local < 0.09) fret = Math.max(0.5, fret - n.from * (1 - local / 0.09));
   if (n.fall && local > len - 0.15) fret = Math.max(0.5, fret - n.fall * clamp((local - (len - 0.15)) / 0.15, 0, 1));
-  // a bend pushes the string up across the neck (a semitone a pixel or so), let down again for an unbend
-  const full = Math.min(2.5, (n.bend || n.unbend || 0) * 1.2);
+  // a bend pushes the string up across the neck (a semitone a pixel or so), let down again for an unbend;
+  // the writer's dials (docs/SOLO-BENDS.md) set when and how fast, a late bend waits and then pushes up
+  const full = Math.min(2.5, (n.bend || n.unbend || n.lateBend || 0) * 1.2);
+  const rise = n.bendRise !== undefined ? Math.max(0.03, n.bendRise / 1000) : 0.09;
+  const shape = (u: number) => (n.bendEase ? u ** n.bendEase : u);
+  const letDown = n.bendAt !== undefined ? n.bendAt * six : len * 0.55;
   if (n.bend) {
-    const up = clamp(local / 0.09, 0, 1), down = n.unbend ? clamp((local - len * 0.55) / 0.12, 0, 1) : 0;
+    const up = shape(clamp(local / rise, 0, 1)), down = n.unbend ? clamp((local - letDown) / 0.12, 0, 1) : 0;
     lift = full * up * (1 - down);
-  } else if (n.unbend) lift = full * (1 - clamp((local - len * 0.4) / 0.12, 0, 1));
+  } else if (n.unbend) lift = full * (1 - clamp((local - (n.bendAt !== undefined ? letDown : len * 0.4)) / 0.12, 0, 1));
+  else if (n.lateBend) {
+    const from = n.bendAt !== undefined ? n.bendAt * six : Math.max(0.12, Math.min(len * 0.45, 0.9));
+    lift = full * shape(clamp((local - from) / (n.bendRise !== undefined ? rise : 0.14 + n.lateBend * 0.04), 0, 1));
+  }
   const bending = lift > 0.5 && local >= 0;
   if (n.trill && local > 0) fret += Math.floor(local / 0.055) % 2 ? n.trill : 0;
   const vib = n.vib || (role === 'lead' && len > 0.45);
   if (vib && local > 0.15 && local < len) dx = Math.floor(local * 13) % 2;
   if (n.grip === 'mute') return { palm: fret, off: false, tips: [0, 1, 2, 3].map((s) => ({ fret, string: s + Math.max(0, strings - 5), light: true })), dx: 0, bending: false };
+  // a natural harmonic: the fingertip only touches the string over the fret, then lifts away
+  if (n.harm === 'natural' && !n.bend && !n.lateBend) {
+    return { palm: fret, off: false, tips: local < 0.2 ? [{ fret, string: n.string, light: true }] : [], dx: 0, bending: false };
+  }
   const tips: Fingers['tips'] = [{ fret, string: n.string, lift }];
   if (n.grip === 'power') {
     tips.push({ fret: fret + 2, string: n.string + 1 });
@@ -428,6 +440,10 @@ export function guitarActor(a: Atlas, score: Score, role: Role, seed: number, st
     }
     const nextNote = notes[ni + 1];
     if (nextNote?.rake && (nextNote.at - t) * six < 0.07) { ph = 'pick/up'; pdy = 0; }
+    // the lead's extra sounds (docs/BAND-SOUNDS.md): a pick scrape into the note, a whammy dive, a squeal
+    const fx = soundsOf(notes, ni, t, six);
+    if (fx.scrape !== null) { ph = Math.floor(t * six * 50) % 2 ? 'pick/blurD' : 'pick/blurU'; pdy = (neck.strings - 1) * (0.5 - fx.scrape) * neck.spacing; }
+    else if (fx.push > 0 && ph !== 'pick/rest') { ph = 'pick/mid'; pdy = Math.round(fx.push * 2); }
     if (sitting || !ph) {
       ph = role === 'bass' && n && noteAgo < 1.5 ? 'pluck/rest' : 'pick/rest';
       pdy = 0;
@@ -440,7 +456,7 @@ export function guitarActor(a: Atlas, score: Score, role: Role, seed: number, st
     if (posing) { ph = 'pick/high'; pdy = 0; }
 
     // the face: a guitar face on bends, eyes on the neck after a big shift, nodding along
-    const bending = fing.bending;
+    const bending = fing.bending || fx.face;
     const prevNote = notes[ni - 1];
     const shifted = n && prevNote && Math.abs(n.fret - prevNote.fret) >= 5 && noteAgo < 0.4;
     const high = role === 'lead' && n && n.fret >= 12 && noteAgo < (n.end - n.at) * six && (n.end - n.at) * six > 0.4;
@@ -478,10 +494,97 @@ export function guitarActor(a: Atlas, score: Score, role: Role, seed: number, st
       ...shaking(a, t, six, role, riff, sitting, notes, strums, holds, x, dy, fing),
       ...pick.arm,
       ...face(a, pose, eyes, brows, mouth, x, dy),
+      ...soundFx(neck, fx, notes[ni], t, six, x, dy, fing.dx, 'bar'),
       ...fret.hand,
       ...pick.hand,
+      ...soundFx(neck, fx, notes[ni], t, six, x, dy, fing.dx, 'spark'),
     ];
   };
+}
+
+/* ---------------------------------------------------------------- the lead's extra sounds */
+
+/** What the extra lead sounds (docs/GUITAR-SOUNDS.md) are doing now. */
+interface Sounds {
+  /** 0-1: how far the whammy bar is pushed down (the dive: the last 0.8 s of the note, slow and then fast). */
+  push: number;
+  /** 0-1 through a pick scrape into the next note, or null. */
+  scrape: number | null;
+  /** The player pulls a squeal face: a dive, a pinch just picked, feedback swelling. */
+  face: boolean;
+}
+
+function soundsOf(notes: FretNote[], ni: number, t: number, six: number): Sounds {
+  const n = notes[ni];
+  let push = 0, face = false, scrape: number | null = null;
+  if (n && t >= n.at && t < n.end) {
+    const secs = (t - n.at) * six, len = (n.end - n.at) * six;
+    if (n.dive) { const from = Math.max(0, len - 0.8); push = clamp((secs - from) / Math.max(0.05, len - from), 0, 1) ** 2; }
+    face = push > 0.15 || (n.harm === 'pinch' && secs < 0.5) || (!!n.feedback && secs > 0.3);
+  }
+  // (a scrape can start before the note that comes just ahead of the one it ends on)
+  for (let j = ni + 1; j <= ni + 4 && j < notes.length; j++) {
+    const next = notes[j];
+    if (next.scrape && next.at > t && next.at - t < next.scrape) { scrape = 1 - (next.at - t) / next.scrape; break; }
+  }
+  return { push, scrape, face };
+}
+
+/** A straight line of single pixels (the stage's own line only steps along x, so a steep line would come out as a few dots). */
+function dots(x0: number, y0: number, x1: number, y1: number, color: string, alpha: number): Cmd[] {
+  const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+  return Array.from({ length: n + 1 }, (_, k) => {
+    const x = Math.floor(x0 + ((x1 - x0) * k) / n), y = Math.floor(y0 + ((y1 - y0) * k) / n);
+    return { line: [x, y, x, y] as [number, number, number, number], color, alpha };
+  });
+}
+
+/** A four-point sparkle. */
+function star(cx: number, cy: number, r: number, color: string, alpha: number): Cmd[] {
+  return [
+    ...dots(cx - r, cy, cx + r, cy, color, alpha),
+    ...dots(cx, cy - r, cx, cy + r, color, alpha),
+    ...dots(cx - 1, cy - 1, cx + 1, cy + 1, color, alpha * 0.7),
+    ...dots(cx - 1, cy + 1, cx + 1, cy - 1, color, alpha * 0.7),
+  ];
+}
+
+/**
+ * The lead sounds drawn as effects (lines, no sprites, so the plain and the drawn art both get them):
+ * the whammy bar swinging down ('bar', behind the hands), a squeal's sparkle at the pick hand, a natural
+ * harmonic's chime over the fret, the rasp of a pick scrape ('spark', in front).
+ */
+function soundFx(neck: NonNullable<Atlas['geo']['neck']>, fx: Sounds, n: FretNote | undefined, t: number, six: number, x: number, dy: number, dx: number, layer: 'bar' | 'spark'): Cmd[] {
+  const out: Cmd[] = [];
+  const flick = Math.floor(t * six * 24) % 2;
+  const [bx, by] = neck.bridge, [px, py] = neck.pick;
+  if (layer === 'bar') {
+    // the bar stands up out of the bridge; pushed down it swings in toward the guitar's body
+    if (n?.dive && t >= n.at && t < n.end) { const ex = x + bx - 2 - Math.round(fx.push * 5), ey = dy + by - 8 + Math.round(fx.push * 3); out.push(...dots(x + bx, dy + by, ex, ey, '#9aa6b2', 1), ...dots(ex, ey, ex, ey - 1, '#ffffff', 1)); }
+    return out;
+  }
+  if (n && t >= n.at && t < n.end) {
+    const secs = (t - n.at) * six, len = (n.end - n.at) * six;
+    // a pinch: the squeal flashes by the pick hand, thumb and pick
+    if (n.harm === 'pinch') {
+      const life = 1 - secs / Math.min(0.6, Math.max(0.25, len));
+      if (life > 0) { out.push(...star(x + px + 3, dy + py - 6, 2 + flick, '#ffffff', life)); if (life > 0.4) out.push(...star(x + px + 6, dy + py - 9, 1, '#ffe27a', life)); }
+    }
+    // a natural harmonic: a chime ringing over the fret, twinkling as it dies
+    if (n.harm === 'natural' && n.fret > 0) {
+      const life = 1 - secs / Math.max(0.4, Math.min(len, 1.6));
+      const [cx, cy] = onNeck(neck, Math.max(n.fret - 0.35, 0.5), n.string);
+      if (life > 0) out.push(...star(x + cx + dx, dy + cy - 5, 1 + (flick && life > 0.5 ? 1 : 0), '#bfe8ff', life));
+    }
+  }
+  // a pick scrape: rough bits of light flying off the strings by the pick hand
+  if (fx.scrape !== null) {
+    for (let k = 0; k < 3; k++) {
+      const row = (neck.strings - 1) * (0.5 - fx.scrape) * neck.spacing, jit = ((Math.floor(t * six * 50) + k * 3) % 4) - 1;
+      out.push({ line: [x + px + 3 + k * 2, dy + py + row + jit, x + px + 5 + k * 3, dy + py + row + jit + (flick ? 1 : -1)], color: k % 2 ? '#ffd9a0' : '#ffffff', alpha: 0.9 });
+    }
+  }
+  return out;
 }
 
 /**
@@ -514,8 +617,11 @@ function shaking(a: Atlas, t: number, six: number, role: Role, riff: boolean, si
     const note = notes[k];
     if (t > note.end) continue;
     const len = Math.max(0.15, (note.end - note.at) * six);
-    const life = note.mute === 'palm' ? 1 - ((t - note.at) * six) / 0.1 : 1 - ((t - note.at) * six) / Math.max(len, 0.5) * 0.6;
-    shake(note.string, note.fret, life, 0.7, k === i ? (fing.tips[0]?.lift ?? 0) : 0);
+    const secs = (t - note.at) * six;
+    // (feedback: the string keeps going, brighter; a dive: the strings go slack as the bar goes down)
+    const life = note.mute === 'palm' ? 1 - secs / 0.1 : note.feedback && secs > 0.3 ? 1 : 1 - secs / Math.max(len, 0.5) * 0.6;
+    const sag = k === i && note.dive ? soundsOf(notes, i, t, six).push * 2 : 0;
+    shake(note.string, note.fret, life, note.feedback && secs > 0.3 ? 1 : 0.7, k === i ? (fing.tips[0]?.lift ?? 0) - sag : 0);
     if (note.grip === 'power') shake(note.string + 1, note.fret + 2, life);
   }
   return out;
