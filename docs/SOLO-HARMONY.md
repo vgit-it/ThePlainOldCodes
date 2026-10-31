@@ -1,4 +1,4 @@
-Status: step 1 built (2026-10-31): the chord-story reader and a baseline. No sound change. Paul has nothing to listen to yet.
+Status: step 1 (reader, baseline) and step 2 (the plot, wired into Tune first behind a switch) built 2026-10-31. Paul has not heard it. Notes are not yet picked by chord role (step 3).
 
 # Solo harmony: the chords tell the story (brief, step 1 built)
 
@@ -43,9 +43,32 @@ The chords have no say today. The numbers match chance:
 Also: 59% of solos sit on a repeating chord loop, 47% end open (the chords wait for the next section), 1.7 arrivals and 0.4 twists a solo, 41% of the time on home.
 So both halves of the idea are open: the climax and the phrase ends ignore the chords, and half of the solos are on a loop, where the chords alone tell the same story every time round.
 
+## Step 2: the plot (built, `src/parts/soloplot.ts`)
+Switch: Track options, **Solo story** (`soloStory: 'on'`). Needs Solo writer: Tune first. Off: Tune first note for note as before (song-check, tunefirst-check).
+What changes when it is on: the random energy shape (`pickEnergy`) is not used. In its place a plot (`planPlot`):
+- **Phrase cuts follow the chords.** Phrases of 2 to 4 bars, picked by a small search so each phrase ends where the chords make an ending (a waiting chord, or home). The loop's turn is a natural end. The mix comes out 40% of 2 bars, 27% of 3, 33% of 4.
+- **Parts come from the chords.** A phrase ending on a waiting chord (pull .4+) is a call (it asks); one ending on home is an answer. Then the climax phrase and the end. Calls and answers alternate when the chords allow.
+- **One peak**, the last bar of the climax phrase. The mood says what it sits on and how late: *arrive* moods (triumphant, happy, nostalgic, dreamy) on an arrival (home reached from a pull), *tense* moods (angry, tense, dark, melancholic) on the strongest pull. No arrival in the chords: the strongest pull. Where: triumphant 75% of the way, happy 65, angry 70, tense 70, dark 65, nostalgic 60, melancholic 50, dreamy 40. Now and then (15-40% by mood) the peak is said early (30%) and the line comes back up near the end, as real solos do.
+- **Energy by bar** rises to the peak and lets go after it (how high it starts and where it ends are the mood's); the section's tension (smoothed over 4 bars, so the card's 4-bar saw does not show) and the chords' pull ride on top. The swing of height and pace follows the section's average tension (a quiet melancholic solo swings less than a triumphant one).
+- The card shows the plot: `plot (arrive and soar): 8 phrases ...; the peak on I at the end of bar 12 (an arrival); energy ...` and one line a phrase (bars, part, the chord it ends on).
+- Not changed yet: the notes inside a phrase (step 3).
+
+### Numbers (111 solos; story off -> on)
+| | off | on |
+|---|---|---|
+| calls end on a waiting chord | 40% | 100% |
+| answers and the end on home | 37% | 59% |
+| climax on an arrival chord | 23% | 37% |
+| climax in the first 40% of the solo | 32% | 14% |
+| energy against the section's tension (r) | 0.36 | 0.80 |
+| energy against the chords' pull (r) | 0.15 | 0.24 |
+| climax on the plot's peak bar | | 100% |
+| sounds like a tune (0.65+) | 93% | 93% |
+The climax comes much less often in the first 40% than the baseline (32%) because the old random shape often peaked early; real solos are around 55% in the first 30% (STUDY-SOLO), so the early chance may need to go up after listening.
+
 ## Plan (each step behind a switch, Paul listens after step 3)
 1. Reader and baseline. **Done.**
-2. **Plot**: from the chord map (micro), the section tension across loops (macro: first loop states, then develops, peaks, releases) and the mood (what plot: arrive-and-soar, keep-asking, resolve-late, float). The peak goes on the place of strongest pull or arrival, not on the random wave. Each phrase gets an intent: ask, answer, push, peak, rest. Shown on the card.
+2. **Plot** (**done**): from the chord map (micro), the section tension across loops (macro: first loop states, then develops, peaks, releases) and the mood (what plot: arrive-and-soar, keep-asking, resolve-late, float). The peak goes on the place of strongest pull or arrival, not on the random wave. Each phrase gets an intent: ask, answer, push, peak, rest. Shown on the card.
 3. **Writer**: a flag on Tune first ("Story from chords"). Phrase cuts follow the chord turns; strong notes by role (tense chord: tension note, arrival: root or 3rd); the motif moves with the chords; the last phrase leads into the next section. The random energy curve is not used on this path.
 4. **Story score** next to the tune score (peak on a high-pull place, ends resolve where the chords resolve, the build follows the tension curve); best of 12 uses both.
 5. Later: quote the vocal hook at the start.

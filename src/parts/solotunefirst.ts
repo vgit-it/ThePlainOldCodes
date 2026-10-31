@@ -20,6 +20,8 @@ import type { Guitar2Part } from './guitar2';
 import { chordTones } from './guitar2';
 import { lickFit, placedHit } from './licks';
 import { BUSY, DENSITY, ENERGY_WORDS, energyAt, pickEnergy } from './solo2';
+import { readHarmony } from './soloharmony';
+import { planPlot, plotEnergyAt } from './soloplot';
 import { type GapNote, findGaps, pickGaps } from './solomelody-gaps';
 import { BREATH_GENRE, BREATH_MOOD, type PlanOpts } from './soloplan';
 import { SOLO_MOOD, aimFor, moodScale } from './solomood';
@@ -82,7 +84,7 @@ const TEMPLATES: Record<number, [Cell[], number][]> = {
   ],
 };
 
-export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean } = {}): Guitar2Part {
+export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: GuitarHit[] | null, lick: LickKind, intensity = 0.7, o: PlanOpts = {}, x: { tries?: number; moody?: boolean; scale?: boolean; story?: boolean } = {}): Guitar2Part {
   // (`moody`, Solo mood: the mood's own character in the intervals, jumps, pace, colour notes and the score; docs/SOLO-MOOD.md)
   const tries = x.tries ?? TUNE_TRIES, moody = !!x.moody;
   const { key, bars, total } = song;
@@ -128,7 +130,11 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   en.pitchC = 1;
   en.paceC = 1;
   en.pitch = 7 + 3 * intensity;
-  const E = (g: number) => energyAt(en, clamp(g / total, 0, 1));
+  // (Story from chords, docs/SOLO-HARMONY.md: the plot from the chords, the section's tension and the mood takes the place of the random energy shape)
+  const plot = x.story ? planPlot({ map: readHarmony(chords.timeline, total, song.mode), bars, total, tension: o.tension, mood, rng: new Rng(`plot-${rng.next()}`) }) : null;
+  if (plot) { en.pitch = (7 + 3 * intensity) * plot.amp; en.pace = clamp(0.15 + 0.45 * plot.amp * 0.6, 0.15, 0.6); }
+  const E = plot ? (g: number) => plotEnergyAt(plot, bars, g) : (g: number) => energyAt(en, clamp(g / total, 0, 1));
+  const shapeWord = plot ? plot.word : ENERGY_WORDS[en.shape](en);
   const base = 66 + Math.round(3 * intensity);
   const centerAt = (g: number) => base + Math.round(en.pitchC * en.pitch * E(g)) + (moody ? PM.height : 0);
   const rawWindow = (g: number): [number, number] => [Math.max(50, centerAt(g) - 6), Math.min(83, centerAt(g) + 6)];
@@ -368,8 +374,9 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const compose = (r: Rng) => {
     const nB = bars.length;
     // phrases of 2, 3 or 4 bars
-    const lens: number[] = [];
-    if (nB <= 3) lens.push(nB);
+    const lens: number[] = plot ? [...plot.lens] : [];
+    if (plot) { /* (the plot's cuts: each phrase ends where the chords make an ending) */ }
+    else if (nB <= 3) lens.push(nB);
     else for (let rem = nB; rem > 0;) {
       const opts = ([2, 3, 4] as const).filter((l) => l <= rem && (rem - l === 0 || rem - l >= 2));
       const l = r.weighted(opts.map((x) => [x, x === 2 ? 1.3 : x === 3 ? 0.8 : 1.2] as [number, number]));
@@ -379,12 +386,13 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     let b0 = 0;
     lens.forEach((len, i) => {
       const S = bars[b0].start, E2 = b0 + len >= nB ? total : bars[b0 + len].start;
-      ph.push({ b0, b1: b0 + len - 1, S, E: E2, role: i === lens.length - 1 ? 'end' : i % 2 ? 'answer' : 'call', src: -1, cells: [], goalStep: 0, hold: 0, rest: 0, goal: 0, memo: [], notes: [], anchors: [] });
+      ph.push({ b0, b1: b0 + len - 1, S, E: E2, role: plot ? plot.roles[i] : i === lens.length - 1 ? 'end' : i % 2 ? 'answer' : 'call', src: -1, cells: [], goalStep: 0, hold: 0, rest: 0, goal: 0, memo: [], notes: [], anchors: [] });
       b0 += len;
     });
     // the climax: the phrase on the energy's crest (not the last, unless it is the only one)
     let climaxAt = -1, crest = -Infinity;
-    ph.forEach((p, i) => { if (i === ph.length - 1 && ph.length > 1) return; let e = -Infinity; for (let g = p.S; g < p.E; g += 4) e = Math.max(e, E(g)); if (e > crest) { crest = e; climaxAt = i; } });
+    if (plot) climaxAt = plot.climax;
+    else ph.forEach((p, i) => { if (i === ph.length - 1 && ph.length > 1) return; let e = -Infinity; for (let g = p.S; g < p.E; g += 4) e = Math.max(e, E(g)); if (e > crest) { crest = e; climaxAt = i; } });
     if (climaxAt >= 0 && ph.length > 1) ph[climaxAt].role = 'climax';
     // answers: a phrase as long as the one before plays its cells again
     ph.forEach((p, i) => {
@@ -601,7 +609,7 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
     return [...p.anchors.slice(0, -1).map((a) => ({ step: a.step, midi: a.midi, len: a.len, role: 'mid' as string })), { step: g.step, midi: g.midi, len: g.len, role: p.role as string }];
   });
   const curve: SoloCurve = {
-    shape: ENERGY_WORDS[en.shape](en), pitchC: en.pitchC, paceC: en.paceC,
+    shape: shapeWord, pitchC: en.pitchC, paceC: en.paceC,
     energy: Array.from({ length: total }, (_, g) => r2(E(g))),
     centre: Array.from({ length: total }, (_, g) => centerAt(g)),
     pace: Array.from({ length: total }, (_, g) => r2(paceAt(g))),
@@ -610,6 +618,6 @@ export function generateSoloTune(rng: Rng, song: Song, chords: ChordPart, riff: 
   const echoes = phrases.filter((p) => p.src >= 0).length;
   return {
     hits, curve,
-    notes: [`Guitar 2: a solo (tune first${moody ? `, ${mood} character` : ''}): ${ENERGY_WORDS[en.shape](en)}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune (${bestScore.toFixed(2)})`],
+    notes: [`Guitar 2: a solo (tune first${moody ? `, ${mood} character` : ''}${plot ? ', story from chords' : ''}): ${shapeWord}, ${phrases.length} phrases of ${phrases.map((p) => p.b1 - p.b0 + 1).join(' + ')} bars, ${flat.length} notes${echoes ? `, ${echoes} answers play their call's cells again` : ''}; the best of ${Math.max(1, tries)} as a tune (${bestScore.toFixed(2)})`, ...(plot ? plot.lines : [])],
   };
 }
