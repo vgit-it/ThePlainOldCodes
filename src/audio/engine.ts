@@ -3,7 +3,6 @@
 import { Singer, type TimbreChoice, type VocalChoice } from './singer';
 import { LeadVoice } from './leadVoice';
 import * as Tone from 'tone';
-import { ROCK_MIN_LEN } from './wah';
 import type { Genre } from '../genres';
 import type { GuitarHit, Idea } from '../idea';
 import { cymbalAccent, groupStarts } from '../rhythm';
@@ -924,8 +923,9 @@ export class Engine {
       bend: h.bend, unbend: h.unbend, lateBend: h.lateBend, bendAt: h.bendAt !== undefined ? h.bendAt * six : undefined, bendRise: h.bendRise !== undefined ? h.bendRise / 1000 : undefined, bendEase: h.bendEase, trill: h.trill, tremolo: h.tremolo, rake: h.rake,
       harm: h.harm, dive: h.dive, feedback: h.feedback,
     });
-    // the wah pedal rocks through a long held single note
-    if (h.notes.length === 1 && !h.mute && h.len >= ROCK_MIN_LEN) inst.wahRock?.(time, dur, six);
+    // the wah pedal: a chick-a stroke on a rhythm hit (strong auto-wah), rocked through a single lead note (long ones only, but for the strong wah)
+    if (!h.mute) inst.wahChick?.(time, dur, six);
+    if (h.notes.length === 1 && !h.mute) inst.wahRock?.(time, dur, six, h.len);
   }
 
   /** A new item starts: on Auto, instruments follow the section's sound. */
@@ -944,9 +944,9 @@ export class Engine {
   /** The wah pedal for the item playing, from `time` (the guitars it isn't for are plain: docs/WAH.md). */
   private applyWah(time: number) {
     const w = this.list[this.idx]?.section?.wah;
-    this.chordInst?.setWah?.(w?.chords, time);
-    this.g2Inst?.setWah?.(w?.guitar2, time);
-    this.g2Twin?.setWah?.(w?.guitar2, time);
+    this.chordInst?.setWah?.(w?.chords, time, w?.amount);
+    this.g2Inst?.setWah?.(w?.guitar2, time, w?.amount);
+    this.g2Twin?.setWah?.(w?.guitar2, time, w?.amount);
   }
 
   private tick(time: number) {

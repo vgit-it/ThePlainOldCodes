@@ -10,7 +10,7 @@ import { inContext } from './context';
 import { squeaks } from './squeak';
 import { fxSets, SCRAPE_LEN, scrapeFit } from './guitarfx';
 import { SampleVoice } from './voice';
-import { Wah, type WahMode } from './wah';
+import { Wah, type WahAmount, type WahMode } from './wah';
 
 const midiNote = (m: number) => Tone.Frequency(m, 'midi').toNote();
 const jitter = (ms: number) => (Math.random() - 0.5) * 2 * (ms / 1000);
@@ -81,9 +81,11 @@ export interface ChordInstrument {
   /** A pick scrape from `time`, `dur` seconds long, ending as the next note is picked (docs/GUITAR-SOUNDS.md). Guitars only. */
   scrape?(time: number, dur: number, vel: number, clean?: boolean): void;
   /** The wah pedal in front of the amp, from `time` (docs/WAH.md). Electric guitars only. */
-  setWah?(mode: WahMode | undefined, time?: number): void;
+  setWah?(mode: WahMode | undefined, time?: number, amount?: WahAmount): void;
   /** A held note of the lead: the wah pedal (if it's the rocking kind) rocks through it. */
-  wahRock?(time: number, dur: number, six: number): void;
+  wahRock?(time: number, dur: number, six: number, len?: number): void;
+  /** A rhythm hit: the strong auto-wah's chick-a stroke. */
+  wahChick?(time: number, dur: number, six: number): void;
   /** Stop everything ringing (at `time`, or now). */
   releaseAll(time?: number): void;
 }
@@ -507,12 +509,16 @@ export class Guitar implements ChordInstrument {
     });
   }
 
-  setWah(mode: WahMode | undefined, time?: number) {
-    this.wahs.forEach((w) => w.set(mode, time));
+  setWah(mode: WahMode | undefined, time?: number, amount?: WahAmount) {
+    this.wahs.forEach((w) => w.set(mode, time, amount));
   }
 
-  wahRock(time: number, dur: number, six: number) {
-    this.wahs.forEach((w) => w.rock(time, dur, six, this.tone === 'dist'));
+  wahRock(time: number, dur: number, six: number, len?: number) {
+    this.wahs.forEach((w) => w.rock(time, dur, six, this.tone === 'dist', len));
+  }
+
+  wahChick(time: number, dur: number, six: number) {
+    this.wahs.forEach((w) => w.chick(time, dur, six));
   }
 
   squeak(time: number, vel: number, up: boolean) {
